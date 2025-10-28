@@ -1,0 +1,364 @@
+// B2B Medicine Trading Platform - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== ENUMS =====
+enum UserStatus {
+  
+  PENDING
+  APPROVED
+  REJECTED
+  BLOCKED
+}
+
+enum DocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ListingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderType {
+  BUY
+  SELL
+}
+
+enum HoldStatus {
+  ACTIVE
+  CONVERTED
+  CANCELLED
+}
+
+enum Channel {
+  EMAIL
+  SMS
+  INAPP
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ===== MODELS =====
+model Role {
+  code  String @id @db.VarChar(32)
+  name  String
+  users User[]
+}
+
+model User {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  email     String     @unique @db.Citext
+  phone     String?
+  password  String
+  roleCode  String     @map("role_code") @db.VarChar(32)
+  status    UserStatus @default(PENDING)
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  role              Role                @relation(fields: [roleCode], references: [code])
+  kycDocuments      KycDocument[]
+  listings          Listing[]
+  orders            Order[]
+  holds             Hold[]
+  inventoryLots     InventoryLot[]
+  newsArticles      NewsArticle[]
+  notifications     Notification[]
+  proposals         MedicineProposal[]
+  reviewedDocuments KycDocument[]       @relation("ReviewedBy")
+
+  @@index([roleCode])
+  @@index([status])
+  @@map("users")
+}
+
+model KycDocumentType {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String        @unique
+  label      String
+  isRequired Boolean       @default(false) @map("is_required")
+  documents  KycDocument[]
+
+  @@map("kyc_document_types")
+}
+
+model KycDocument {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  docTypeId    String     @map("doc_type_id") @db.Uuid
+  fileUrl      String     @map("file_url")
+  status       DocStatus  @default(PENDING)
+  reviewerNote String?    @map("reviewer_note")
+  uploadedAt   DateTime   @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  reviewedAt   DateTime?  @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy   String?    @map("reviewed_by") @db.Uuid
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  docType  KycDocumentType   @relation(fields: [docTypeId], references: [id])
+  reviewer User?             @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+
+  @@unique([userId, docTypeId], name: "uq_kyc_user_doc")
+  @@index([status])
+  @@map("kyc_documents")
+}
+
+model Manufacturer {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  country   String?
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  medicines Medicine[]
+
+  @@unique([name, country])
+  @@map("manufacturers")
+}
+
+model Marketer {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  country   String?
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  medicines Medicine[]
+
+  @@unique([name, country])
+  @@map("marketers")
+}
+
+model Medicine {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  form           String
+  strength       String
+  manufacturerId String             @map("manufacturer_id") @db.Uuid
+  marketerId     String?            @map("marketer_id") @db.Uuid
+  isActive       Boolean            @default(true) @map("is_active")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  manufacturer      Manufacturer        @relation(fields: [manufacturerId], references: [id])
+  marketer          Marketer?           @relation(fields: [marketerId], references: [id])
+  listings          Listing[]
+  priceHistory      PriceHistory[]
+  inventoryLots     InventoryLot[]
+  newsMedicines     NewsMedicine[]
+  proposals         MedicineProposal[]
+  analyticsRollups  AnalyticsRollup[]
+
+  @@unique([name, form, strength, manufacturerId], name: "uq_medicine")
+  @@index([manufacturerId])
+  @@index([marketerId])
+  @@index([isActive])
+  @@map("medicines")
+}
+
+model Listing {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  medicineId      String        @map("medicine_id") @db.Uuid
+  sellerId        String        @map("seller_id") @db.Uuid
+  basePrice       Decimal       @map("base_price") @db.Decimal(14, 2)
+  adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2)
+  listPrice       Decimal?      @map("list_price") @db.Decimal(14, 2)
+  stock           Int
+  status          ListingStatus @default(PENDING)
+  reviewerNote    String?       @map("reviewer_note")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  approvedAt      DateTime?     @map("approved_at") @db.Timestamptz(6)
+  activatedAt     DateTime?     @map("activated_at") @db.Timestamptz(6)
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+  seller   User     @relation(fields: [sellerId], references: [id])
+  orders   Order[]
+  holds    Hold[]
+
+  @@index([medicineId])
+  @@index([sellerId])
+  @@index([status])
+  @@map("listings")
+}
+
+model PriceHistory {
+  medicineId String   @map("medicine_id") @db.Uuid
+  day        DateTime @db.Date
+  minPrice   Decimal  @map("min_price") @db.Decimal(14, 2)
+  maxPrice   Decimal  @map("max_price") @db.Decimal(14, 2)
+  avgPrice   Decimal  @map("avg_price") @db.Decimal(14, 2)
+
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@id([medicineId, day])
+  @@index([day])
+  @@map("price_history")
+}
+
+model Order {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId     String      @map("buyer_id") @db.Uuid
+  listingId   String      @map("listing_id") @db.Uuid
+  qty         Int
+  unitPrice   Decimal     @map("unit_price") @db.Decimal(14, 2)
+  amount      Decimal?    @db.Decimal(16, 2)
+  type        OrderType
+  status      OrderStatus @default(CREATED)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidAt      DateTime?   @map("paid_at") @db.Timestamptz(6)
+  deliveredAt DateTime?   @map("delivered_at") @db.Timestamptz(6)
+
+  buyer         User           @relation(fields: [buyerId], references: [id])
+  listing       Listing        @relation(fields: [listingId], references: [id])
+  hold          Hold?
+  inventoryLots InventoryLot[]
+
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Hold {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  traderId         String     @map("trader_id") @db.Uuid
+  listingId        String     @map("listing_id") @db.Uuid
+  qty              Int
+  paidAmount       Decimal    @map("paid_amount") @db.Decimal(16, 2)
+  holdStartAt      DateTime   @default(now()) @map("hold_start_at") @db.Timestamptz(6)
+  autoDeliveryAt   DateTime   @map("auto_delivery_at") @db.Timestamptz(6)
+  status           HoldStatus @default(ACTIVE)
+  convertedOrderId String?    @unique @map("converted_order_id") @db.Uuid
+
+  trader         User     @relation(fields: [traderId], references: [id])
+  listing        Listing  @relation(fields: [listingId], references: [id])
+  convertedOrder Order?   @relation(fields: [convertedOrderId], references: [id])
+
+  @@index([traderId])
+  @@index([listingId])
+  @@index([status])
+  @@index([autoDeliveryAt])
+  @@map("holds")
+}
+
+model InventoryLot {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  medicineId    String   @map("medicine_id") @db.Uuid
+  qty           Int
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(14, 2)
+  sourceOrderId String?  @map("source_order_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user        User      @relation(fields: [userId], references: [id])
+  medicine    Medicine  @relation(fields: [medicineId], references: [id])
+  sourceOrder Order?    @relation(fields: [sourceOrderId], references: [id])
+
+  @@index([userId, medicineId])
+  @@map("inventory_lots")
+}
+
+model NewsArticle {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String
+  slug          String         @unique
+  content       String
+  isPublished   Boolean        @default(false) @map("is_published")
+  publishedAt   DateTime?      @map("published_at") @db.Timestamptz(6)
+  authorAdminId String         @map("author_admin_id") @db.Uuid
+
+  author        User           @relation(fields: [authorAdminId], references: [id])
+  newsMedicines NewsMedicine[]
+
+  @@index([isPublished, publishedAt(sort: Desc)])
+  @@map("news_articles")
+}
+
+model NewsMedicine {
+  newsId     String @map("news_id") @db.Uuid
+  medicineId String @map("medicine_id") @db.Uuid
+
+  news     NewsArticle @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  medicine Medicine    @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@id([newsId, medicineId])
+  @@index([medicineId])
+  @@map("news_medicines")
+}
+
+model Notification {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  channel   Channel
+  subject   String
+  body      String
+  meta      Json?
+  isRead    Boolean   @default(false) @map("is_read")
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model MedicineProposal {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerId           String         @map("seller_id") @db.Uuid
+  name               String
+  form               String
+  strength           String
+  manufacturerName   String         @map("manufacturer_name")
+  marketerName       String?        @map("marketer_name")
+  basePrice          Decimal        @map("base_price") @db.Decimal(14, 2)
+  status             ProposalStatus @default(PENDING)
+  reviewerNote       String?        @map("reviewer_note")
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  approvedMedicineId String?        @map("approved_medicine_id") @db.Uuid
+
+  seller           User      @relation(fields: [sellerId], references: [id])
+  approvedMedicine Medicine? @relation(fields: [approvedMedicineId], references: [id])
+
+  @@index([status])
+  @@index([sellerId])
+  @@map("medicine_proposals")
+}
+
+model AnalyticsRollup {
+  day           DateTime @db.Date
+  medicineId    String   @map("medicine_id") @db.Uuid
+  boughtQty     Int      @default(0) @map("bought_qty")
+  heldQty       Int      @default(0) @map("held_qty")
+  newsMentions  Int      @default(0) @map("news_mentions")
+  listedCount   Int      @default(0) @map("listed_count")
+
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@id([day, medicineId])
+  @@map("analytics_rollups")
+}

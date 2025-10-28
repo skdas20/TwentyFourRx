@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: medtrade-postgres
+    environment:
+      POSTGRES_DB: medtrade
+      POSTGRES_USER: medtrade
+      POSTGRES_PASSWORD: medtrade123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../b2b_medicine_schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - medtrade-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: medtrade-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - medtrade-network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: medtrade-backend
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgresql://medtrade:medtrade123@postgres:5432/medtrade
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: your-secret-key-change-in-production
+      NODE_ENV: development
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ../src:/app/src
+      - ../node_modules:/app/node_modules
+    networks:
+      - medtrade-network
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  medtrade-network:
+    driver: bridge
