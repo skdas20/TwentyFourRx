@@ -1,17 +1,19 @@
-import Navbar from '@/components/landing/Navbar';
-import Hero from '@/components/landing/Hero';
+import NavbarNew from '@/components/landing/NavbarNew';
+import HeroNew from '@/components/landing/HeroNew';
 import Features from '@/components/landing/Features';
+import Team from '@/components/landing/Team';
 import AnalyticsPreview from '@/components/landing/AnalyticsPreview';
 import CTA from '@/components/landing/CTA';
 import Footer from '@/components/landing/Footer';
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
-      <Navbar />
-      <Hero />
+    <main className="min-h-screen bg-[var(--bg)]">
+      <NavbarNew />
+      <HeroNew />
       <Features />
       <AnalyticsPreview />
+      <Team />
       <CTA />
       <Footer />
     </main>

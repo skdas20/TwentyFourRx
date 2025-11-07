@@ -23,6 +23,7 @@ import { PricesModule } from './prices/prices.module';
 import { NewsModule } from './news/news.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ScrapingModule } from './scraping/scraping.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     NewsModule,
     NotificationsModule,
     AnalyticsModule,
+    ScrapingModule,
   ],
   providers: [
     PrismaService,

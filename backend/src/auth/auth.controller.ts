@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, UseGuards, Req, Res } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { AuthService, RegisterDto, LoginDto } from './auth.service';
+import { AuthService, RegisterDto, LoginDto, CreateAdminDto } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ConfigService } from '@nestjs/config';
@@ -66,5 +66,12 @@ export class AuthController {
   @Get('me')
   async getProfile(@CurrentUser() user: any) {
     return this.authService.getProfile(user.sub);
+  }
+
+  // SECRET ENDPOINT: Create admin (internal use only)
+  @Public()
+  @Post('admin/create')
+  async createAdmin(@Body() dto: CreateAdminDto) {
+    return this.authService.createAdmin(dto);
   }
 }

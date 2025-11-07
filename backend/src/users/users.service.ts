@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
 import { UserStatus } from '@prisma/client';
+import { EmailService } from '../common/services/email.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async findAll(filters?: { status?: UserStatus; roleCode?: string }) {
     return this.prisma.user.findMany({
@@ -57,7 +61,7 @@ export class UsersService {
       throw new BadRequestException('User is already approved');
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         status: 'APPROVED',
@@ -70,6 +74,15 @@ export class UsersService {
         status: true,
       },
     });
+
+    // Send approval email
+    try {
+      await this.emailService.sendApprovalEmail(updated.email, updated.name);
+    } catch (error) {
+      console.error('Failed to send approval email:', error);
+    }
+
+    return updated;
   }
 
   async rejectUser(id: string, reviewerNote?: string) {

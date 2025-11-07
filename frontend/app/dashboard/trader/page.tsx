@@ -46,7 +46,7 @@ export default function TraderDashboard() {
       return;
     }
     const parsed = JSON.parse(userData);
-    if (parsed.role !== "TRADER") {
+    if (parsed.roleCode !== "TRADER") {
       router.push("/auth/login");
       return;
     }
@@ -64,33 +64,33 @@ export default function TraderDashboard() {
         { href: "/news", label: "News" },
       ]}
     >
-      <h2 className="text-3xl font-bold text-deep-navy font-space mb-8">Welcome back, {user.name}</h2>
+      <h2 className="text-3xl font-bold text-[var(--ink)] font-space mb-8">Welcome back, {user.name}</h2>
 
       {/* Top 4 Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Top Held */}
         <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <Lock className="w-5 h-5 text-gold" />
-            <h3 className="text-xl font-semibold text-deep-navy">Top 4 Most Held</h3>
+            <Lock className="w-5 h-5 text-[var(--brand-blue)]" />
+            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 Most Held</h3>
           </div>
           <div className="space-y-3">
             {TOP_HELD.map((item) => (
               <Link
                 key={item.id}
                 href={`/medicines/${item.id}`}
-                className="block p-4 bg-cloud-gray/30 rounded-xl hover:bg-cloud-gray/50 transition-all hover:scale-[1.01] border border-transparent hover:border-gold/20"
+                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-semibold text-deep-navy">{item.name}</p>
-                    <p className="text-sm text-slate">{item.manufacturer}</p>
+                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
+                    <p className="text-sm text-[var(--muted)]">{item.manufacturer}</p>
                   </div>
-                  <span className="text-gold font-bold">₹{item.value.toLocaleString()}</span>
+                  <span className="text-[var(--brand-blue)] font-bold">₹{item.value.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate">Held Quantity:</span>
-                  <span className="text-deep-navy font-medium">{item.heldQty.toLocaleString()} units</span>
+                  <span className="text-[var(--muted)]">Held Quantity:</span>
+                  <span className="text-[var(--ink)] font-medium">{item.heldQty.toLocaleString()} units</span>
                 </div>
               </Link>
             ))}
@@ -100,26 +100,26 @@ export default function TraderDashboard() {
         {/* Top Bought */}
         <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <ShoppingCart className="w-5 h-5 text-gold" />
-            <h3 className="text-xl font-semibold text-deep-navy">Top 4 Most Bought</h3>
+            <ShoppingCart className="w-5 h-5 text-[var(--brand-blue)]" />
+            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 Most Bought</h3>
           </div>
           <div className="space-y-3">
             {TOP_BOUGHT.map((item) => (
               <Link
                 key={item.id}
                 href={`/medicines/${item.id}`}
-                className="block p-4 bg-cloud-gray/30 rounded-xl hover:bg-cloud-gray/50 transition-all hover:scale-[1.01] border border-transparent hover:border-gold/20"
+                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-semibold text-deep-navy">{item.name}</p>
-                    <p className="text-sm text-slate">{item.manufacturer}</p>
+                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
+                    <p className="text-sm text-[var(--muted)]">{item.manufacturer}</p>
                   </div>
-                  <span className="text-gold font-bold">₹{item.amount.toLocaleString()}</span>
+                  <span className="text-[var(--brand-blue)] font-bold">₹{item.amount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate">Total Purchased:</span>
-                  <span className="text-deep-navy font-medium">{item.boughtQty.toLocaleString()} units</span>
+                  <span className="text-[var(--muted)]">Total Purchased:</span>
+                  <span className="text-[var(--ink)] font-medium">{item.boughtQty.toLocaleString()} units</span>
                 </div>
               </Link>
             ))}
@@ -129,20 +129,20 @@ export default function TraderDashboard() {
         {/* Top in News */}
         <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <Newspaper className="w-5 h-5 text-gold" />
-            <h3 className="text-xl font-semibold text-deep-navy">Top 4 in News</h3>
+            <Newspaper className="w-5 h-5 text-[var(--brand-blue)]" />
+            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 in News</h3>
           </div>
           <div className="space-y-3">
             {TOP_NEWS.map((item) => (
               <Link
                 key={item.id}
                 href="/news"
-                className="block p-4 bg-cloud-gray/30 rounded-xl hover:bg-cloud-gray/50 transition-all hover:scale-[1.01] border border-transparent hover:border-gold/20"
+                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
               >
-                <p className="font-semibold text-deep-navy mb-2 line-clamp-2">{item.title}</p>
+                <p className="font-semibold text-[var(--ink)] mb-2 line-clamp-2">{item.title}</p>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate">{item.date}</span>
-                  <span className="text-gold">{item.medicines} medicines mentioned</span>
+                  <span className="text-[var(--muted)]">{item.date}</span>
+                  <span className="text-[var(--brand-blue)]">{item.medicines} medicines mentioned</span>
                 </div>
               </Link>
             ))}
@@ -152,26 +152,26 @@ export default function TraderDashboard() {
         {/* Recently Listed */}
         <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5 text-gold" />
-            <h3 className="text-xl font-semibold text-deep-navy">Recently Listed</h3>
+            <Sparkles className="w-5 h-5 text-[var(--brand-blue)]" />
+            <h3 className="text-xl font-semibold text-[var(--ink)]">Recently Listed</h3>
           </div>
           <div className="space-y-3">
             {RECENT_LISTINGS.map((item) => (
               <Link
                 key={item.id}
                 href={`/medicines/${item.id}`}
-                className="block p-4 bg-cloud-gray/30 rounded-xl hover:bg-cloud-gray/50 transition-all hover:scale-[1.01] border border-transparent hover:border-gold/20"
+                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-semibold text-deep-navy">{item.name}</p>
-                    <p className="text-sm text-slate">{item.seller}</p>
+                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
+                    <p className="text-sm text-[var(--muted)]">{item.seller}</p>
                   </div>
-                  <span className="text-gold font-bold">₹{item.price}/unit</span>
+                  <span className="text-[var(--brand-blue)] font-bold">₹{item.price}/unit</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate">Stock: {item.stock.toLocaleString()}</span>
-                  <span className="text-slate">{item.listedAt}</span>
+                  <span className="text-[var(--muted)]">Stock: {item.stock.toLocaleString()}</span>
+                  <span className="text-[var(--muted)]">{item.listedAt}</span>
                 </div>
               </Link>
             ))}
@@ -181,28 +181,29 @@ export default function TraderDashboard() {
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-        <h3 className="text-xl font-semibold text-deep-navy mb-6">Quick Actions</h3>
+        <h3 className="text-xl font-semibold text-[var(--ink)] mb-6">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href="/medicines"
-            className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-gold/20 hover:border-gold/40 transition-all hover:scale-105 text-center"
+            className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center"
           >
-            <Search className="w-10 h-10 text-gold mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-deep-navy mb-1">Browse Medicines</h4>
-            <p className="text-sm text-slate">Find and buy medicines</p>
+            <Search className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
+            <h4 className="font-semibold text-[var(--ink)] mb-1">Browse Medicines</h4>
+            <p className="text-sm text-[var(--muted)]">Find and buy medicines</p>
           </Link>
-          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-gold/20 hover:border-gold/40 transition-all hover:scale-105 text-center">
-            <Package className="w-10 h-10 text-gold mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-deep-navy mb-1">My Orders</h4>
-            <p className="text-sm text-slate">View order history</p>
+          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center">
+            <Package className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
+            <h4 className="font-semibold text-[var(--ink)] mb-1">My Orders</h4>
+            <p className="text-sm text-[var(--muted)]">View order history</p>
           </button>
-          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-gold/20 hover:border-gold/40 transition-all hover:scale-105 text-center">
-            <Briefcase className="w-10 h-10 text-gold mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-deep-navy mb-1">My Inventory</h4>
-            <p className="text-sm text-slate">Manage your stock</p>
+          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center">
+            <Briefcase className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
+            <h4 className="font-semibold text-[var(--ink)] mb-1">My Inventory</h4>
+            <p className="text-sm text-[var(--muted)]">Manage your stock</p>
           </button>
         </div>
       </div>
     </DashboardLayout>
   );
 }
+

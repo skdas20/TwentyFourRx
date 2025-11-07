@@ -13,7 +13,7 @@ export const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('accessToken')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -27,9 +27,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
-      window.location.href = '/auth/login'
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/login'
+      }
     }
     return Promise.reject(error)
   }
@@ -61,26 +64,40 @@ export const medicinesApi = {
   getMedicine: (id: string) => api.get(`/medicines/${id}`),
 }
 
+// Medicine References API (Search from 251K+ medicines)
+export const medicineReferencesApi = {
+  search: (query: string) =>
+    api.get('/medicine-references/search', { params: { q: query } }),
+}
+
 // Listings API
 export const listingsApi = {
   getListings: (params?: { medicineId?: string; status?: string }) =>
     api.get('/listings', { params }),
-  createListing: (data: any) => api.post('/seller/listings', data),
-  updateListing: (id: string, data: any) => api.patch(`/seller/listings/${id}`, data),
+  getMyListings: () => api.get('/listings/my'),
+  getPendingListings: () => api.get('/listings/pending'),
+  createListing: (data: { medicineReferenceId: string; basePrice: number; stock: number }) =>
+    api.post('/listings', data),
+  approveListing: (id: string, data?: { adminMarkupPct?: number; reviewerNote?: string }) =>
+    api.patch(`/listings/${id}/approve`, data),
+  rejectListing: (id: string, reviewerNote: string) =>
+    api.patch(`/listings/${id}/reject`, { reviewerNote }),
 }
 
 // Orders API
 export const ordersApi = {
   createOrder: (data: { listingId: string; qty: number }) =>
-    api.post('/trader/orders', data),
-  getMyOrders: () => api.get('/trader/orders'),
+    api.post('/orders', data),
+  getMyOrders: () => api.get('/orders'),
 }
 
 // Holds API
 export const holdsApi = {
   createHold: (data: { listingId: string; qty: number }) =>
-    api.post('/trader/holds', data),
-  getMyHolds: () => api.get('/trader/holds'),
+    api.post('/holds', data),
+  getMyHolds: () => api.get('/holds/my'),
+  cancelHold: (id: string) => api.post(`/holds/${id}/cancel`),
+  getAllHolds: () => api.get('/holds'), // Admin only
 }
 
 // Dashboard API
@@ -93,8 +110,14 @@ export const dashboardApi = {
 
 // Prices API
 export const pricesApi = {
-  getPriceHistory: (medicineId: string, range = '30d') =>
-    api.get('/prices/history', { params: { medicineId, range } }),
+  getPriceHistory: (medicineId: string, days = 30) =>
+    api.get('/prices/history', { params: { medicineId, days } }),
+  getPriceHistoryByComposition: (composition: string, days = 30) =>
+    api.get('/prices/history', { params: { composition, days } }),
+  getTrending: (days = 7) =>
+    api.get('/prices/trending', { params: { days } }),
+  compareComposition: (composition: string) =>
+    api.get('/prices/compare', { params: { composition } }),
 }
 
 // News API

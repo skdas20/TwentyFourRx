@@ -53,13 +53,20 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md">
-          <div className="rounded-md bg-green-50 p-4">
-            <h3 className="text-sm font-medium text-green-800">Registration successful!</h3>
-            <p className="mt-2 text-sm text-green-700">
-              Please wait for admin approval. You will be redirected to the login page...
-            </p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] py-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-4">
+          <div className="rounded-lg bg-green-50 border border-green-200 p-6">
+            <h3 className="text-lg font-semibold text-green-800 mb-2">✅ Registration Successful!</h3>
+            <div className="space-y-2 text-sm text-green-700">
+              <p className="font-medium">📧 Check your email for your login credentials!</p>
+              <p>We've sent your username and password to <span className="font-semibold">{formData.email}</span></p>
+              <p className="mt-3 pt-3 border-t border-green-200 text-green-600">
+                ⏳ Your account is pending admin approval. You'll receive another email once approved.
+              </p>
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-[var(--muted)]">Redirecting to login page...</p>
           </div>
         </div>
       </div>
@@ -67,15 +74,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight">
+        <div className="text-center">
+          <Link href="/" className="inline-block">
+            <h1 className="text-5xl font-bold mb-2">
+              <span className="text-[var(--ink)]">24R</span>
+              <span className="text-[var(--brand-blue)]">x</span>
+            </h1>
+          </Link>
+          <h2 className="mt-6 text-3xl font-semibold text-[var(--ink)]">
             Create your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-sm text-[var(--muted)]">
             Already have an account?{' '}
-            <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/auth/login" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)]">
               Sign in
             </Link>
           </p>
@@ -83,14 +96,14 @@ export default function RegisterPage() {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="rounded-lg bg-[var(--down-red)]/10 border border-[var(--down-red)]/30 p-4">
+              <p className="text-sm text-[var(--down-red)]">{error}</p>
             </div>
           )}
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="name" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Full Name
               </label>
               <input
@@ -98,14 +111,15 @@ export default function RegisterPage() {
                 name="name"
                 type="text"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                placeholder="Enter your full name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Email
               </label>
               <input
@@ -113,34 +127,36 @@ export default function RegisterPage() {
                 name="email"
                 type="email"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                placeholder="Enter your email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phone" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Phone (Optional)
               </label>
               <input
                 id="phone"
                 name="phone"
                 type="tel"
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                placeholder="Enter your phone number"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="roleCode" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="roleCode" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Account Type
               </label>
               <select
                 id="roleCode"
                 name="roleCode"
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
                 value={formData.roleCode}
                 onChange={(e) => setFormData({ ...formData, roleCode: e.target.value as any })}
               >
@@ -150,7 +166,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Password
               </label>
               <input
@@ -158,14 +174,15 @@ export default function RegisterPage() {
                 name="password"
                 type="password"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                placeholder="Create a password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-[var(--ink)] mb-2">
                 Confirm Password
               </label>
               <input
@@ -173,7 +190,8 @@ export default function RegisterPage() {
                 name="confirmPassword"
                 type="password"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 px-3 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600"
+                className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               />
@@ -184,7 +202,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md bg-blue-600 py-3 px-3 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+              className="flex w-full justify-center rounded-lg bg-[var(--brand-blue)] py-3 px-3 text-base font-semibold text-white hover:bg-[var(--brand-blue-hi)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-blue)] disabled:opacity-50 transition shadow-lg shadow-[var(--brand-blue)]/25"
             >
               {loading ? 'Creating account...' : 'Create account'}
             </button>

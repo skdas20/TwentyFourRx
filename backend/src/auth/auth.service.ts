@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../config/prisma.service';
 import { RedisService } from '../config/redis.service';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../common/services/email.service';
 import * as bcrypt from 'bcrypt';
 
 export interface RegisterDto {
@@ -15,7 +16,15 @@ export interface RegisterDto {
   email: string;
   phone?: string;
   password: string;
-  roleCode: 'TRADER' | 'SELLER';
+  roleCode?: 'TRADER' | 'SELLER'; // Optional, defaults to TRADER
+}
+
+export interface CreateAdminDto {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  secretKey: string; // Must match env variable
 }
 
 export interface LoginDto {
@@ -30,6 +39,7 @@ export class AuthService {
     private jwtService: JwtService,
     private redisService: RedisService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -42,8 +52,11 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Validate role
-    if (!['TRADER', 'SELLER'].includes(dto.roleCode)) {
+    // Default to TRADER if no role specified (SELLER and TRADER have same permissions)
+    const roleCode: 'TRADER' | 'SELLER' = dto.roleCode || 'TRADER';
+
+    // Validate role - only TRADER or SELLER allowed for public registration
+    if (!['TRADER', 'SELLER'].includes(roleCode)) {
       throw new BadRequestException('Invalid role. Must be TRADER or SELLER');
     }
 
@@ -57,7 +70,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         phone: dto.phone,
         password: hashedPassword,
-        roleCode: dto.roleCode,
+        roleCode: roleCode,
         status: 'PENDING',
       },
       select: {
@@ -71,9 +84,69 @@ export class AuthService {
       },
     });
 
+    // Send welcome email with credentials
+    try {
+      await this.emailService.sendWelcomeEmail(
+        user.email,
+        user.name,
+        user.email,
+        dto.password,
+      );
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      // Continue even if email fails
+    }
+
     return {
-      message: 'Registration successful. Please wait for admin approval.',
+      message: 'Registration successful. Please check your email for credentials and wait for admin approval.',
       user,
+    };
+  }
+
+  async createAdmin(dto: CreateAdminDto) {
+    // Verify secret key
+    const adminSecretKey = this.configService.get<string>('ADMIN_SECRET_KEY');
+    if (!adminSecretKey || dto.secretKey !== adminSecretKey) {
+      throw new UnauthorizedException('Invalid secret key');
+    }
+
+    // Check if admin already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already registered');
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    // Create admin user with APPROVED status
+    const admin = await this.prisma.user.create({
+      data: {
+        name: dto.name,
+        email: dto.email.toLowerCase(),
+        phone: dto.phone,
+        password: hashedPassword,
+        roleCode: 'ADMIN',
+        status: 'APPROVED', // Auto-approved
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        roleCode: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    return {
+      message: 'Admin created successfully',
+      admin,
     };
   }
 
