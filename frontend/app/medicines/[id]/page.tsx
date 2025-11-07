@@ -1,70 +1,146 @@
 "use client";
 
-export default function BackgroundDNA({ className = "" }: { className?: string }) {
-  return (
-    <div className={`absolute inset-0 overflow-hidden ${className}`}>
-      <div className="dna-container">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="dna-strand"
-            style={{
-              animationDelay: `${i * -0.5}s`,
-              left: `${15 + i * 15}%`,
-            }}
-          />
-        ))}
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Pill, Package, Users, TrendingUp, LogOut } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import { listingsApi } from "@/lib/api";
+
+export default function MedicineDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const [user, setUser] = useState<any>(null);
+  const [listing, setListing] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+    if (params.id) {
+      loadListing(params.id as string);
+    }
+  }, [params.id]);
+
+  const loadListing = async (id: string) => {
+    try {
+      const response = await listingsApi.getListings();
+      const found = response.data.find((l: any) => l.id === id);
+      setListing(found);
+    } catch (error) {
+      console.error("Failed to load listing:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    router.push("/auth/login");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
+    );
+  }
 
-      <style jsx>{`
-        .dna-container {
-          position: absolute;
-          inset: 0;
-          perspective: 1000px;
-          transform: rotate(-45deg) scale(1.4);
-          transform-origin: center;
-        }
+  if (!listing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/medicines" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+                <span>Back to Medicines</span>
+              </Link>
+            </div>
+          </div>
+        </header>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Medicine not found</h1>
+          <p className="text-gray-600 dark:text-gray-400">The medicine you're looking for doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
 
-        .dna-strand {
-          position: absolute;
-          width: 4px;
-          height: 200%;
-          top: -50%;
-          background: linear-gradient(to bottom, transparent, #EE2B2B 20%, #FF3B30 50%, #EE2B2B 80%, transparent);
-          box-shadow: 0 0 20px rgba(238, 43, 43, 0.6), 0 0 40px rgba(238, 43, 43, 0.3);
-          animation: dna-wave 3s ease-in-out infinite;
-          transform-style: preserve-3d;
-        }
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/medicines" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Medicines</span>
+            </Link>
 
-        .dna-strand::before,
-        .dna-strand::after {
-          content: '';
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          background: inherit;
-          box-shadow: inherit;
-        }
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              {user && (
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
 
-        .dna-strand::before {
-          transform: translateZ(-20px) translateX(-15px);
-          opacity: 0.4;
-        }
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-start gap-8">
+            {/* Icon */}
+            <div className="w-48 h-48 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Pill className="w-24 h-24 text-blue-600 dark:text-blue-400" />
+            </div>
 
-        .dna-strand::after {
-          transform: translateZ(-40px) translateX(-30px);
-          opacity: 0.2;
-        }
+            {/* Details */}
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                {listing.medicineReference?.name || "Medicine"}
+              </h1>
 
-        @keyframes dna-wave {
-          0%, 100% { transform: translateY(0) rotateY(0deg); opacity: 0.3; }
-          50% { transform: translateY(-100px) rotateY(180deg); opacity: 0.8; }
-        }
+              <div className="grid grid-cols-2 gap-6 mb-6">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Base Price</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">₹{listing.basePrice}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Stock Available</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{listing.stock?.toLocaleString() || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Status</p>
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm font-medium">
+                    {listing.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Seller</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{listing.user?.name || "Unknown"}</p>
+                </div>
+              </div>
 
-        @media (prefers-reduced-motion: reduce) {
-          .dna-strand { animation: none !important; }
-        }
-      `}</style>
+              <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold">
+                Contact Seller
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
