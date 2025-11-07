@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
+import NotificationCenter from "./NotificationCenter";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,39 +16,40 @@ export default function DashboardLayout({ children, user, title, navLinks = [] }
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-orbital-white">
+    <div className="min-h-screen bg-[var(--bg)]">
       {/* Header */}
-      <header className="border-b border-slate/10 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+      <header className="border-b border-[var(--border)]/10 bg-white/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-2xl font-bold font-space">
-              <span className="text-gold">24</span>
-              <span className="text-deep-navy">Rx</span>
+              <span className="text-[var(--brand-blue)]">24</span>
+              <span className="text-[var(--ink)]">Rx</span>
             </Link>
-            <span className="text-slate/40">|</span>
-            <span className="text-deep-navy font-medium">{title}</span>
+            <span className="text-[var(--muted)]/40">|</span>
+            <span className="text-[var(--ink)] font-medium">{title}</span>
           </div>
           <div className="flex items-center gap-6">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-slate hover:text-deep-navy transition-colors text-sm font-medium"
+                className="text-[var(--muted)] hover:text-[var(--ink)] transition-colors text-sm font-medium"
               >
                 {link.label}
               </Link>
             ))}
-            <div className="flex items-center gap-3 pl-6 border-l border-slate/10">
+            <NotificationCenter />
+            <div className="flex items-center gap-3 pl-6 border-l border-[var(--border)]/10">
               <div>
-                <p className="text-sm font-medium text-deep-navy">{user.name}</p>
-                <p className="text-xs text-gold">{user.role}</p>
+                <p className="text-sm font-medium text-[var(--ink)]">{user.name}</p>
+                <p className="text-xs text-[var(--brand-blue)]">{user.role}</p>
               </div>
               <button
                 onClick={() => {
                   localStorage.removeItem("user");
                   router.push("/auth/login");
                 }}
-                className="p-2 hover:bg-cloud-gray rounded-lg transition-colors text-slate hover:text-deep-navy"
+                className="p-2 hover:bg-[var(--surface)]/50 rounded-lg transition-colors text-[var(--muted)] hover:text-[var(--ink)]"
                 title="Logout"
               >
                 <LogOut className="w-5 h-5" />

@@ -70,12 +70,28 @@ export default function MedicinesPage() {
               <ThemeToggle />
               {user && (
                 <>
-                  <Link 
+                  <Link
                     href={`/dashboard/${user.roleCode.toLowerCase()}`}
                     className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                   >
                     Dashboard
                   </Link>
+                  {(user.roleCode === 'TRADER' || user.roleCode === 'SELLER') && (
+                    <>
+                      <Link
+                        href="/watchlist"
+                        className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                      >
+                        Watchlist
+                      </Link>
+                      <Link
+                        href="/portfolio"
+                        className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                      >
+                        Portfolio
+                      </Link>
+                    </>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"

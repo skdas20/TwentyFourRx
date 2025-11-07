@@ -24,6 +24,9 @@ import { NewsModule } from './news/news.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ScrapingModule } from './scraping/scraping.module';
+import { WatchlistModule } from './watchlist/watchlist.module';
+import { PriceAlertsModule } from './price-alerts/price-alerts.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -60,6 +63,9 @@ import { ScrapingModule } from './scraping/scraping.module';
     NotificationsModule,
     AnalyticsModule,
     ScrapingModule,
+    WatchlistModule,
+    PriceAlertsModule,
+    DashboardModule,
   ],
   providers: [
     PrismaService,

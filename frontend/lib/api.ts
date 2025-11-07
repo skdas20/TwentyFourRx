@@ -131,3 +131,50 @@ export const newsApi = {
 export const analyticsApi = {
   getTopMedicines: () => api.get('/admin/analytics/top'),
 }
+
+// Watchlist API
+export const watchlistApi = {
+  getWatchlist: () => api.get('/watchlist'),
+  addToWatchlist: (data: { medicineId: string; name?: string; color?: string }) =>
+    api.post('/watchlist', data),
+  removeFromWatchlist: (id: string) => api.delete(`/watchlist/${id}`),
+  updateWatchlistItem: (id: string, data: { name?: string; color?: string; sortOrder?: number }) =>
+    api.patch(`/watchlist/${id}`, data),
+  reorderWatchlist: (itemIds: string[]) => api.post('/watchlist/reorder', { itemIds }),
+  isInWatchlist: (medicineId: string) => api.get(`/watchlist/check/${medicineId}`),
+}
+
+// Price Alerts API
+export const priceAlertsApi = {
+  getUserPriceAlerts: () => api.get('/price-alerts'),
+  createPriceAlert: (data: { medicineId: string; targetPrice: number; condition: 'BELOW' | 'ABOVE' | 'EQUALS' }) =>
+    api.post('/price-alerts', data),
+  deletePriceAlert: (id: string) => api.delete(`/price-alerts/${id}`),
+  togglePriceAlert: (id: string, isActive: boolean) => api.patch(`/price-alerts/${id}/toggle`, { isActive }),
+}
+
+// Dashboard API (Enhanced)
+export const dashboardApiNew = {
+  getTraderDashboard: () => api.get('/dashboard/trader'),
+  getSellerDashboard: () => api.get('/dashboard/seller'),
+  getRecentListings: (limit = 10) => api.get('/dashboard/recent-listings', { params: { limit } }),
+  getTrendingMedicines: (limit = 10) => api.get('/dashboard/trending', { params: { limit } }),
+  getPortfolioValue: () => api.get('/dashboard/portfolio-value'),
+  getStatistics: () => api.get('/dashboard/statistics'),
+}
+
+// Inventory API (Enhanced)
+export const inventoryApi = {
+  getUserInventory: () => api.get('/inventory'),
+  getInventoryHistory: (days = 30) => api.get('/inventory/history', { params: { days } }),
+  getLowStockInventory: (threshold = 100) => api.get('/inventory/low-stock', { params: { threshold } }),
+  getExpiringInventory: (withinDays = 90) => api.get('/inventory/expiring', { params: { withinDays } }),
+}
+
+// Notifications API
+export const notificationsApi = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/mark-all-read'),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+}

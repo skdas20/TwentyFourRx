@@ -1,0 +1,260 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Search, Plus } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import { medicineReferencesApi, listingsApi } from "@/lib/api";
+
+export default function NewListingPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
+  const [basePrice, setBasePrice] = useState("");
+  const [stock, setStock] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (!userData) {
+      router.push("/auth/login");
+      return;
+    }
+    setUser(JSON.parse(userData));
+  }, [router]);
+
+  const handleSearch = async () => {
+    if (searchQuery.length < 2) {
+      alert("Please enter at least 2 characters to search");
+      return;
+    }
+    
+    try {
+      setSearching(true);
+      setSearchResults([]); // Clear previous results
+      console.log("Searching for:", searchQuery);
+      const response = await medicineReferencesApi.search(searchQuery);
+      console.log("Search response:", response.data);
+      
+      if (response.data && response.data.length > 0) {
+        setSearchResults(response.data);
+      } else {
+        alert("No medicines found. Try a different search term.");
+      }
+    } catch (error: any) {
+      console.error("Search failed:", error);
+      alert(error.response?.data?.message || "Search failed. Please try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMedicine || !basePrice || !stock) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    const parsedPrice = parseFloat(basePrice);
+    const parsedStock = parseInt(stock);
+
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      alert("Please enter a valid price greater than 0");
+      return;
+    }
+
+    if (isNaN(parsedStock) || parsedStock <= 0) {
+      alert("Please enter a valid stock quantity greater than 0");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const payload = {
+        medicineReferenceId: selectedMedicine.id,
+        basePrice: parsedPrice,
+        stock: parsedStock,
+      };
+      console.log("Creating listing with:", payload);
+      console.log("Selected medicine:", selectedMedicine);
+      
+      const response = await listingsApi.createListing(payload);
+      console.log("Listing created:", response.data);
+      
+      alert(response.data.message || "Listing created successfully!");
+      router.push("/dashboard/seller");
+    } catch (error: any) {
+      console.error("Failed to create listing:", error);
+      console.error("Error response:", error.response?.data);
+      
+      let errorMessage = "Failed to create listing. Please try again.";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard/seller" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create New Listing</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Search and add medicine to your inventory</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!selectedMedicine ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Search Medicine</h2>
+            <div className="flex gap-2 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search from 251K+ medicines..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 
+                           focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={handleSearch}
+                disabled={searching || searchQuery.length < 2}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {searching ? "Searching..." : "Search"}
+              </button>
+            </div>
+
+            {searching && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="ml-3 text-gray-600 dark:text-gray-400">Searching medicines...</p>
+              </div>
+            )}
+
+            {!searching && searchResults.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Found {searchResults.length} results</p>
+                {searchResults.map((medicine: any) => (
+                  <button
+                    key={medicine.id}
+                    onClick={() => setSelectedMedicine(medicine)}
+                    className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-left transition-colors"
+                  >
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">{medicine.name}</h3>
+                    {medicine.composition && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{medicine.composition}</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Selected Medicine</h2>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMedicine(null)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">{selectedMedicine.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMedicine.composition}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Base Price (₹ per unit)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={basePrice}
+                  onChange={(e) => setBasePrice(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter base price"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Stock Quantity
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter stock quantity"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/seller")}
+                className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                {submitting ? "Creating..." : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    Create Listing
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </main>
+    </div>
+  );
+}

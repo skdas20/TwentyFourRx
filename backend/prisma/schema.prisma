@@ -91,6 +91,8 @@ model User {
   notifications     Notification[]
   proposals         MedicineProposal[]
   reviewedDocuments KycDocument[]       @relation("ReviewedBy")
+  watchlists        Watchlist[]
+  priceAlerts       PriceAlert[]
 
   @@index([roleCode])
   @@index([status])
@@ -169,6 +171,8 @@ model Medicine {
   newsMedicines     NewsMedicine[]
   proposals         MedicineProposal[]
   analyticsRollups  AnalyticsRollup[]
+  watchlists        Watchlist[]
+  priceAlerts       PriceAlert[]
 
   @@unique([name, form, strength, manufacturerId], name: "uq_medicine")
   @@index([manufacturerId])
@@ -373,17 +377,56 @@ model MedicineReference {
   manufacturer    String
   marketer        String?
   packSize        String?  @map("pack_size")
-  
+
   // Scraping metadata
   source          String   // "1mg", "pharmeasy", "cdsco"
   sourceId        String?  @map("source_id")
   lastScrapedAt   DateTime @map("last_scraped_at") @db.Timestamptz(6)
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  
+
   @@unique([name, form, strength, manufacturer], name: "uq_medicine_ref")
   @@index([name])
   @@index([genericName])
   @@index([composition])
   @@map("medicine_references")
+}
+
+// Watchlist for users to track medicines they're interested in
+model Watchlist {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  medicineId String   @map("medicine_id") @db.Uuid
+  name       String?  // Optional custom watchlist name (e.g., "Antibiotics", "Critical Care")
+  color      String?  // Color tag for visual organization
+  sortOrder  Int      @default(0) @map("sort_order") // For drag-drop ordering
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, medicineId], name: "uq_watchlist_user_medicine")
+  @@index([userId])
+  @@index([medicineId])
+  @@map("watchlists")
+}
+
+// Price alerts for users to get notified when price conditions are met
+model PriceAlert {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  medicineId    String    @map("medicine_id") @db.Uuid
+  targetPrice   Decimal   @map("target_price") @db.Decimal(14, 2)
+  condition     String    // "BELOW", "ABOVE", "EQUALS"
+  isActive      Boolean   @default(true) @map("is_active")
+  triggeredAt   DateTime? @map("triggered_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([medicineId])
+  @@index([isActive])
+  @@map("price_alerts")
 }

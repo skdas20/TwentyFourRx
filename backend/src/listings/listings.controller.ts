@@ -8,6 +8,7 @@ import {
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { IsString, IsNumber, IsPositive, IsInt } from 'class-validator';
 import { ListingsService } from './listings.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -16,17 +17,29 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 
 export class CreateListingDto {
+  @IsString()
   medicineReferenceId: string;
+
+  @IsNumber()
+  @IsPositive()
   basePrice: number;
+
+  @IsInt()
+  @IsPositive()
   stock: number;
 }
 
 export class ApproveListingDto {
+  @IsNumber()
+  @IsPositive()
   adminMarkupPct?: number;
+
+  @IsString()
   reviewerNote?: string;
 }
 
 export class RejectListingDto {
+  @IsString()
   reviewerNote: string;
 }
 

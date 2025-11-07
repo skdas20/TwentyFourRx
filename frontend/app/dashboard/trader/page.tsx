@@ -3,41 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, ShoppingCart, Newspaper, Sparkles, Search, Package, Briefcase } from "lucide-react";
-import DashboardLayout from "@/components/DashboardLayout";
-
-// Demo data
-const TOP_HELD = [
-  { id: 1, name: "Paracetamol 500mg", manufacturer: "Sun Pharma", heldQty: 5000, value: 125000 },
-  { id: 2, name: "Amoxicillin 250mg", manufacturer: "Cipla", heldQty: 3500, value: 87500 },
-  { id: 3, name: "Ibuprofen 400mg", manufacturer: "Dr. Reddy's", heldQty: 2800, value: 70000 },
-  { id: 4, name: "Azithromycin 500mg", manufacturer: "Lupin", heldQty: 2000, value: 100000 },
-];
-
-const TOP_BOUGHT = [
-  { id: 5, name: "Cetirizine 10mg", manufacturer: "Alkem", boughtQty: 8000, amount: 160000 },
-  { id: 6, name: "Metformin 500mg", manufacturer: "USV", boughtQty: 6500, amount: 195000 },
-  { id: 7, name: "Omeprazole 20mg", manufacturer: "Zydus", boughtQty: 5200, amount: 156000 },
-  { id: 8, name: "Atorvastatin 10mg", manufacturer: "Torrent", boughtQty: 4800, amount: 240000 },
-];
-
-const TOP_NEWS = [
-  { id: 1, title: "New Import Regulations for Generic Medicines", date: "2025-10-28", medicines: 3 },
-  { id: 2, title: "Price Cap on Essential Drugs Extended", date: "2025-10-27", medicines: 5 },
-  { id: 3, title: "FDA Approves 12 New Generic Formulations", date: "2025-10-25", medicines: 12 },
-  { id: 4, title: "Quality Compliance Updates for Q4 2025", date: "2025-10-24", medicines: 2 },
-];
-
-const RECENT_LISTINGS = [
-  { id: 9, name: "Amlodipine 5mg", seller: "MedSupply Inc", price: 45, stock: 10000, listedAt: "2 hours ago" },
-  { id: 10, name: "Losartan 50mg", seller: "PharmaTrade Ltd", price: 38, stock: 8500, listedAt: "5 hours ago" },
-  { id: 11, name: "Rosuvastatin 10mg", seller: "HealthFirst Co", price: 62, stock: 6000, listedAt: "1 day ago" },
-  { id: 12, name: "Pantoprazole 40mg", seller: "MedCore", price: 28, stock: 12000, listedAt: "2 days ago" },
-];
+import { Plus, Package, TrendingUp, Clock, LogOut, Bell, Search, Pill, ShoppingCart } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+import { listingsApi } from "@/lib/api";
 
 export default function TraderDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -51,159 +25,204 @@ export default function TraderDashboard() {
       return;
     }
     setUser(parsed);
+    loadDashboardData();
   }, [router]);
+
+  const loadDashboardData = async () => {
+    try {
+      const response = await listingsApi.getMyListings();
+      setListings(response.data);
+    } catch (error) {
+      console.error("Failed to load listings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    router.push("/auth/login");
+  };
 
   if (!user) return null;
 
+  const activeListings = listings.filter((l: any) => l.status === "ACTIVE").length;
+  const pendingListings = listings.filter((l: any) => l.status === "PENDING").length;
+  const totalStock = listings.reduce((sum: number, l: any) => sum + (l.stock || 0), 0);
+
   return (
-    <DashboardLayout
-      user={user}
-      title="Trader Dashboard"
-      navLinks={[
-        { href: "/medicines", label: "Browse Medicines" },
-        { href: "/news", label: "News" },
-      ]}
-    >
-      <h2 className="text-3xl font-bold text-[var(--ink)] font-space mb-8">Welcome back, {user.name}</h2>
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="flex items-center">
+              <h1 className="text-2xl font-bold">
+                <span className="text-gray-900 dark:text-gray-100">24R</span>
+                <span className="text-blue-600 dark:text-blue-400">x</span>
+              </h1>
+              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Trader</span>
+            </Link>
 
-      {/* Top 4 Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Top Held */}
-        <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <Lock className="w-5 h-5 text-[var(--brand-blue)]" />
-            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 Most Held</h3>
+            <div className="flex-1 max-w-lg mx-8">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search medicines..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 
+                           focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                <Bell className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.roleCode}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="space-y-3">
-            {TOP_HELD.map((item) => (
-              <Link
-                key={item.id}
-                href={`/medicines/${item.id}`}
-                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
-              >
-                <div className="flex justify-between items-start mb-2">
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome back, {user.name}</h1>
+            <p className="text-gray-600 dark:text-gray-400">Manage your trading activities</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
-                    <p className="text-sm text-[var(--muted)]">{item.manufacturer}</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Listings</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{listings.length}</p>
                   </div>
-                  <span className="text-[var(--brand-blue)] font-bold">₹{item.value.toLocaleString()}</span>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                    <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--muted)]">Held Quantity:</span>
-                  <span className="text-[var(--ink)] font-medium">{item.heldQty.toLocaleString()} units</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+              </div>
 
-        {/* Top Bought */}
-        <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <ShoppingCart className="w-5 h-5 text-[var(--brand-blue)]" />
-            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 Most Bought</h3>
-          </div>
-          <div className="space-y-3">
-            {TOP_BOUGHT.map((item) => (
-              <Link
-                key={item.id}
-                href={`/medicines/${item.id}`}
-                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
-              >
-                <div className="flex justify-between items-start mb-2">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
-                    <p className="text-sm text-[var(--muted)]">{item.manufacturer}</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Listings</p>
+                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">{activeListings}</p>
                   </div>
-                  <span className="text-[var(--brand-blue)] font-bold">₹{item.amount.toLocaleString()}</span>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                    <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--muted)]">Total Purchased:</span>
-                  <span className="text-[var(--ink)] font-medium">{item.boughtQty.toLocaleString()} units</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+              </div>
 
-        {/* Top in News */}
-        <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <Newspaper className="w-5 h-5 text-[var(--brand-blue)]" />
-            <h3 className="text-xl font-semibold text-[var(--ink)]">Top 4 in News</h3>
-          </div>
-          <div className="space-y-3">
-            {TOP_NEWS.map((item) => (
-              <Link
-                key={item.id}
-                href="/news"
-                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
-              >
-                <p className="font-semibold text-[var(--ink)] mb-2 line-clamp-2">{item.title}</p>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--muted)]">{item.date}</span>
-                  <span className="text-[var(--brand-blue)]">{item.medicines} medicines mentioned</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Recently Listed */}
-        <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5 text-[var(--brand-blue)]" />
-            <h3 className="text-xl font-semibold text-[var(--ink)]">Recently Listed</h3>
-          </div>
-          <div className="space-y-3">
-            {RECENT_LISTINGS.map((item) => (
-              <Link
-                key={item.id}
-                href={`/medicines/${item.id}`}
-                className="block p-4 bg-[var(--surface)]/30 rounded-xl hover:bg-[var(--surface)]/50 transition-all hover:scale-[1.01] border border-transparent hover:border-[var(--brand-blue)]/20"
-              >
-                <div className="flex justify-between items-start mb-2">
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-[var(--ink)]">{item.name}</p>
-                    <p className="text-sm text-[var(--muted)]">{item.seller}</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
+                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{pendingListings}</p>
                   </div>
-                  <span className="text-[var(--brand-blue)] font-bold">₹{item.price}/unit</span>
+                  <div className="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
+                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--muted)]">Stock: {item.stock.toLocaleString()}</span>
-                  <span className="text-[var(--muted)]">{item.listedAt}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+              </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-2xl p-6 border border-slate/10 shadow-sm">
-        <h3 className="text-xl font-semibold text-[var(--ink)] mb-6">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link
-            href="/medicines"
-            className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center"
-          >
-            <Search className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-[var(--ink)] mb-1">Browse Medicines</h4>
-            <p className="text-sm text-[var(--muted)]">Find and buy medicines</p>
-          </Link>
-          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center">
-            <Package className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-[var(--ink)] mb-1">My Orders</h4>
-            <p className="text-sm text-[var(--muted)]">View order history</p>
-          </button>
-          <button className="group p-6 bg-gradient-to-br from-gold/5 to-gold/10 hover:from-gold/10 hover:to-gold/20 rounded-xl border border-[var(--brand-blue)]/20 hover:border-[var(--brand-blue)]/40 transition-all hover:scale-105 text-center">
-            <Briefcase className="w-10 h-10 text-[var(--brand-blue)] mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h4 className="font-semibold text-[var(--ink)] mb-1">My Inventory</h4>
-            <p className="text-sm text-[var(--muted)]">Manage your stock</p>
-          </button>
-        </div>
-      </div>
-    </DashboardLayout>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Stock</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{totalStock.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                    <Pill className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Quick Actions</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Link
+                  href="/medicines"
+                  className="group p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 
+                           hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/30 dark:hover:to-blue-800/30
+                           rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ShoppingCart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Browse Market</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Find medicines</p>
+                </Link>
+
+                <Link
+                  href="/news"
+                  className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 
+                           hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30
+                           rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">News</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Latest updates</p>
+                </Link>
+
+                <button className="group p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 
+                                 hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30
+                                 rounded-xl border border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 
+                                 transition-all text-center hover:scale-105">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 dark:bg-purple-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Package className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">My Orders</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Track orders</p>
+                </button>
+
+                <button className="group p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 
+                                 hover:from-orange-100 hover:to-orange-200 dark:hover:from-orange-900/30 dark:hover:to-orange-800/30
+                                 rounded-xl border border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 
+                                 transition-all text-center hover:scale-105">
+                  <div className="w-12 h-12 mx-auto mb-3 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Pill className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">My Listings</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">View inventory</p>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
   );
 }
-

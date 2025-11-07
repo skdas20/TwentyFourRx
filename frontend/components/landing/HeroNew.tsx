@@ -20,10 +20,14 @@ export default function HeroNew() {
             <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Live Medicine Trading Platform</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+          <h1 className="text-5xl md:text-7xl font-bold mb-4 leading-tight">
             <span className="text-gray-900 dark:text-white">24Rx</span>{" "}
             <span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">Exchange</span>
           </h1>
+
+          <p className="text-lg md:text-xl text-blue-600 dark:text-blue-400 font-semibold mb-6">
+            World's Only Med-Trade Platform
+          </p>
 
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             B2B medicine retail app. Trade medicines with transparency and track prices in real-time.

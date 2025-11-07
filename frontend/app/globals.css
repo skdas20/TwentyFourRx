@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Light theme */
+    /* Light theme - BLUE (for app pages) */
     --bg: #FFFFFF;              /* pure white background */
     --surface: #F8FAFC;         /* light gray surface */
     --surface-2: #F1F5F9;       /* slightly darker surface */
@@ -17,7 +17,7 @@
     --up-blue: #10B981;         /* green for positive */
     --down-red: #EF4444;        /* red for negative */
     --border: #E2E8F0;          /* light border */
-    
+
     --background: 0 0% 100%;
     --foreground: 0 0% 12%;
     --card: 0 0% 97%;
@@ -41,7 +41,7 @@
   }
 
   .dark {
-    /* Dark theme */
+    /* Dark theme - BLUE */
     --bg: #0A0A0B;              /* app bg (near black) */
     --surface: #121316;         /* nav/cards */
     --surface-2: #181A1E;       /* raised */
@@ -52,7 +52,7 @@
     --up-blue: #3BA7FF;         /* positive change */
     --down-red: #EE2B2B;        /* negative change */
     --border: #202327;
-    
+
     --background: 0 0% 4%;
     --foreground: 0 0% 95%;
     --card: 0 0% 7%;

@@ -306,18 +306,27 @@ export default function AdminDashboard() {
                       <div key={listing.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-gray-100">{listing.medicineReference?.name || 'Medicine'}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">by {listing.user?.name || 'Unknown'}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                              {listing.medicine?.name || 'Medicine'}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              by {listing.seller?.name || 'Unknown'}
+                            </p>
+                            {listing.medicine?.manufacturer && (
+                              <p className="text-xs text-gray-500 dark:text-gray-500">
+                                {listing.medicine.manufacturer.name}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
                           <div>
-                            <span className="text-gray-500">Base Price:</span>
-                            <span className="text-gray-900 ml-1 font-medium">₹{listing.basePrice}</span>
+                            <span className="text-gray-500 dark:text-gray-400">Base Price:</span>
+                            <span className="text-gray-900 dark:text-gray-100 ml-1 font-medium">₹{listing.basePrice}</span>
                           </div>
                           <div>
-                            <span className="text-gray-500">Stock:</span>
-                            <span className="text-gray-900 ml-1 font-medium">{listing.stock} units</span>
+                            <span className="text-gray-500 dark:text-gray-400">Stock:</span>
+                            <span className="text-gray-900 dark:text-gray-100 ml-1 font-medium">{listing.stock} units</span>
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
