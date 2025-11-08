@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, Plus } from "lucide-react";
+import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, Plus, FileText } from "lucide-react";
 import { usersApi, listingsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
+import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -15,10 +16,13 @@ export default function AdminDashboard() {
     activeListings: 0,
     pendingUsers: 0,
     pendingListings: 0,
+    pendingProposals: 0,
   });
   const [pendingUsers, setPendingUsers] = useState([]);
   const [pendingListings, setPendingListings] = useState([]);
+  const [pendingProposals, setPendingProposals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedUserForDocs, setSelectedUserForDocs] = useState<{id: string, name: string} | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -48,6 +52,10 @@ export default function AdminDashboard() {
       const listingsResponse = await listingsApi.getPendingListings();
       const pendingListingsData = listingsResponse.data;
       
+      // Load medicine proposals
+      const proposalsResponse = await listingsApi.getPendingProposals();
+      const pendingProposalsData = proposalsResponse.data;
+      
       // Load active listings
       const activeListingsResponse = await listingsApi.getListings();
       const activeListingsData = activeListingsResponse.data;
@@ -57,10 +65,12 @@ export default function AdminDashboard() {
         activeListings: activeListingsData.length,
         pendingUsers: pendingUsersData.length,
         pendingListings: pendingListingsData.length,
+        pendingProposals: pendingProposalsData.length,
       });
       
       setPendingUsers(pendingUsersData.slice(0, 5)); // Show first 5
       setPendingListings(pendingListingsData.slice(0, 5)); // Show first 5
+      setPendingProposals(pendingProposalsData.slice(0, 5)); // Show first 5
       
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -88,20 +98,65 @@ export default function AdminDashboard() {
   };
 
   const handleApproveListing = async (listingId: string) => {
+    const markupPct = prompt('Enter admin markup percentage (0-100, default 0):');
+    const markup = markupPct ? parseFloat(markupPct) : 0;
+    
+    if (isNaN(markup) || markup < 0 || markup > 100) {
+      alert('Invalid markup percentage. Please enter a number between 0 and 100.');
+      return;
+    }
+    
     try {
-      await listingsApi.approveListing(listingId);
+      await listingsApi.approveListing(listingId, { adminMarkupPct: markup });
+      alert(`Listing approved with ${markup}% markup!`);
       loadDashboardData(); // Refresh data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to approve listing:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to approve listing';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
   const handleRejectListing = async (listingId: string) => {
+    const reason = prompt('Enter rejection reason (optional):') || 'Rejected by admin';
+    if (!reason) return;
+    
     try {
-      await listingsApi.rejectListing(listingId, 'Rejected by admin');
+      await listingsApi.rejectListing(listingId, reason);
+      alert('Listing rejected');
       loadDashboardData(); // Refresh data
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to reject listing:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to reject listing';
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+  const handleApproveProposal = async (proposalId: string) => {
+    try {
+      const response = await listingsApi.approveMedicineProposal(proposalId);
+      console.log('Proposal approved:', response.data);
+      alert('Medicine proposal approved! A listing has been created and is now pending your approval.');
+      loadDashboardData(); // Refresh data
+    } catch (error: any) {
+      console.error('Failed to approve proposal:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to approve proposal';
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+  const handleRejectProposal = async (proposalId: string) => {
+    const reason = prompt('Enter rejection reason (optional):') || 'Rejected by admin';
+    if (!reason) return;
+    
+    try {
+      await listingsApi.rejectMedicineProposal(proposalId, reason);
+      alert('Medicine proposal rejected');
+      loadDashboardData(); // Refresh data
+    } catch (error: any) {
+      console.error('Failed to reject proposal:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to reject proposal';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -232,8 +287,86 @@ export default function AdminDashboard() {
               </div>
             </div>
 
+            {/* Medicine Proposals Alert */}
+            {stats.pendingProposals > 0 && (
+              <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Package className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <div>
+                    <p className="font-semibold text-orange-900 dark:text-orange-100">
+                      {stats.pendingProposals} New Medicine Proposal{stats.pendingProposals > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      Sellers have proposed new medicines that need your approval
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Pending Medicine Proposals */}
+              {stats.pendingProposals > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm lg:col-span-2">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pending Medicine Proposals</h3>
+                    <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full">
+                      {stats.pendingProposals} pending
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {pendingProposals.map((proposal: any) => (
+                      <div key={proposal.id} className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{proposal.name}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {proposal.form} {proposal.strength && `- ${proposal.strength}`}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              by {proposal.seller?.name || 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Manufacturer:</span>
+                            <p className="text-gray-900 dark:text-gray-100 font-medium">{proposal.manufacturerName}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">Base Price:</span>
+                            <p className="text-gray-900 dark:text-gray-100 font-medium">₹{proposal.basePrice}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-3 border-t border-orange-200 dark:border-orange-700">
+                          <span className="text-sm text-gray-500">
+                            {new Date(proposal.createdAt).toLocaleDateString()}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleApproveProposal(proposal.id)}
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectProposal(proposal.id)}
+                              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Pending User Approvals */}
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
@@ -267,14 +400,23 @@ export default function AdminDashboard() {
                           </span>
                           <div className="flex gap-2">
                             <button
+                              onClick={() => setSelectedUserForDocs({id: user.id, name: user.name})}
+                              className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                              title="View Documents"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={() => handleApproveUser(user.id)}
                               className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+                              title="Approve User"
                             >
                               <CheckCircle className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleRejectUser(user.id)}
                               className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                              title="Reject User"
                             >
                               <XCircle className="w-4 h-4" />
                             </button>
@@ -329,6 +471,18 @@ export default function AdminDashboard() {
                             <span className="text-gray-900 dark:text-gray-100 ml-1 font-medium">{listing.stock} units</span>
                           </div>
                         </div>
+                        {listing.documentUrl && (
+                          <div className="mb-3">
+                            <a
+                              href={listing.documentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                            >
+                              📄 View Document
+                            </a>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-500">
                             {new Date(listing.createdAt).toLocaleDateString()}
@@ -402,6 +556,20 @@ export default function AdminDashboard() {
                 </Link>
 
                 <Link
+                  href="/dashboard/admin/listings"
+                  className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 
+                           hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30
+                           rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Package className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">All Listings</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">View all listings</p>
+                </Link>
+
+                <Link
                   href="/dashboard/admin/analytics"
                   className="group p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 
                            hover:from-orange-100 hover:to-orange-200 dark:hover:from-orange-900/30 dark:hover:to-orange-800/30
@@ -419,6 +587,16 @@ export default function AdminDashboard() {
           </>
         )}
       </main>
+
+      {/* Documents Modal */}
+      {selectedUserForDocs && (
+        <UserDocumentsModal
+          userId={selectedUserForDocs.id}
+          userName={selectedUserForDocs.name}
+          onClose={() => setSelectedUserForDocs(null)}
+          onDocumentReviewed={() => loadDashboardData()}
+        />
+      )}
     </div>
   );
 }

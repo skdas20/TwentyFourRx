@@ -52,9 +52,14 @@ export const usersApi = {
   getUsers: (params?: { status?: string; roleCode?: string }) =>
     api.get('/admin/users', { params }),
   getUser: (id: string) => api.get(`/admin/users/${id}`),
-  approveUser: (id: string) => api.patch(`/admin/users/${id}/approve`),
-  rejectUser: (id: string) => api.patch(`/admin/users/${id}/reject`),
-  blockUser: (id: string) => api.patch(`/admin/users/${id}/block`),
+  approveUser: (id: string) => api.patch(`/admin/users/${id}/approve`, {}),
+  rejectUser: (id: string) => api.patch(`/admin/users/${id}/reject`, {}),
+  blockUser: (id: string) => api.patch(`/admin/users/${id}/block`, {}),
+  getUserDocuments: (id: string) => api.get(`/admin/users/${id}/documents`),
+  approveDocument: (userId: string, documentId: string, reviewerNote?: string) =>
+    api.patch(`/admin/users/${userId}/documents/${documentId}/approve`, { reviewerNote }),
+  rejectDocument: (userId: string, documentId: string, reviewerNote: string) =>
+    api.patch(`/admin/users/${userId}/documents/${documentId}/reject`, { reviewerNote }),
 }
 
 // Medicines API
@@ -82,6 +87,11 @@ export const listingsApi = {
     api.patch(`/listings/${id}/approve`, data),
   rejectListing: (id: string, reviewerNote: string) =>
     api.patch(`/listings/${id}/reject`, { reviewerNote }),
+  getPendingProposals: () => api.get('/listings/proposals/pending'),
+  approveMedicineProposal: (id: string) =>
+    api.patch(`/listings/proposals/${id}/approve`, {}),
+  rejectMedicineProposal: (id: string, reviewerNote: string) =>
+    api.patch(`/listings/proposals/${id}/reject`, { reviewerNote }),
 }
 
 // Orders API

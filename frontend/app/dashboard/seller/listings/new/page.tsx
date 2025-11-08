@@ -16,6 +16,7 @@ export default function NewListingPage() {
   const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
   const [basePrice, setBasePrice] = useState("");
   const [stock, setStock] = useState("");
+  const [document, setDocument] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -75,18 +76,34 @@ export default function NewListingPage() {
 
     try {
       setSubmitting(true);
-      const payload = {
-        medicineReferenceId: selectedMedicine.id,
-        basePrice: parsedPrice,
-        stock: parsedStock,
-      };
-      console.log("Creating listing with:", payload);
-      console.log("Selected medicine:", selectedMedicine);
       
-      const response = await listingsApi.createListing(payload);
-      console.log("Listing created:", response.data);
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('medicineReferenceId', selectedMedicine.id);
+      formData.append('basePrice', parsedPrice.toString());
+      formData.append('stock', parsedStock.toString());
+      if (document) {
+        formData.append('document', document);
+      }
       
-      alert(response.data.message || "Listing created successfully!");
+      console.log("Creating listing with document:", document?.name);
+      
+      const response = await fetch('http://localhost:8080/api/v1/listings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: formData,
+      });
+      
+      const data = await response.json();
+      console.log("Listing created:", data);
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create listing');
+      }
+      
+      alert(data.message || "Listing created successfully!");
       router.push("/dashboard/seller");
     } catch (error: any) {
       console.error("Failed to create listing:", error);
@@ -228,6 +245,29 @@ export default function NewListingPage() {
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter stock quantity"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Credibility Document (Optional)
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Upload invoice, receipt, or purchase proof (PDF, JPG, PNG - Max 5MB)
+                </p>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setDocument(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
+                           file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                           file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+                />
+                {document && (
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                    ✓ {document.name} ({(document.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
               </div>
             </div>
 

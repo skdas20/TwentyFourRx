@@ -81,18 +81,19 @@ model User {
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  role              Role                @relation(fields: [roleCode], references: [code])
-  kycDocuments      KycDocument[]
-  listings          Listing[]
-  orders            Order[]
-  holds             Hold[]
-  inventoryLots     InventoryLot[]
-  newsArticles      NewsArticle[]
-  notifications     Notification[]
-  proposals         MedicineProposal[]
-  reviewedDocuments KycDocument[]       @relation("ReviewedBy")
-  watchlists        Watchlist[]
-  priceAlerts       PriceAlert[]
+  role                 Role                   @relation(fields: [roleCode], references: [code])
+  kycDocuments         KycDocument[]
+  listings             Listing[]
+  orders               Order[]
+  holds                Hold[]
+  inventoryLots        InventoryLot[]
+  newsArticles         NewsArticle[]
+  notifications        Notification[]
+  proposals            MedicineProposal[]
+  reviewedDocuments    KycDocument[]          @relation("ReviewedBy")
+  watchlists           Watchlist[]
+  priceAlerts          PriceAlert[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@index([roleCode])
   @@index([status])
@@ -191,6 +192,7 @@ model Listing {
   stock           Int
   status          ListingStatus @default(PENDING)
   reviewerNote    String?       @map("reviewer_note")
+  documentUrl     String?       @map("document_url") // Credibility document (invoice/receipt)
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   approvedAt      DateTime?     @map("approved_at") @db.Timestamptz(6)
   activatedAt     DateTime?     @map("activated_at") @db.Timestamptz(6)
@@ -429,4 +431,21 @@ model PriceAlert {
   @@index([medicineId])
   @@index([isActive])
   @@map("price_alerts")
+}
+
+// Password reset tokens for secure password reset flow
+model PasswordResetToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique // Hashed token
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }

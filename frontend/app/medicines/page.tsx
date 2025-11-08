@@ -42,9 +42,17 @@ export default function MedicinesPage() {
   };
 
   const filteredMedicines = listings.filter((listing: any) => {
-    const medicineName = listing.medicineReference?.name || "";
-    const matchesSearch = medicineName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    const medicine = listing.medicine;
+    if (!medicine) return false;
+    
+    const medicineName = medicine.name || "";
+    const manufacturer = medicine.manufacturer?.name || "";
+    const searchText = `${medicineName} ${manufacturer}`.toLowerCase();
+    const matchesSearch = searchText.includes(searchTerm.toLowerCase());
+    
+    const matchesForm = selectedForm === "ALL" || medicine.form === selectedForm;
+    
+    return matchesSearch && matchesForm;
   });
 
   return (
@@ -191,22 +199,34 @@ export default function MedicinesPage() {
 
                 {/* Info */}
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  {listing.medicineReference?.name || "Medicine"}
+                  {listing.medicine?.name || "Medicine"}
                 </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  {listing.medicine?.form} {listing.medicine?.strength && `- ${listing.medicine.strength}`}
+                </p>
                 <div className="flex gap-2 mb-3">
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded text-xs font-medium">
                     {listing.status}
                   </span>
                   <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs">
-                    {listing.user?.name || "Seller"}
+                    {listing.seller?.name || "Seller"}
                   </span>
                 </div>
+                {listing.medicine?.manufacturer && (
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
+                    by {listing.medicine.manufacturer.name}
+                  </p>
+                )}
 
                 {/* Price */}
                 <div className="mb-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Base Price</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    {listing.listPrice ? 'List Price' : 'Base Price'}
+                  </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">₹{listing.basePrice}</span>
+                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      ₹{listing.listPrice || listing.basePrice}
+                    </span>
                     <span className="text-sm text-gray-500">per unit</span>
                   </div>
                 </div>

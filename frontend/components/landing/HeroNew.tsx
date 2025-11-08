@@ -29,8 +29,12 @@ export default function HeroNew() {
             World's Only Med-Trade Platform
           </p>
 
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-            B2B medicine retail app. Trade medicines with transparency and track prices in real-time.
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            Elevate Your Medicine Business
+          </h2>
+
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+            Find All the Rare and High demand medicines at the rate you never thought of.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">

@@ -1,6 +1,7 @@
-import { Controller, Post, Get, Body, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req, Res, Param, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { Response, Request } from 'express';
-import { AuthService, RegisterDto, LoginDto, CreateAdminDto } from './auth.service';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { AuthService, RegisterDto, LoginDto, CreateAdminDto, ForgotPasswordDto, ResetPasswordDto } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ConfigService } from '@nestjs/config';
@@ -14,8 +15,63 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      // Screenshot 1 - Basic Business Documents
+      { name: 'GST_CERTIFICATE', maxCount: 1 },
+      { name: 'PAN_CARD', maxCount: 1 },
+      { name: 'FACTORY_LICENSE', maxCount: 1 },
+      { name: 'FSSAI_CERTIFICATE', maxCount: 1 },
+      { name: 'CANCELLED_CHEQUE', maxCount: 1 },
+      { name: 'INDEMNITY_CERTIFICATE', maxCount: 1 },
+      { name: 'COMPANY_PROFILE', maxCount: 1 },
+      { name: 'DRUG_LICENSE_1', maxCount: 1 },
+      { name: 'DRUG_LICENSE_2', maxCount: 1 },
+      { name: 'DRUG_LICENSE_3', maxCount: 1 },
+      { name: 'DRUG_LICENSE_4', maxCount: 1 },
+      // Screenshot 2 - Authorization & Quality Documents
+      { name: 'MANUFACTURER_AUTH_LETTER', maxCount: 1 },
+      { name: 'MANUFACTURER_AGREEMENT', maxCount: 1 },
+      { name: 'QUALITY_CERTIFICATIONS', maxCount: 1 },
+      { name: 'INCORPORATION_CERTIFICATE', maxCount: 1 },
+      { name: 'MSE_CERTIFICATE', maxCount: 1 },
+      { name: 'UDYOG_AADHAR', maxCount: 1 },
+      { name: 'NSIC_CERTIFICATE', maxCount: 1 },
+      // Screenshot 3 - Legal & Compliance Documents
+      { name: 'NON_CONVICTION_CERTIFICATE', maxCount: 1 },
+      { name: 'SUPPLY_ORDER', maxCount: 1 },
+      { name: 'SAMPLE_DECLARATION_FORM', maxCount: 1 },
+      { name: 'DECLARATION_FORM', maxCount: 1 },
+    ], {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB per file
+      },
+      fileFilter: (req, file, callback) => {
+        // Allow PDF, images
+        const allowedMimes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        if (allowedMimes.includes(file.mimetype)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`Invalid file type for ${file.fieldname}. Only PDF, JPG, PNG allowed.`), false);
+        }
+      },
+    })
+  )
+  async register(
+    @Body() dto: RegisterDto,
+    @UploadedFiles() files?: { [fieldname: string]: Express.Multer.File[] },
+  ) {
+    // Convert file arrays to single files
+    const documents: { [docTypeCode: string]: Express.Multer.File } = {};
+    if (files) {
+      for (const [key, fileArray] of Object.entries(files)) {
+        if (fileArray && fileArray.length > 0) {
+          documents[key] = fileArray[0];
+        }
+      }
+    }
+
+    return this.authService.register(dto, documents);
   }
 
   @Public()
@@ -73,5 +129,23 @@ export class AuthController {
   @Post('admin/create')
   async createAdmin(@Body() dto: CreateAdminDto) {
     return this.authService.createAdmin(dto);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  @Public()
+  @Get('validate-reset-token/:token')
+  async validateResetToken(@Param('token') token: string) {
+    return this.authService.validateResetToken(token);
   }
 }

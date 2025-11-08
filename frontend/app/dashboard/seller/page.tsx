@@ -226,16 +226,19 @@ export default function SellerDashboard() {
                   <p className="text-xs text-gray-600 dark:text-gray-400">Latest info</p>
                 </Link>
 
-                <button className="group p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 
-                                 hover:from-orange-100 hover:to-orange-200 dark:hover:from-orange-900/30 dark:hover:to-orange-800/30
-                                 rounded-xl border border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 
-                                 transition-all text-center hover:scale-105">
+                <Link
+                  href="/dashboard/seller/listings"
+                  className="group p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 
+                           hover:from-orange-100 hover:to-orange-200 dark:hover:from-orange-900/30 dark:hover:to-orange-800/30
+                           rounded-xl border border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 
+                           transition-all text-center hover:scale-105"
+                >
                   <div className="w-12 h-12 mx-auto mb-3 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">My Listings</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Manage inventory</p>
-                </button>
+                </Link>
               </div>
             </div>
 

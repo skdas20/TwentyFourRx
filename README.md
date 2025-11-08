@@ -1,395 +1,331 @@
-# MedTrade B2B - Medicine Trading Platform
+# 24Rx - B2B Medicine Trading Platform
 
-A comprehensive B2B platform for medicine trading with features for Sellers, Traders, and Administrators. Built with NestJS, PostgreSQL, Next.js, and TypeScript.
+A comprehensive B2B platform for medicine trading, inventory management, and price tracking.
 
-## Features
+## 🚀 Features
 
-### Core Functionality
-- **Role-Based Access Control (RBAC)**: Admin, Trader, Seller roles with specific permissions
-- **KYC Verification**: Document upload and approval workflow
-- **Medicine Catalog**: Manage medicines with manufacturers and marketers
-- **Listings Management**: Sellers create listings, Admin approves with markup
-- **Trading Actions**: Buy, Sell, and Hold inventory
-- **Hold Auto-Delivery**: Automatically converts holds to orders after 10 days
-- **Price Tracking**: Historical price trends with charts
-- **Analytics Dashboards**: Top-4 cards for medicines, listings, and news
-- **Notifications**: Multi-channel (Email, SMS, In-App) notifications
-- **News Articles**: Admin-published content linked to medicines
+### For Sellers
+- List medicines from 251K+ reference database
+- Upload credibility documents (invoices, receipts)
+- Track inventory and sales
+- Manage listings and pricing
 
-### Technical Features
-- JWT Authentication with role guards
-- PostgreSQL with Prisma ORM
-- Redis + BullMQ for background jobs
-- Full-text search with trigram indexes
-- RESTful API with Swagger documentation
-- Responsive UI with Tailwind CSS
-- TanStack Query for data fetching
-- Docker containerization
+### For Traders
+- Browse and purchase medicines
+- Hold inventory for speculation
+- Track price trends and analytics
+- Set price alerts
 
-## Tech Stack
+### For Admins
+- Approve/reject user registrations
+- Review and approve listings
+- Manage medicine proposals
+- View platform analytics
+
+### Core Features
+- **Authentication**: JWT-based auth with email verification
+- **KYC**: Document upload and verification system
+- **Real-time Pricing**: Track medicine prices over time
+- **Watchlist**: Monitor medicines of interest
+- **Price Alerts**: Get notified when prices hit targets
+- **News**: Platform news and updates
+- **Analytics**: Comprehensive trading analytics
+
+## 🏗️ Tech Stack
 
 ### Backend
-- **Framework**: NestJS (Node.js/TypeScript)
-- **Database**: PostgreSQL 15+
+- **Framework**: NestJS (Node.js)
+- **Database**: PostgreSQL
+- **Cache**: Redis
+- **Storage**: MinIO (S3-compatible)
 - **ORM**: Prisma
-- **Queue**: Redis + BullMQ
-- **Authentication**: JWT + Passport
-- **Validation**: class-validator + Zod
-- **Documentation**: Swagger/OpenAPI
+- **Authentication**: JWT + Refresh Tokens
+- **Email**: Gmail SMTP
+- **Queue**: Bull (Redis-based)
 
 ### Frontend
 - **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **State Management**: TanStack Query (React Query)
-- **Forms**: React Hook Form + Zod
-- **Charts**: Recharts
+- **Styling**: Tailwind CSS
+- **State**: React Context
+- **HTTP Client**: Axios
+- **Icons**: Lucide React
 
 ### Infrastructure
-- **Containerization**: Docker + Docker Compose
-- **Database**: PostgreSQL in Docker
-- **Cache/Queue**: Redis in Docker
-- **Reverse Proxy**: Nginx (production)
+- **Containerization**: Docker
+- **Orchestration**: Docker Compose
+- **Deployment**: Railway (recommended)
+- **CI/CD**: GitHub Actions (optional)
 
-## Project Structure
+## 📋 Prerequisites
 
-```
-24Rx/
-├── backend/                 # NestJS backend
-│   ├── src/
-│   │   ├── auth/           # Authentication module
-│   │   ├── users/          # User management
-│   │   ├── kyc/            # KYC verification
-│   │   ├── medicines/      # Medicine catalog
-│   │   ├── listings/       # Listings management
-│   │   ├── orders/         # Order processing
-│   │   ├── holds/          # Hold + auto-delivery worker
-│   │   ├── inventory/      # Inventory lots
-│   │   ├── prices/         # Price history
-│   │   ├── news/           # News articles
-│   │   ├── notifications/  # Notification service
-│   │   ├── analytics/      # Analytics & dashboards
-│   │   ├── config/         # Configuration (Prisma, Redis)
-│   │   └── common/         # Guards, decorators, utilities
-│   ├── prisma/
-│   │   └── schema.prisma   # Prisma schema
-│   └── docker/             # Docker configuration
-├── frontend/               # Next.js frontend
-│   ├── app/               # App Router pages
-│   │   ├── auth/          # Login/Register
-│   │   ├── dashboard/     # Role-based dashboards
-│   │   ├── medicines/     # Medicine listings & details
-│   │   └── news/          # News articles
-│   ├── components/        # Reusable components
-│   │   ├── charts/        # Chart components
-│   │   ├── cards/         # Dashboard cards
-│   │   ├── tables/        # Data tables
-│   │   └── forms/         # Form components
-│   └── lib/              # API client, utilities
-└── b2b_medicine_schema.sql  # Database schema
-
-```
-
-## Getting Started
-
-### Prerequisites
-- Node.js 20+
+- Node.js 18+ 
 - PostgreSQL 15+
 - Redis 7+
-- Docker & Docker Compose (optional but recommended)
+- MinIO (or S3)
+- Docker & Docker Compose (for containerized deployment)
 
-### Option 1: Docker Setup (Recommended)
+## 🚀 Quick Start
 
-1. **Clone the repository**
+### Option 1: Docker (Recommended)
+
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone <your-repo-url>
 cd 24Rx
+
+# Start all services
+docker-compose up --build
+
+# Access the application
+# Frontend: http://localhost:3000
+# Backend: http://localhost:8080
+# MinIO Console: http://localhost:9001
 ```
 
-2. **Start services with Docker Compose**
-```bash
-cd backend/docker
-docker-compose up -d
-```
-
-This will start:
-- PostgreSQL on port 5432
-- Redis on port 6379
-- Backend API on port 8080
-
-3. **Initialize the database**
-```bash
-# The schema will be automatically applied via docker-entrypoint-initdb.d
-# Or manually run:
-docker exec -i medtrade-postgres psql -U medtrade -d medtrade < ../../b2b_medicine_schema.sql
-```
-
-4. **Set up the frontend**
-```bash
-cd ../../frontend
-npm install
-cp .env.local.example .env.local
-npm run dev
-```
-
-Frontend will be available at http://localhost:3000
+See [DOCKER_README.md](./DOCKER_README.md) for detailed Docker instructions.
 
 ### Option 2: Manual Setup
 
-#### Backend Setup
+#### 1. Setup Backend
 
-1. **Install dependencies**
 ```bash
 cd backend
+
+# Install dependencies
 npm install
-```
 
-2. **Set up environment variables**
-```bash
+# Setup environment variables
 cp .env.example .env
-# Edit .env with your database credentials
-```
+# Edit .env with your configuration
 
-3. **Set up PostgreSQL database**
-```bash
-# Create database
-createdb medtrade
+# Run database migrations
+npx prisma migrate deploy
 
-# Run schema
-psql -d medtrade -f ../b2b_medicine_schema.sql
-```
-
-4. **Generate Prisma Client**
-```bash
+# Generate Prisma client
 npx prisma generate
-```
 
-5. **Start Redis** (if not using Docker)
-```bash
-redis-server
-```
-
-6. **Run the backend**
-```bash
+# Start development server
 npm run start:dev
 ```
 
-Backend API will be available at http://localhost:8080
-API Documentation at http://localhost:8080/api/docs
+#### 2. Setup Frontend
 
-#### Frontend Setup
-
-1. **Install dependencies**
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
-```
 
-2. **Set up environment variables**
-```bash
-cp .env.local.example .env.local
-# Edit .env.local if needed
-```
+# Setup environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
 
-3. **Run the frontend**
-```bash
+# Start development server
 npm run dev
 ```
 
-Frontend will be available at http://localhost:3000
+#### 3. Setup MinIO
 
-## Default Roles
+```bash
+# Windows
+start-minio.bat
 
-The system comes with three predefined roles:
-- **ADMIN**: Approves users, listings, manages catalog
-- **TRADER**: Can buy, sell, and hold medicines
-- **SELLER**: Can only sell medicines
-
-## Key Workflows
-
-### 1. User Registration & Approval
-1. User registers as TRADER or SELLER
-2. Status is set to PENDING
-3. Admin reviews and approves/rejects
-4. Only APPROVED users can log in
-
-### 2. Medicine Listing
-1. Seller proposes new medicine or creates listing
-2. Admin reviews and sets markup percentage
-3. list_price = base_price * (1 + admin_markup_pct/100)
-4. Listing becomes ACTIVE
-
-### 3. Hold Auto-Delivery
-1. Trader creates a Hold (pays upfront)
-2. System schedules auto-delivery job (hold_start + 10 days)
-3. BullMQ worker converts Hold to Delivered Order
-4. Notification sent to trader
-
-### 4. Price Tracking
-1. System tracks daily min/max/avg prices
-2. Price history stored for trend analysis
-3. Chart displays price trends over time
-
-## API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login
-- `GET /api/v1/auth/me` - Get profile
-
-### Admin
-- `GET /api/v1/admin/users` - List users (with filters)
-- `PATCH /api/v1/admin/users/:id/approve` - Approve user
-- `PATCH /api/v1/admin/users/:id/reject` - Reject user
-- `GET /api/v1/admin/listings` - List pending listings
-- `PATCH /api/v1/admin/listings/:id/approve` - Approve listing
-
-### Trading
-- `POST /api/v1/trader/orders` - Create order (Buy)
-- `POST /api/v1/trader/holds` - Create hold
-- `POST /api/v1/trader/listings-from-inventory` - Relist from inventory
-
-### Dashboards
-- `GET /api/v1/dashboard/top-held` - Top 4 held medicines
-- `GET /api/v1/dashboard/top-bought` - Top 4 bought medicines
-- `GET /api/v1/dashboard/top-news` - Top 4 in news
-- `GET /api/v1/dashboard/recent-listings` - Top 4 recent listings
-
-### Price History
-- `GET /api/v1/prices/history?medicineId=&range=30d` - Get price trend
-
-Full API documentation available at `/api/docs` when backend is running.
-
-## Database Schema Highlights
-
-### Key Tables
-- **users**: User accounts with role and status
-- **medicines**: Medicine catalog (3NF normalized)
-- **listings**: Seller offers with computed list_price
-- **orders**: Buy/Sell transactions
-- **holds**: Paid reservations with auto-delivery
-- **price_history**: Daily price aggregates
-- **notifications**: Multi-channel notifications
-- **analytics_rollups**: Pre-computed dashboard metrics
-
-### Generated Columns
-- `listings.list_price` = base_price * (1 + admin_markup_pct/100)
-- `orders.amount` = qty * unit_price
-
-### Key Indexes
-- Trigram GIN indexes for medicine/manufacturer search
-- Partial index on active listings with stock
-- Time-series indexes on price_history
-- Job queue index on holds(auto_delivery_at)
-
-## Environment Variables
-
-### Backend (.env)
+# Linux/Mac
+./start-minio.sh
 ```
+
+## 🔧 Configuration
+
+### Backend Environment Variables
+
+```env
+# Server
 PORT=8080
-DATABASE_URL=postgresql://user:pass@localhost:5432/medtrade
+NODE_ENV=development
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/medtrade
+
+# JWT
+JWT_SECRET=your_secret_key_min_32_chars
+JWT_EXPIRATION=15m
+REFRESH_TOKEN_EXPIRES_SECONDS=2592000
+
+# Redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
-JWT_SECRET=your_secret_key
-HOLD_AUTO_DELIVERY_DAYS=10
-```
+REDIS_PASSWORD=
 
-### Frontend (.env.local)
-```
-NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_secret_key
-```
+# Admin
+ADMIN_SECRET_KEY=your_admin_secret
 
-## Development
-
-### Running Tests
-```bash
-# Backend
-cd backend
-npm test
+# Email
+GMAIL_USER=your_email@gmail.com
+GMAIL_APP_PASSWORD=your_app_password
 
 # Frontend
-cd frontend
-npm test
+FRONTEND_URL=http://localhost:3000
+
+# MinIO
+MINIO_ENDPOINT=localhost
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_USE_SSL=false
 ```
 
-### Building for Production
+### Frontend Environment Variables
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+```
+
+## 📚 Documentation
+
+- [Docker Deployment Guide](./DOCKER_README.md)
+- [Railway Deployment Guide](./RAILWAY_DEPLOYMENT.md)
+- [API Documentation](./backend/README.md)
+- [Frontend Documentation](./frontend/README.md)
+
+## 🗄️ Database Schema
+
+The platform uses PostgreSQL with the following main entities:
+
+- **Users**: Sellers, Traders, Admins
+- **Medicines**: Medicine catalog with manufacturer/marketer info
+- **Listings**: Seller inventory listings
+- **Orders**: Purchase transactions
+- **Holds**: Trader inventory holds
+- **Price History**: Historical pricing data
+- **Watchlist**: User medicine watchlists
+- **Price Alerts**: Price notification triggers
+
+See `backend/prisma/schema.prisma` for complete schema.
+
+## 🔐 Security
+
+- JWT-based authentication with refresh tokens
+- Password hashing with bcrypt
+- Role-based access control (RBAC)
+- Rate limiting with throttler
+- Input validation with class-validator
+- SQL injection prevention with Prisma
+- XSS protection
+- CORS configuration
+
+## 🧪 Testing
+
+### Backend Tests
+
 ```bash
-# Backend
+cd backend
+npm run test
+npm run test:e2e
+npm run test:cov
+```
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm run test
+npm run test:watch
+```
+
+## 📦 Building for Production
+
+### Backend
+
+```bash
 cd backend
 npm run build
 npm run start:prod
+```
 
-# Frontend
+### Frontend
+
+```bash
 cd frontend
 npm run build
 npm start
 ```
 
-### Database Migrations
-```bash
-cd backend
-npx prisma migrate dev --name description
-npx prisma generate
-```
+## 🚢 Deployment
 
-## Deployment
+### Railway (Recommended)
 
-### Production Checklist
-- [ ] Change all JWT_SECRET and NEXTAUTH_SECRET values
-- [ ] Use strong database passwords
-- [ ] Configure S3 for file uploads
-- [ ] Set up Email/SMS providers
-- [ ] Enable HTTPS with SSL certificates
-- [ ] Configure CORS for production domain
-- [ ] Set up monitoring and logging
-- [ ] Configure backup for PostgreSQL
-- [ ] Use Redis persistence (AOF/RDB)
-- [ ] Set up CI/CD pipeline
+See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for step-by-step Railway deployment guide.
 
-### Docker Production Build
-```bash
-# Build images
-docker-compose -f docker-compose.prod.yml build
+### Docker
 
-# Start services
-docker-compose -f docker-compose.prod.yml up -d
-```
+See [DOCKER_README.md](./DOCKER_README.md) for Docker deployment instructions.
 
-## Troubleshooting
+### Other Platforms
 
-### Database Connection Issues
-- Ensure PostgreSQL is running
-- Check DATABASE_URL format
-- Verify firewall rules
+The application can be deployed to:
+- AWS (EC2, ECS, Elastic Beanstalk)
+- Google Cloud Platform (Cloud Run, GKE)
+- Azure (App Service, AKS)
+- DigitalOcean (App Platform, Droplets)
+- Heroku
+- Vercel (Frontend only)
 
-### Redis Connection Issues
-- Ensure Redis is running
-- Check REDIS_HOST and REDIS_PORT
-- Verify Redis is not password-protected (or provide password)
-
-### Authentication Issues
-- Verify JWT_SECRET matches between backend and requests
-- Check token expiration settings
-- Ensure user status is APPROVED
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## License
+## 📝 License
 
-Proprietary - GenAI CoE
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 👥 Team
 
-For issues and questions, please contact the development team or create an issue in the repository.
+- **Developer**: [Your Name]
+- **Project**: 24Rx Medicine Trading Platform
+- **Year**: 2024
+
+## 🆘 Support
+
+- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
+- **Email**: support@24rx.com
+- **Documentation**: See docs folder
+
+## 🎯 Roadmap
+
+- [ ] Mobile app (React Native)
+- [ ] Advanced analytics dashboard
+- [ ] AI-powered price predictions
+- [ ] Multi-currency support
+- [ ] International shipping
+- [ ] Bulk order discounts
+- [ ] Subscription plans
+- [ ] API for third-party integrations
+
+## 📊 Project Status
+
+- ✅ Core features implemented
+- ✅ Authentication & Authorization
+- ✅ Listing management
+- ✅ Order processing
+- ✅ Price tracking
+- ✅ Admin dashboard
+- ✅ Docker support
+- ✅ Railway deployment ready
+- 🚧 Mobile app (planned)
+- 🚧 Advanced analytics (planned)
+
+## 🙏 Acknowledgments
+
+- NestJS team for the amazing framework
+- Next.js team for the React framework
+- Prisma team for the excellent ORM
+- Railway for easy deployment
+- All open-source contributors
 
 ---
 
-Built with by GenAI CoE
+Made with ❤️ by the 24Rx Team

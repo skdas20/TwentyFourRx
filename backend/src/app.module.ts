@@ -27,6 +27,7 @@ import { ScrapingModule } from './scraping/scraping.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
 import { PriceAlertsModule } from './price-alerts/price-alerts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -83,5 +84,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
       useClass: RolesGuard,
     },
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

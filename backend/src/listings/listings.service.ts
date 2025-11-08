@@ -4,16 +4,21 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
+import { MinioService } from '../common/services/minio.service';
 
 @Injectable()
 export class ListingsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private minioService: MinioService,
+  ) {}
 
   async createListing(
     sellerId: string,
     medicineReferenceId: string,
     basePrice: number,
     stock: number,
+    document?: Express.Multer.File,
   ) {
     // Get medicine reference
     const medicineRef = await this.prisma.medicineReference.findUnique({
@@ -59,6 +64,19 @@ export class ListingsService {
       };
     }
 
+    // Upload document if provided
+    let documentUrl: string | undefined;
+    if (document) {
+      try {
+        console.log('📤 Uploading document:', document.originalname, 'Size:', document.size);
+        documentUrl = await this.minioService.uploadFile(document, 'listing-documents');
+        console.log('✅ Document uploaded successfully:', documentUrl);
+      } catch (error) {
+        console.error('❌ Failed to upload document:', error);
+        throw new BadRequestException(`Failed to upload document: ${error.message}`);
+      }
+    }
+
     // Create listing directly
     const listing = await this.prisma.listing.create({
       data: {
@@ -66,6 +84,7 @@ export class ListingsService {
         sellerId,
         basePrice,
         stock,
+        documentUrl,
         status: 'PENDING',
       },
       include: {
@@ -255,5 +274,149 @@ export class ListingsService {
     }
 
     return listing;
+  }
+
+  async getPendingProposals() {
+    return this.prisma.medicineProposal.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async approveMedicineProposal(proposalId: string) {
+    try {
+      const proposal = await this.prisma.medicineProposal.findUnique({
+        where: { id: proposalId },
+      });
+
+      if (!proposal) {
+        throw new NotFoundException('Medicine proposal not found');
+      }
+
+      if (proposal.status !== 'PENDING') {
+        throw new BadRequestException('Proposal already processed');
+      }
+
+      // Validate proposal data
+      if (!proposal.name || !proposal.form || !proposal.manufacturerName) {
+        throw new BadRequestException('Invalid proposal data: missing required fields');
+      }
+
+      if (!proposal.basePrice || Number(proposal.basePrice) <= 0) {
+        throw new BadRequestException('Invalid proposal data: basePrice must be greater than 0');
+      }
+
+      // Find or create manufacturer
+      let manufacturer = await this.prisma.manufacturer.findFirst({
+        where: { name: proposal.manufacturerName },
+      });
+
+      if (!manufacturer) {
+        manufacturer = await this.prisma.manufacturer.create({
+          data: { name: proposal.manufacturerName },
+        });
+      }
+
+      // Find or create marketer (if provided)
+      let marketerId: string | undefined = undefined;
+      if (proposal.marketerName && proposal.marketerName.trim() !== '') {
+        let marketer = await this.prisma.marketer.findFirst({
+          where: { name: proposal.marketerName },
+        });
+
+        if (!marketer) {
+          marketer = await this.prisma.marketer.create({
+            data: { name: proposal.marketerName },
+          });
+        }
+        marketerId = marketer.id;
+      }
+
+      // Create the medicine
+      const medicine = await this.prisma.medicine.create({
+        data: {
+          name: proposal.name,
+          form: proposal.form,
+          strength: proposal.strength,
+          manufacturerId: manufacturer.id,
+          ...(marketerId && { marketerId }), // Only include if marketerId exists
+        },
+      });
+
+      // Create the listing
+      const listing = await this.prisma.listing.create({
+        data: {
+          medicineId: medicine.id,
+          sellerId: proposal.sellerId,
+          basePrice: Number(proposal.basePrice),
+          stock: 100, // Default stock, seller can update later
+          status: 'PENDING',
+        },
+        include: {
+          medicine: {
+            include: {
+              manufacturer: true,
+              marketer: true,
+            },
+          },
+        },
+      });
+
+      // Update proposal status
+      await this.prisma.medicineProposal.update({
+        where: { id: proposalId },
+        data: { status: 'APPROVED' },
+      });
+
+      return {
+        message: 'Medicine proposal approved and listing created',
+        medicine,
+        listing,
+      };
+    } catch (error) {
+      // If it's already a known error type, re-throw it
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+
+      // Log the error and throw a more user-friendly message
+      console.error('Error approving medicine proposal:', error);
+      throw new BadRequestException(
+        `Failed to approve medicine proposal: ${error.message || 'Unknown error'}`,
+      );
+    }
+  }
+
+  async rejectMedicineProposal(proposalId: string, reviewerNote: string) {
+    const proposal = await this.prisma.medicineProposal.findUnique({
+      where: { id: proposalId },
+    });
+
+    if (!proposal) {
+      throw new NotFoundException('Medicine proposal not found');
+    }
+
+    if (proposal.status !== 'PENDING') {
+      throw new BadRequestException('Proposal already processed');
+    }
+
+    const updated = await this.prisma.medicineProposal.update({
+      where: { id: proposalId },
+      data: {
+        status: 'REJECTED',
+        reviewerNote,
+      },
+    });
+
+    return { message: 'Medicine proposal rejected', proposal: updated };
   }
 }

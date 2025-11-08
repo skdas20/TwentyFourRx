@@ -111,7 +111,11 @@ export default function LoginPage() {
               <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-[var(--border)] text-[var(--brand-blue)] focus:ring-[var(--brand-blue)]" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-[var(--muted)]">Remember me</label>
             </div>
-            <div className="text-sm"><a href="#" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">Forgot password?</a></div>
+            <div className="text-sm">
+              <Link href="/auth/forgot-password" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button 

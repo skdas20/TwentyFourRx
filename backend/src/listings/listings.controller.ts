@@ -7,8 +7,12 @@ import {
   Body,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { IsString, IsNumber, IsPositive, IsInt } from 'class-validator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { IsString, IsNumber, IsPositive, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ListingsService } from './listings.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -20,21 +24,27 @@ export class CreateListingDto {
   @IsString()
   medicineReferenceId: string;
 
+  @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @IsPositive()
   basePrice: number;
 
+  @Transform(({ value }) => parseInt(value, 10))
   @IsInt()
   @IsPositive()
   stock: number;
 }
 
 export class ApproveListingDto {
+  @Transform(({ value }) => value === '' || value === null || value === undefined ? undefined : parseFloat(value))
   @IsNumber()
-  @IsPositive()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
   adminMarkupPct?: number;
 
   @IsString()
+  @IsOptional()
   reviewerNote?: string;
 }
 
@@ -52,15 +62,28 @@ export class ListingsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')
+  @UseInterceptors(FileInterceptor('document'))
   async createListing(
     @CurrentUser() user: any,
     @Body() dto: CreateListingDto,
+    @UploadedFile() document?: Express.Multer.File,
   ) {
+    console.log('📥 Received listing creation request:', {
+      userId: user.sub,
+      medicineReferenceId: dto.medicineReferenceId,
+      basePrice: dto.basePrice,
+      stock: dto.stock,
+      hasDocument: !!document,
+      documentName: document?.originalname,
+      documentSize: document?.size,
+    });
+    
     return this.listingsService.createListing(
       user.sub,
       dto.medicineReferenceId,
       dto.basePrice,
       dto.stock,
+      document,
     );
   }
 
@@ -70,6 +93,33 @@ export class ListingsController {
   @Roles('SELLER', 'TRADER')
   async getMyListings(@CurrentUser() user: any) {
     return this.listingsService.getListingsBySeller(user.sub);
+  }
+
+  // ADMIN: Get pending medicine proposals (MUST be before :id routes)
+  @Get('proposals/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getPendingProposals() {
+    return this.listingsService.getPendingProposals();
+  }
+
+  // ADMIN: Approve medicine proposal (MUST be before :id routes)
+  @Patch('proposals/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async approveMedicineProposal(@Param('id') id: string) {
+    return this.listingsService.approveMedicineProposal(id);
+  }
+
+  // ADMIN: Reject medicine proposal (MUST be before :id routes)
+  @Patch('proposals/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async rejectMedicineProposal(
+    @Param('id') id: string,
+    @Body() dto: RejectListingDto,
+  ) {
+    return this.listingsService.rejectMedicineProposal(id, dto.reviewerNote);
   }
 
   // ADMIN: Get pending listings

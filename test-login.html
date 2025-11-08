@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+</head>
+<body>
+    <h1>Test Login API</h1>
+    <button onclick="testLogin()">Test Admin Login</button>
+    <pre id="result"></pre>
+    
+    <script>
+        async function testLogin() {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@24rx.com',
+                        password: 'password123'
+                    })
+                });
+                
+                const data = await response.json();
+                resultEl.textContent = 'Response:\n' + JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    resultEl.style.color = 'green';
+                    console.log('✅ Login successful!', data);
+                } else {
+                    resultEl.style.color = 'red';
+                    console.error('❌ Login failed:', data);
+                }
+            } catch (error) {
+                resultEl.style.color = 'red';
+                resultEl.textContent = 'Error: ' + error.message;
+                console.error('❌ Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

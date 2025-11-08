@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24Rx - KYC Document Format Guide</title>
+    <style>
+        @media print {
+            button { display: none; }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+        }
+        h1 { color: #1f2937; }
+        h2 { color: #2563eb; margin-top: 30px; }
+        .doc-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9fafb;
+            border-left: 4px solid #2563eb;
+        }
+        .required { color: #dc2626; font-weight: bold; }
+        .optional { color: #16a34a; font-weight: bold; }
+        ul { margin: 10px 0; }
+        .print-btn {
+            background: #2563eb;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .print-btn:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>24Rx KYC Document Format Guide</h1>
+        <p>Complete Guide for Vendor/Trader Registration</p>
+        <button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+    </div>
+
+    <h2>📋 Document Requirements</h2>
+    <p>All documents must be uploaded in <strong>PDF, JPG, or PNG</strong> format with a maximum file size of <strong>10MB</strong>.</p>
+
+    <h2>1. Basic Business Documents</h2>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> GST Registration Certificate</h3>
+        <ul>
+            <li>Must be a valid GST registration document</li>
+            <li>Should clearly show company name and GSTIN</li>
+            <li>Document should not be expired</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> PAN Card</h3>
+        <ul>
+            <li>Company or Individual PAN card</li>
+            <li>Clear, legible scan or photo</li>
+            <li>All corners visible</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Factory License / Panchayath / Corporation Certificate</h3>
+        <ul>
+            <li>Valid factory operating license</li>
+            <li>OR Panchayat/Municipal Corporation trade license</li>
+            <li>Must show business address</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> FSSAI Certificate</h3>
+        <ul>
+            <li>Required if dealing with food/nutraceutical products</li>
+            <li>Must be valid and not expired</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Cancelled Cheque</h3>
+        <ul>
+            <li>Cheque with company name</li>
+            <li>Clearly showing bank name, account number, IFSC code</li>
+            <li>Must have "CANCELLED" written across it</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Indemnity Certificate</h3>
+        <ul>
+            <li>On company letterhead</li>
+            <li>Signed and stamped by authorized signatory</li>
+            <li>Indemnifying 24Rx against risks</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Drug License 1 (Mandatory)</h3>
+        <ul>
+            <li>Valid drug license for wholesale/retail</li>
+            <li>Must show license number and validity</li>
+            <li>Should cover pharmaceutical trading</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Drug Licenses 2, 3, 4</h3>
+        <ul>
+            <li>Additional drug licenses if applicable</li>
+            <li>For different categories or locations</li>
+        </ul>
+    </div>
+
+    <h2>2. Authorization & Quality Documents</h2>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Manufacturer Authorization Letter</h3>
+        <ul>
+            <li>Letter from manufacturer authorizing you to sell their products</li>
+            <li>On manufacturer's letterhead</li>
+            <li>With seal and signature</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Agreement with Manufacturer</h3>
+        <ul>
+            <li>Formal agreement document</li>
+            <li>Showing business relationship terms</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Quality Certifications (FDA, CE, etc.)</h3>
+        <ul>
+            <li>Any quality certifications you hold</li>
+            <li>FDA approval certificates</li>
+            <li>CE marking certificates</li>
+            <li>ISO certifications</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Certificate of Incorporation</h3>
+        <ul>
+            <li>Company registration certificate</li>
+            <li>From ROC (Registrar of Companies)</li>
+            <li>Showing company details and registration number</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> MSE Certificate</h3>
+        <ul>
+            <li>Micro and Small Enterprise certificate</li>
+            <li>If applicable to your business</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Udyog Aadhar</h3>
+        <ul>
+            <li>Udyog Aadhar registration</li>
+            <li>For MSME businesses</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> NSIC/KVIC/UAM Certificate</h3>
+        <ul>
+            <li>National Small Industries Corporation registration</li>
+            <li>Khadi and Village Industries Commission certificate</li>
+            <li>Udyam Registration (formerly UAM)</li>
+        </ul>
+    </div>
+
+    <h2>3. Legal & Compliance Documents</h2>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Non-Conviction Certificate</h3>
+        <ul>
+            <li>Certificate from local police</li>
+            <li>Stating no criminal convictions</li>
+            <li>For all directors/partners</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Supply Order</h3>
+        <ul>
+            <li>Recent purchase orders from clients</li>
+            <li>Proof of business activity</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="optional">Optional</span> Sample Declaration Form</h3>
+        <ul>
+            <li>If providing product samples</li>
+            <li>Declaration of sample authenticity</li>
+        </ul>
+    </div>
+
+    <div class="doc-section">
+        <h3><span class="required">*</span> Declaration Form</h3>
+        <ul>
+            <li>General declaration of compliance</li>
+            <li>On company letterhead</li>
+            <li>Signed by authorized signatory</li>
+            <li>Declaring adherence to 24Rx policies</li>
+        </ul>
+    </div>
+
+    <h2>📌 Important Notes</h2>
+    <ul>
+        <li><span class="required">*</span> indicates mandatory documents</li>
+        <li>All documents must be clear and legible</li>
+        <li>Expired documents will be rejected</li>
+        <li>Documents must match the registered business name</li>
+        <li>Scanned copies or clear photos are acceptable</li>
+        <li>File size must not exceed 10MB per document</li>
+    </ul>
+
+    <h2>🔄 Review Process</h2>
+    <p>After submission:</p>
+    <ol>
+        <li>Your documents will be reviewed by our admin team</li>
+        <li>Review typically takes 24-48 hours</li>
+        <li>You'll receive an email notification once approved or if any corrections are needed</li>
+        <li>Login credentials will be sent to your registered email</li>
+    </ol>
+
+    <div style="margin-top: 40px; padding: 20px; background: #eff6ff; border-radius: 8px; text-align: center;">
+        <p><strong>Need Help?</strong></p>
+        <p>Contact us at: <a href="mailto:support@24rx.com">support@24rx.com</a></p>
+    </div>
+
+    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb; color: #6b7280;">
+        <p>© 2024 24Rx - World's Only Med-Trade Platform</p>
+    </div>
+</body>
+</html>

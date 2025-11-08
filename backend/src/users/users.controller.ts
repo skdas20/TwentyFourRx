@@ -1,20 +1,23 @@
-import { Controller, Get, Patch, Param, Query, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('admin/users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  async findAll(@Query('status') status?: string, @Query('roleCode') roleCode?: string) {
-    return this.usersService.findAll({ status: status as any, roleCode });
+  async getUsers(@Query('status') status?: string, @Query('roleCode') roleCode?: string) {
+    return this.usersService.getUsers({ status, roleCode });
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  async getUser(@Param('id') id: string) {
+    return this.usersService.getUser(id);
   }
 
   @Patch(':id/approve')
@@ -32,8 +35,27 @@ export class UsersController {
     return this.usersService.blockUser(id);
   }
 
-  @Patch(':id/unblock')
-  async unblock(@Param('id') id: string) {
-    return this.usersService.unblockUser(id);
+  // New endpoints for document management
+  @Get(':id/documents')
+  async getUserDocuments(@Param('id') id: string) {
+    return this.usersService.getUserDocuments(id);
+  }
+
+  @Patch(':userId/documents/:documentId/approve')
+  async approveDocument(
+    @Param('userId') userId: string,
+    @Param('documentId') documentId: string,
+    @Body('reviewerNote') reviewerNote?: string,
+  ) {
+    return this.usersService.approveDocument(documentId, reviewerNote);
+  }
+
+  @Patch(':userId/documents/:documentId/reject')
+  async rejectDocument(
+    @Param('userId') userId: string,
+    @Param('documentId') documentId: string,
+    @Body('reviewerNote') reviewerNote: string,
+  ) {
+    return this.usersService.rejectDocument(documentId, reviewerNote);
   }
 }

@@ -141,23 +141,13 @@ __tests__/
 **/*.test.*
 **/*.spec.*
 
-# Documentation files (keep only README.md)
-*.md
-!README.md
-!backend/README.md
-!frontend/README.md
+# Keep important documentation
+!DOCKER_README.md
+!RAILWAY_DEPLOYMENT.md
+!docker-start.sh
+!docker-start.bat
 
-# SQL files
-*.sql
-
-# HTML files
-*.html
-
-# Shell scripts
-*.sh
-*.bat
-
-# Project documentation files
+# Ignore old/temporary documentation
 project_spec.md
 IMPLEMENTATION_STATUS.md
 COMPLETE_PROJECT_GUIDE.md
