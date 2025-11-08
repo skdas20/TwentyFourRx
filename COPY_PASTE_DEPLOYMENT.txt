@@ -1,0 +1,136 @@
+===============================================================================
+                     COPY-PASTE GUIDE FOR RAILWAY DEPLOYMENT
+===============================================================================
+
+🔗 RAILWAY DASHBOARD URL:
+https://railway.com/project/fef749e2-f6b7-45f2-b6a0-b18467302c67
+
+===============================================================================
+                              SERVICE 1: MINIO
+===============================================================================
+
+📋 Dockerfile Path:
+Dockerfile.minio
+
+📋 Environment Variables (Copy All Below):
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123
+
+===============================================================================
+                              SERVICE 2: BACKEND
+===============================================================================
+
+📋 Root Directory:
+backend
+
+📋 Dockerfile Path:
+backend/Dockerfile
+
+📋 Environment Variables (Copy All Below):
+NODE_ENV=production
+PORT=8080
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+JWT_SECRET=SeNpoUc/FbKBKakW2zpVp/zHWAGv9Y4JeKXaMkbGbTs=
+JWT_EXPIRATION=15m
+REFRESH_TOKEN_EXPIRES_SECONDS=2592000
+REDIS_HOST=${{Redis.REDISHOST}}
+REDIS_PORT=${{Redis.REDISPORT}}
+REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
+REDIS_URL=${{Redis.REDIS_URL}}
+ADMIN_SECRET_KEY=KDOG5hVev+96ng+AltsO4Y3QodcOaHs4hD8OJeJ2nYw=
+MINIO_ENDPOINT=${{minio.RAILWAY_PRIVATE_DOMAIN}}
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
+MINIO_USE_SSL=false
+HOLD_AUTO_DELIVERY_DAYS=10
+DEFAULT_PAGE_SIZE=20
+MAX_PAGE_SIZE=100
+
+⚠️ AFTER FRONTEND DEPLOYS, ADD THIS VARIABLE:
+FRONTEND_URL=https://[YOUR-FRONTEND-DOMAIN-HERE]
+
+===============================================================================
+                              SERVICE 3: FRONTEND
+===============================================================================
+
+📋 Root Directory:
+frontend
+
+📋 Dockerfile Path:
+frontend/Dockerfile
+
+📋 Environment Variables (Copy and UPDATE backend domain):
+NODE_ENV=production
+NEXT_PUBLIC_API_URL=https://[YOUR-BACKEND-DOMAIN-HERE]/api/v1
+
+⚠️ REPLACE [YOUR-BACKEND-DOMAIN-HERE] with actual backend domain!
+Example: backend-production-abc123.up.railway.app
+
+===============================================================================
+                         DEPLOYMENT ORDER CHECKLIST
+===============================================================================
+
+□ Step 1: Deploy MinIO
+  ├─ Create empty service named "minio"
+  ├─ Set Dockerfile path: Dockerfile.minio
+  ├─ Copy environment variables
+  └─ Wait for deployment to complete
+
+□ Step 2: Deploy Backend
+  ├─ Create GitHub repo service named "backend"
+  ├─ Set root directory: backend
+  ├─ Set Dockerfile path: backend/Dockerfile
+  ├─ Enable public domain in Settings → Networking
+  ├─ Copy environment variables (except FRONTEND_URL)
+  ├─ Wait for deployment to complete
+  └─ 📝 SAVE THE PUBLIC DOMAIN URL!
+
+□ Step 3: Deploy Frontend
+  ├─ Create GitHub repo service named "frontend"
+  ├─ Set root directory: frontend
+  ├─ Set Dockerfile path: frontend/Dockerfile
+  ├─ Enable public domain in Settings → Networking
+  ├─ Update NEXT_PUBLIC_API_URL with backend domain
+  ├─ Wait for deployment to complete
+  └─ 📝 SAVE THE PUBLIC DOMAIN URL!
+
+□ Step 4: Connect Services
+  ├─ Go back to Backend service
+  ├─ Add FRONTEND_URL variable with frontend domain
+  └─ Restart backend service
+
+□ Step 5: Test Application
+  ├─ Open frontend URL in browser
+  ├─ Test backend health: https://[backend-domain]/health
+  └─ Try user registration/login
+
+===============================================================================
+                            EXAMPLE DOMAIN URLS
+===============================================================================
+
+Frontend: https://frontend-production-abc123.up.railway.app
+Backend:  https://backend-production-xyz789.up.railway.app
+
+Your actual URLs will be different - Railway generates them automatically.
+
+===============================================================================
+                            VERIFICATION STEPS
+===============================================================================
+
+1. Check all services show "Active" (green) in Railway dashboard
+2. Open frontend URL - should load the landing page
+3. Test backend health endpoint
+4. Check logs if anything fails:
+   - railway logs --service backend
+   - railway logs --service frontend
+   - railway logs --service minio
+
+===============================================================================
+                           🎉 READY TO DEPLOY!
+===============================================================================
+
+Open Railway Dashboard and start with Step 1 (MinIO).
+Come back after completion to share the frontend URL!
+
+===============================================================================
