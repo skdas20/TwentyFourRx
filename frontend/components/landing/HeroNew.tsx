@@ -5,7 +5,7 @@ import BackgroundDNA from "../BackgroundDNA";
 
 export default function HeroNew() {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-20 right-20 w-96 h-96 bg-blue-400/10 dark:bg-blue-500/10 rounded-full blur-3xl"></div>
@@ -13,7 +13,7 @@ export default function HeroNew() {
         <BackgroundDNA className="opacity-20 dark:opacity-10" />
       </div>
 
-      <div className="container mx-auto px-4 relative z-10 pt-8">
+      <div className="container mx-auto px-4 py-12 md:py-20 relative z-10 w-full pt-20">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 mb-6">
             <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />

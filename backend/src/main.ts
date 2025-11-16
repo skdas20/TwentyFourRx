@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
+import * as crypto from 'crypto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,7 +13,9 @@ async function bootstrap() {
     origin: [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'https://24rxexchange.com',
+      'https://www.24rxexchange.com'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
