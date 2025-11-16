@@ -5,6 +5,9 @@ import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import * as crypto from 'crypto';
 
+// Make crypto available globally for scheduler
+(global as any).crypto = crypto;
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
