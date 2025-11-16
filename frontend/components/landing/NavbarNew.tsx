@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import ThemeToggle from "../ThemeToggle";
+import Logo from "../Logo";
 import { useEffect, useState } from "react";
 
 export default function Navbar() {
@@ -26,14 +27,7 @@ export default function Navbar() {
     >
       <nav className="container mx-auto px-4 h-20 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <h1 className="text-2xl font-bold">
-            <span className={`transition-colors ${isScrolled ? "text-gray-900 dark:text-white" : "text-gray-900 dark:text-white"}`}>
-              24R
-            </span>
-            <span className="text-blue-600 dark:text-blue-400">x</span>
-          </h1>
-        </Link>
+        <Logo size="md" href="/" />
 
         {/* Center - Spacer */}
         <div className="flex-1"></div>

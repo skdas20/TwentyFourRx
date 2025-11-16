@@ -27,6 +27,7 @@ import { ScrapingModule } from './scraping/scraping.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
 import { PriceAlertsModule } from './price-alerts/price-alerts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { BuyProposalsModule } from './buy-proposals/buy-proposals.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -67,6 +68,7 @@ import { HealthController } from './health/health.controller';
     WatchlistModule,
     PriceAlertsModule,
     DashboardModule,
+    BuyProposalsModule,
   ],
   providers: [
     PrismaService,

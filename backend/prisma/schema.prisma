@@ -90,6 +90,7 @@ model User {
   newsArticles         NewsArticle[]
   notifications        Notification[]
   proposals            MedicineProposal[]
+  buyProposals         BuyProposal[]
   reviewedDocuments    KycDocument[]          @relation("ReviewedBy")
   watchlists           Watchlist[]
   priceAlerts          PriceAlert[]
@@ -197,10 +198,11 @@ model Listing {
   approvedAt      DateTime?     @map("approved_at") @db.Timestamptz(6)
   activatedAt     DateTime?     @map("activated_at") @db.Timestamptz(6)
 
-  medicine Medicine @relation(fields: [medicineId], references: [id])
-  seller   User     @relation(fields: [sellerId], references: [id])
-  orders   Order[]
-  holds    Hold[]
+  medicine     Medicine      @relation(fields: [medicineId], references: [id])
+  seller       User          @relation(fields: [sellerId], references: [id])
+  orders       Order[]
+  holds        Hold[]
+  buyProposals BuyProposal[]
 
   @@index([medicineId])
   @@index([sellerId])
@@ -235,10 +237,11 @@ model Order {
   paidAt      DateTime?   @map("paid_at") @db.Timestamptz(6)
   deliveredAt DateTime?   @map("delivered_at") @db.Timestamptz(6)
 
-  buyer         User           @relation(fields: [buyerId], references: [id])
-  listing       Listing        @relation(fields: [listingId], references: [id])
-  hold          Hold?
-  inventoryLots InventoryLot[]
+  buyer            User           @relation(fields: [buyerId], references: [id])
+  listing          Listing        @relation(fields: [listingId], references: [id])
+  hold             Hold?
+  inventoryLots    InventoryLot[]
+  approvedProposal BuyProposal?
 
   @@index([buyerId])
   @@index([listingId])
@@ -448,4 +451,28 @@ model PasswordResetToken {
   @@index([token])
   @@index([expiresAt])
   @@map("password_reset_tokens")
+}
+
+// Buy proposals for admin approval (with receipt upload)
+model BuyProposal {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId         String         @map("buyer_id") @db.Uuid
+  listingId       String         @map("listing_id") @db.Uuid
+  qty             Int
+  orderType       String         @map("order_type") // "delivery", "intraday", "mtf"
+  receiptUrl      String?        @map("receipt_url") // Uploaded receipt/proof
+  status          ProposalStatus @default(PENDING)
+  reviewerNote    String?        @map("reviewer_note")
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt      DateTime?      @map("reviewed_at") @db.Timestamptz(6)
+  approvedOrderId String?        @unique @map("approved_order_id") @db.Uuid
+
+  buyer         User     @relation(fields: [buyerId], references: [id])
+  listing       Listing  @relation(fields: [listingId], references: [id])
+  approvedOrder Order?   @relation(fields: [approvedOrderId], references: [id])
+
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([status])
+  @@map("buy_proposals")
 }

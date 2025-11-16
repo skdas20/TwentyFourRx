@@ -188,3 +188,14 @@ export const notificationsApi = {
   markAllAsRead: () => api.post('/notifications/mark-all-read'),
   getUnreadCount: () => api.get('/notifications/unread-count'),
 }
+
+// Buy Proposals API
+export const buyProposalsApi = {
+  createProposal: (data: FormData) => api.post('/buy-proposals', data),
+  getMyProposals: () => api.get('/buy-proposals/my'),
+  getPendingProposals: () => api.get('/buy-proposals/pending'),
+  approveProposal: (id: string, reviewerNote?: string) =>
+    api.patch(`/buy-proposals/${id}/approve`, { reviewerNote }),
+  rejectProposal: (id: string, reviewerNote: string) =>
+    api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
+}

@@ -189,7 +189,7 @@ export default function MedicinesPage() {
             {filteredMedicines.map((listing: any) => (
               <Link
                 key={listing.id}
-                href={`/medicines/${listing.id}`}
+                href={`/medicines/${listing.medicineId || listing.medicine?.id}`}
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-105 transition-all group"
               >
                 {/* Icon */}
