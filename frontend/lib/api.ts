@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+// Use relative path for API calls so they go through Nginx proxy
+const API_URL = '/api/v1'
 
 export const api = axios.create({
   baseURL: API_URL,
