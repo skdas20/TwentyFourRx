@@ -6,12 +6,12 @@ export class MedicinesService {
   constructor(private prisma: PrismaService) {}
 
   async getMedicines(search?: string, skip = 0, take = 20) {
-    const where = search
+    const where: any = search
       ? {
           OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { composition: { contains: search, mode: 'insensitive' } },
-            { manufacturer: { contains: search, mode: 'insensitive' } },
+            { name: { contains: search, mode: 'insensitive' as any } },
+            { composition: { contains: search, mode: 'insensitive' as any } },
+            { manufacturer: { contains: search, mode: 'insensitive' as any } },
           ],
         }
       : {};
