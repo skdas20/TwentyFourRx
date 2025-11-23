@@ -62,12 +62,6 @@ export default function HeroNew() {
             </Link>
           </div>
 
-          <div className="flex justify-center mt-16 animate-slide-up" style={{ animationDelay: '0.6s' }}>
-            <div className="p-6 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-105 transition-all duration-300">
-              <div className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">2.5 Lakhs+</div>
-              <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">Medicines</div>
-            </div>
-          </div>
         </div>
       </div>
     </section>
