@@ -36,14 +36,14 @@ export default function Hero() {
           className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] rounded-full bg-deep-navy opacity-[0.06]"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 0.06 }}
-          transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
+          transition={{ duration: 1.2, delay: 0.2 }}
           style={{ y: y1 }}
         />
         <motion.div 
           className="absolute top-1/4 -left-1/4 w-[600px] h-[600px] rounded-full bg-deep-navy opacity-[0.04]"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 0.04 }}
-          transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+          transition={{ duration: 1.2, delay: 0.4 }}
           style={{ y: y2 }}
         />
       </div>
@@ -55,7 +55,7 @@ export default function Hero() {
             className="space-y-6"
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
+            transition={{ duration: 0.8 }}
           >
             <motion.h1 
               className="text-4xl md:text-5xl lg:text-6xl font-space font-bold text-deep-navy leading-tight tracking-tight"
@@ -149,7 +149,7 @@ export default function Hero() {
                       strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 1.5, delay: 1, ease: "easeInOut" }}
+                      transition={{ duration: 1.5, delay: 1 }}
                     />
                     
                     {/* Navy line with draw animation */}
@@ -161,7 +161,7 @@ export default function Hero() {
                       strokeLinecap="round"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={{ pathLength: 1, opacity: 1 }}
-                      transition={{ duration: 1.5, delay: 1.2, ease: "easeInOut" }}
+                      transition={{ duration: 1.5, delay: 1.2 }}
                     />
                   </svg>
                 </div>

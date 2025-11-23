@@ -33,7 +33,6 @@ export default function AnalyticsPreview() {
       x: 0,
       transition: {
         duration: 0.5,
-        ease: "easeOut",
       },
     },
   };

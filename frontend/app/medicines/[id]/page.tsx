@@ -103,61 +103,6 @@ export default function MedicineDetailPage() {
     }
   };
 
-  const handleOrder = async () => {
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-
-    if (!selectedListing) {
-      alert("No listings available for this medicine");
-      return;
-    }
-
-    if (quantity <= 0) {
-      alert("Please enter a valid quantity");
-      return;
-    }
-
-    if (quantity > selectedListing.stock) {
-      alert(`Only ${selectedListing.stock} units available in stock`);
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      
-      if (orderType === "delivery" || orderType === "intraday") {
-        // Create regular order (both delivery and intraday use same endpoint)
-        await ordersApi.createOrder({
-          listingId: selectedListing.id,
-          qty: quantity,
-        });
-        
-        if (orderType === "delivery") {
-          alert("Order placed successfully!");
-        } else {
-          alert("Intraday order placed! Remember to square off before market close.");
-        }
-      } else if (orderType === "mtf") {
-        // Create hold with 10-day auto-delivery
-        await holdsApi.createHold({
-          listingId: selectedListing.id,
-          qty: quantity,
-        });
-        alert("MTF order placed! Will auto-deliver in 10 days.");
-      }
-      
-      setQuantity(0);
-      loadMedicineData(); // Refresh data
-    } catch (error: any) {
-      console.error("Failed to place order:", error);
-      const errorMsg = error.response?.data?.message || error.message || "Failed to place order";
-      alert(errorMsg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // Candlestick Chart Component
   const CandlestickChart = ({ data }: { data: any[] }) => {

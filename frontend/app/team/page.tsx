@@ -89,14 +89,14 @@ export default function TeamPage() {
                 {/* Avatar */}
                 <div className="flex-shrink-0 mb-6">
                   {member.image ? (
-                    <img 
-                      src={member.image} 
+                    <img
+                      src={member.image}
                       alt={member.name}
                       loading="lazy"
                       className="w-28 h-28 mx-auto rounded-full object-cover shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-transform duration-300 border-4 border-white dark:border-gray-700"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
-                        const fallback = e.currentTarget.nextElementSibling;
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
                         if (fallback) fallback.style.display = 'flex';
                       }}
                     />
