@@ -1,0 +1,196 @@
+/* Logo Shine Animations - Smooth gradient-based shine effect */
+
+@keyframes textShine {
+  0% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(59, 130, 246) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  50% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(59, 130, 246) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  100% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(59, 130, 246) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes lineShine {
+  0% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(239, 68, 68) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+  50% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(239, 68, 68) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 100% 100%;
+  }
+  100% {
+    background: linear-gradient(
+      135deg,
+      rgb(17, 24, 39) 0%,
+      rgb(17, 24, 39) 40%,
+      rgb(239, 68, 68) 50%,
+      rgb(17, 24, 39) 60%,
+      rgb(17, 24, 39) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+}
+
+/* Dark mode animations */
+@keyframes textShineDark {
+  0% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(96, 165, 250) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  50% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(96, 165, 250) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 100% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  100% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(96, 165, 250) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@keyframes lineShineDark {
+  0% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(248, 113, 113) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+  50% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(248, 113, 113) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 100% 100%;
+  }
+  100% {
+    background: linear-gradient(
+      135deg,
+      rgb(255, 255, 255) 0%,
+      rgb(255, 255, 255) 40%,
+      rgb(248, 113, 113) 50%,
+      rgb(255, 255, 255) 60%,
+      rgb(255, 255, 255) 100%
+    );
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+  }
+}
+
+/* Apply animations - Light mode */
+.logo-text {
+  animation: textShine 6s ease-in-out infinite;
+}
+
+.logo-top-line,
+.logo-bottom-line {
+  animation: lineShine 6s ease-in-out infinite;
+}
+
+/* Dark mode */
+.dark .logo-text {
+  animation: textShineDark 6s ease-in-out infinite;
+}
+
+.dark .logo-top-line,
+.dark .logo-bottom-line {
+  animation: lineShineDark 6s ease-in-out infinite;
+}

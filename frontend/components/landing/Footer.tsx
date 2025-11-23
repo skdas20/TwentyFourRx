@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import LogoAnimated from '../LogoAnimated';
+import Logo from '../Logo';
 
 export default function Footer() {
   return (
@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           {/* Brand */}
           <div className="flex items-center gap-4">
-            <LogoAnimated width={100} variant="inverted" animated={false} />
+            <Logo size="sm" href="/" />
             <span className="text-sm text-[var(--muted)]">
               © {new Date().getFullYear()} 24Rx Exchange. All rights reserved.
             </span>

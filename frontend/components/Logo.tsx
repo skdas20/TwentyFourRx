@@ -1,4 +1,5 @@
 import Link from "next/link";
+import "./logo-animations.css";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -46,13 +47,13 @@ export default function Logo({
         <div className={`relative inline-block ${paddingYClass}`}>
           {/* TOP LINE: full width over 24R */}
           <div
-            className="absolute left-0 right-0 bg-gray-900 dark:bg-white rounded-sm"
+            className="absolute left-0 right-0 bg-gray-900 dark:bg-white rounded-sm logo-top-line"
             style={{ height: lineThickness, top: 0 }}
           />
 
           {/* BOTTOM LINE: slightly inset, does NOT go under the x */}
           <div
-            className="absolute bg-gray-900 dark:bg-white rounded-sm"
+            className="absolute bg-gray-900 dark:bg-white rounded-sm logo-bottom-line"
             style={{
               height: lineThickness,
               bottom: 0,
@@ -63,7 +64,7 @@ export default function Logo({
 
           {/* 24R text */}
           <span
-            className={`${text} font-black text-gray-900 dark:text-white leading-none tracking-tight relative`}
+            className={`${text} font-black text-gray-900 dark:text-white leading-none tracking-tight relative logo-text`}
             style={{
               fontFamily: "system-ui, -apple-system, sans-serif",
               fontWeight: 900,
@@ -76,7 +77,7 @@ export default function Logo({
 
       {/* x slightly lower, outside the bottom bar */}
       <span
-        className={`${subscript} font-black text-gray-900 dark:text-white leading-none`}
+        className={`${subscript} font-black text-gray-900 dark:text-white leading-none logo-text`}
         style={{
           fontFamily: "system-ui, -apple-system, sans-serif",
           fontWeight: 900,
