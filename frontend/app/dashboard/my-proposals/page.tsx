@@ -126,21 +126,21 @@ export default function MyProposalsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Price/Unit</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      ₹{parseFloat(proposal.pricePerUnit).toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Total Amount</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      ₹{(proposal.qty * parseFloat(proposal.pricePerUnit)).toFixed(2)}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Order Type</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                      {proposal.orderType}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       {proposal.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Submitted</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {new Date(proposal.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 </div>

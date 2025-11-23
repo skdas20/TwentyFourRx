@@ -34,6 +34,7 @@ export default function BuyProposalsPage() {
     try {
       setLoading(true);
       const res = await buyProposalsApi.getPendingProposals();
+      console.log("Loaded proposals:", res.data); // Debug log
       setProposals(res.data || []);
     } catch (error) {
       console.error("Failed to load proposals:", error);
@@ -122,7 +123,7 @@ export default function BuyProposalsPage() {
                     <div className="flex items-center gap-3 mb-3">
                       <FileText className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {proposal.medicine?.name || "Unknown Medicine"}
+                        {proposal.listing?.medicine?.name || "Unknown Medicine"}
                       </h3>
                       <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded">
                         PENDING
@@ -133,7 +134,7 @@ export default function BuyProposalsPage() {
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Submitted By</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {proposal.user?.name || "Unknown"}
+                          {proposal.buyer?.name || "Unknown"}
                         </p>
                       </div>
                       <div>
@@ -143,15 +144,15 @@ export default function BuyProposalsPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Price/Unit</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          ₹{parseFloat(proposal.pricePerUnit).toFixed(2)}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Order Type</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                          {proposal.orderType}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Total Amount</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Submitted</p>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          ₹{(proposal.qty * parseFloat(proposal.pricePerUnit)).toFixed(2)}
+                          {new Date(proposal.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -170,20 +171,25 @@ export default function BuyProposalsPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 ml-4">
-                    {proposal.receiptUrl && (
+                    {proposal.receiptUrl ? (
                       <a
                         href={proposal.receiptUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-2 text-sm"
+                        className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex items-center gap-2 text-sm font-medium"
                       >
                         <Download className="w-4 h-4" />
-                        Receipt
+                        View Receipt
                       </a>
+                    ) : (
+                      <span className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg flex items-center gap-2 text-sm">
+                        <Download className="w-4 h-4" />
+                        No Receipt
+                      </span>
                     )}
                     <button
                       onClick={() => setSelectedProposal(proposal)}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
                     >
                       <Eye className="w-4 h-4" />
                       Review
@@ -211,13 +217,13 @@ export default function BuyProposalsPage() {
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Medicine</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedProposal.medicine?.name}
+                    {selectedProposal.listing?.medicine?.name}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Submitted By</p>
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {selectedProposal.user?.name}
+                    {selectedProposal.buyer?.name}
                   </p>
                 </div>
                 <div>
@@ -227,9 +233,9 @@ export default function BuyProposalsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Price Per Unit</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    ₹{parseFloat(selectedProposal.pricePerUnit).toFixed(2)}
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Order Type</p>
+                  <p className="font-medium text-gray-900 dark:text-white capitalize">
+                    {selectedProposal.orderType}
                   </p>
                 </div>
               </div>
@@ -241,20 +247,25 @@ export default function BuyProposalsPage() {
                 </div>
               )}
 
-              {selectedProposal.receiptUrl && (
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Receipt:</p>
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Receipt Document:</p>
+                {selectedProposal.receiptUrl ? (
                   <a
                     href={selectedProposal.receiptUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    className="inline-flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors border-2 border-blue-200 dark:border-blue-700 font-medium"
                   >
-                    <Download className="w-4 h-4" />
-                    View Receipt
+                    <Download className="w-5 h-5" />
+                    Download / View Receipt
                   </a>
-                </div>
-              )}
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg border-2 border-orange-200 dark:border-orange-700">
+                    <FileText className="w-5 h-5" />
+                    <span className="font-medium">No receipt document attached</span>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -45,8 +45,8 @@ export class MinioService implements OnModuleInit {
         console.log('✅ MinIO bucket already exists:', this.bucketName);
       }
     } catch (error) {
-      console.error('❌ MinIO initialization error:', error.message);
-      console.error('Full error:', error);
+      console.warn('⚠️ MinIO initialization warning (non-critical):', error.message);
+      console.warn('Application will continue without MinIO file uploads');
     }
   }
 
@@ -73,10 +73,15 @@ export class MinioService implements OnModuleInit {
       },
     );
 
-    // Return the URL to access the file
-    const url = `http://${this.configService.get<string>('MINIO_ENDPOINT') || 'localhost'}:${this.configService.get<string>('MINIO_PORT') || '9000'}/${this.bucketName}/${fileName}`;
-    console.log('✅ File uploaded successfully:', url);
-    return url;
+    // Generate a presigned URL valid for 7 days for secure access
+    const presignedUrl = await this.minioClient.presignedGetObject(
+      this.bucketName,
+      fileName,
+      7 * 24 * 60 * 60, // 7 days
+    );
+    
+    console.log('✅ File uploaded successfully:', presignedUrl);
+    return presignedUrl;
   }
 
   async deleteFile(fileUrl: string): Promise<void> {

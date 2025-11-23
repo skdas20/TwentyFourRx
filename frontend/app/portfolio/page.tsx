@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Briefcase, TrendingUp, Package, ArrowLeft, LogOut, PieChart } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { inventoryApi } from "@/lib/api";
 
 export default function PortfolioPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalValue, setTotalValue] = useState(0);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -17,7 +21,33 @@ export default function PortfolioPage() {
       return;
     }
     setUser(JSON.parse(userData));
+    loadHoldings();
   }, [router]);
+
+  const loadHoldings = async () => {
+    try {
+      setLoading(true);
+      const res = await inventoryApi.getUserInventory();
+      // API returns { inventory: [...], summary: {...} }
+      const inventory = Array.isArray(res.data?.inventory) ? res.data.inventory : [];
+      setHoldings(inventory);
+
+      // Use summary data if available, otherwise calculate
+      if (res.data?.summary) {
+        setTotalValue(res.data.summary.totalCurrentValue || 0);
+      } else {
+        const total = inventory.reduce((sum: number, item: any) => {
+          return sum + (item.currentValue || 0);
+        }, 0);
+        setTotalValue(total);
+      }
+    } catch (error) {
+      console.error("Failed to load holdings:", error);
+      setHoldings([]); // Ensure holdings is always an array
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -39,8 +69,8 @@ export default function PortfolioPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Portfolio</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Track your trading performance</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Holdings</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">View your medicine inventory</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -58,18 +88,108 @@ export default function PortfolioPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <PieChart className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Portfolio Feature Coming Soon</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">View your trading history and performance metrics</p>
-          <Link
-            href={`/dashboard/${user.roleCode.toLowerCase()}`}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Briefcase className="w-5 h-5" />
-            Back to Dashboard
-          </Link>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Holdings</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {holdings.reduce((sum: number, item: any) => sum + (item.totalQty || 0), 0)} units
+                </p>
+              </div>
+              <Package className="w-8 h-8 text-blue-600" />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Value</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  ₹{totalValue.toFixed(2)}
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Medicines</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  {holdings.length}
+                </p>
+              </div>
+              <Briefcase className="w-8 h-8 text-purple-600" />
+            </div>
+          </div>
         </div>
+
+        {/* Holdings Table */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          </div>
+        ) : holdings.length === 0 ? (
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <PieChart className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Holdings Yet</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Start buying medicines to build your portfolio</p>
+            <Link
+              href="/medicines"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:bg-[var(--brand-blue-hi)] transition-colors font-medium"
+            >
+              <Package className="w-5 h-5" />
+              Browse Medicines
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Medicine</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Unit Cost</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Total Value</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">Acquired</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {holdings.map((holding: any, index: number) => (
+                    <tr key={holding.medicineId || index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {holding.medicineName || "Unknown"}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {holding.form} {holding.strength && `- ${holding.strength}`}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                        {holding.totalQty} units
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                        ₹{holding.avgCost?.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white">
+                        ₹{holding.currentValue?.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                        {holding.lots?.length || 0} lot(s)
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

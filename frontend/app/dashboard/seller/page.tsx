@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  TrendingUp, TrendingDown, Plus, Package, ShoppingCart, 
-  Eye, Bell, Search, ChevronDown, ChevronRight, Pill,
+import {
+  TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
+  Eye, Bell, ChevronDown, ChevronRight, Pill,
   Activity, BarChart3, Wallet, FileText
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
-import { listingsApi, dashboardApiNew, watchlistApi, pricesApi } from "@/lib/api";
+import SearchBar from "@/components/SearchBar";
+import { listingsApi, dashboardApiNew, watchlistApi, pricesApi, inventoryApi } from "@/lib/api";
 
 export default function SellerDashboard() {
   const router = useRouter();
@@ -45,10 +46,11 @@ export default function SellerDashboard() {
       setLoading(true);
       
       // Load dashboard data
-      const [dashboardRes, watchlistRes, listingsRes] = await Promise.all([
+      const [dashboardRes, watchlistRes, listingsRes, inventoryRes] = await Promise.all([
         dashboardApiNew.getSellerDashboard().catch(() => ({ data: {} })),
         watchlistApi.getWatchlist().catch(() => ({ data: [] })),
         listingsApi.getMyListings().catch(() => ({ data: [] })),
+        inventoryApi.getUserInventory().catch(() => ({ data: [] })),
       ]);
 
       // Calculate portfolio value from listings
@@ -243,15 +245,7 @@ export default function SellerDashboard() {
 
             {/* Search */}
             <div className="flex-1 max-w-md mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="What are you looking for today?"
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border-0 rounded-lg text-sm
-                           text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <SearchBar variant="navbar" isLoggedIn={true} />
             </div>
 
             {/* Right Actions */}
@@ -422,6 +416,24 @@ export default function SellerDashboard() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Holdings Summary */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My Holdings</h2>
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  View your complete medicine inventory and portfolio details.
+                </p>
+                
+                <Link 
+                  href="/portfolio"
+                  className="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors text-center"
+                >
+                  View My Holdings
+                </Link>
               </div>
 
               {/* All Watchlists */}

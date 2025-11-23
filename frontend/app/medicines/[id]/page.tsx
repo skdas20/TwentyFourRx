@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { 
-  Bell, Search, ChevronDown, Heart, Share2, BarChart3, Activity, Settings, ShoppingCart
+import {
+  Bell, ChevronDown, Heart, Share2, BarChart3, Activity, ShoppingCart
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
+import SearchBar from "@/components/SearchBar";
 import BuyProposalModal from "@/components/BuyProposalModal";
 import { pricesApi, listingsApi, ordersApi, holdsApi } from "@/lib/api";
 
@@ -27,13 +28,8 @@ export default function MedicineDetailPage() {
   const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
   
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
-  const [orderType, setOrderType] = useState<"delivery" | "intraday" | "mtf">("delivery");
-  const [quantity, setQuantity] = useState<number>(0);
-  const [priceType, setPriceType] = useState<"market" | "limit">("market");
-  const [limitPrice, setLimitPrice] = useState<number>(0);
   const [timeframe, setTimeframe] = useState<"1d" | "5d" | "1m" | "3m" | "1y" | "5y">("1m");
   
-  const [submitting, setSubmitting] = useState(false);
   const [showBuyProposalModal, setShowBuyProposalModal] = useState(false);
 
   useEffect(() => {
@@ -308,15 +304,7 @@ export default function MedicineDetailPage() {
             </div>
 
             <div className="flex-1 max-w-md mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search for medicines..."
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border-0 rounded-lg text-sm
-                           text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <SearchBar variant="navbar" isLoggedIn={!!user} />
             </div>
 
             <div className="flex items-center gap-3">
@@ -352,10 +340,7 @@ export default function MedicineDetailPage() {
                   <BarChart3 className="w-4 h-4" />
                   Drawing tools
                 </button>
-                <button className="w-full p-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </button>
+
               </div>
             </div>
           </div>
@@ -453,7 +438,7 @@ export default function MedicineDetailPage() {
                   <div className="mb-4">
                     <button
                       onClick={() => setShowBuyProposalModal(true)}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                     >
                       <ShoppingCart className="w-5 h-5" />
                       Submit Buy Proposal
@@ -461,61 +446,6 @@ export default function MedicineDetailPage() {
                     <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
                       Already bought? Upload receipt for admin approval
                     </p>
-                  </div>
-
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                        OR BUY FROM MARKET
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Order Type - Only for BUY */}
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => setOrderType("delivery")}
-                      className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors ${
-                        orderType === "delivery"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      Delivery
-                    </button>
-                    <button
-                      onClick={() => setOrderType("intraday")}
-                      className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors ${
-                        orderType === "intraday"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      Intraday
-                    </button>
-                    <button
-                      onClick={() => setOrderType("mtf")}
-                      className={`flex-1 py-2 px-3 text-xs font-medium rounded-lg transition-colors ${
-                        orderType === "mtf"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                      }`}
-                    >
-                      MTF
-                    </button>
-                    <button className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                      <Settings className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Order Type Info */}
-                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-gray-700 dark:text-gray-300">
-                    {orderType === "delivery" && "Hold as long as you want"}
-                    {orderType === "intraday" && "Must sell before market close today"}
-                    {orderType === "mtf" && "Margin trading - Auto-delivery in 10 days"}
                   </div>
                 </>
               ) : (
@@ -552,95 +482,21 @@ export default function MedicineDetailPage() {
                 </>
               )}
 
-              {/* Available Stock Info - Only for BUY */}
-              {activeTab === "buy" && selectedListing && (
-                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-xs">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-gray-500 dark:text-gray-400">Available Stock:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{selectedListing.stock} units</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Price per unit:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">₹{parseFloat(selectedListing.listPrice || selectedListing.basePrice).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
 
-              {/* Quantity - Only for BUY */}
-              {activeTab === "buy" && (
-                <div className="mb-4">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Qty NSE</label>
-                  <input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
-                             text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0"
-                />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">0 Net positions</p>
-                </div>
-              )}
-
-              {/* Price Type - Only for BUY */}
-              {activeTab === "buy" && (
-                <>
-                  <div className="mb-4">
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Price</label>
-                    <select
-                      value={priceType}
-                      onChange={(e) => setPriceType(e.target.value as "market" | "limit")}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
-                               text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="market">At market</option>
-                      <option value="limit">Limit</option>
-                    </select>
-                  </div>
-
-                  {priceType === "limit" && (
-                    <div className="mb-4">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-2">Limit Price</label>
-                      <input
-                        type="number"
-                        value={limitPrice}
-                        onChange={(e) => setLimitPrice(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm
-                                 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  )}
-
-                  {/* Action Button - Only for BUY */}
-                  <button
-                    onClick={handleOrder}
-                    disabled={submitting || quantity <= 0}
-                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submitting ? "Processing..." : "BUY"}
-                  </button>
-
-                  <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-3">
-                    {priceType === "market" 
-                      ? "Order will be executed at best price in market"
-                      : `Order will be executed at ₹${limitPrice.toFixed(2)}`
-                    }
-                  </p>
-                </>
-              )}
             </div>
           </div>
         </div>
       </main>
 
       {/* Buy Proposal Modal */}
-      <BuyProposalModal
-        isOpen={showBuyProposalModal}
-        onClose={() => setShowBuyProposalModal(false)}
-        medicineId={medicineId}
-        medicineName={medicine?.name || "Medicine"}
-      />
+      {selectedListing && (
+        <BuyProposalModal
+          isOpen={showBuyProposalModal}
+          onClose={() => setShowBuyProposalModal(false)}
+          listingId={selectedListing.id}
+          medicineName={medicine?.name || "Medicine"}
+        />
+      )}
     </div>
   );
 }

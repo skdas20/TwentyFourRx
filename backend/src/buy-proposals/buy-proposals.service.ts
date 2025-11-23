@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
 import { MinioService } from '../common/services/minio.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class BuyProposalsService {
@@ -169,6 +170,17 @@ export class BuyProposalsService {
           amount: Number(proposal.listing.listPrice || proposal.listing.basePrice) * proposal.qty,
           type: 'BUY',
           status: 'CREATED',
+        },
+      });
+
+      // Create inventory lot for the buyer
+      await this.prisma.inventoryLot.create({
+        data: {
+          userId: proposal.buyerId,
+          medicineId: proposal.listing.medicineId,
+          qty: proposal.qty,
+          unitCost: new Decimal(proposal.listing.listPrice || proposal.listing.basePrice),
+          sourceOrderId: order.id,
         },
       });
 

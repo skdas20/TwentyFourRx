@@ -10,7 +10,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsString, IsNumber, IsPositive, IsInt } from 'class-validator';
+import { IsString, IsPositive, IsInt, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { BuyProposalsService } from './buy-proposals.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';

@@ -7,18 +7,18 @@ import { buyProposalsApi } from "@/lib/api";
 interface BuyProposalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  medicineId: string;
+  listingId: string;
   medicineName: string;
 }
 
 export default function BuyProposalModal({
   isOpen,
   onClose,
-  medicineId,
+  listingId,
   medicineName,
 }: BuyProposalModalProps) {
   const [quantity, setQuantity] = useState<number>(0);
-  const [pricePerUnit, setPricePerUnit] = useState<number>(0);
+  const [orderType, setOrderType] = useState<'delivery' | 'intraday' | 'mtf'>('delivery');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [notes, setNotes] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
@@ -54,26 +54,17 @@ export default function BuyProposalModal({
       setError("Please enter a valid quantity");
       return;
     }
-    if (pricePerUnit <= 0) {
-      setError("Please enter a valid price per unit");
-      return;
-    }
-    if (!receiptFile) {
-      setError("Please upload a receipt");
-      return;
-    }
 
     try {
       setSubmitting(true);
 
       // Create FormData
       const formData = new FormData();
-      formData.append("medicineId", medicineId);
+      formData.append("listingId", listingId);
       formData.append("qty", quantity.toString());
-      formData.append("pricePerUnit", pricePerUnit.toString());
-      formData.append("receipt", receiptFile);
-      if (notes) {
-        formData.append("notes", notes);
+      formData.append("orderType", orderType);
+      if (receiptFile) {
+        formData.append("receipt", receiptFile);
       }
 
       await buyProposalsApi.createProposal(formData);
@@ -84,7 +75,7 @@ export default function BuyProposalModal({
       
       // Reset form
       setQuantity(0);
-      setPricePerUnit(0);
+      setOrderType('delivery');
       setReceiptFile(null);
       setNotes("");
     } catch (err: any) {
@@ -95,7 +86,7 @@ export default function BuyProposalModal({
     }
   };
 
-  const totalAmount = quantity * pricePerUnit;
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -152,40 +143,27 @@ export default function BuyProposalModal({
             />
           </div>
 
-          {/* Price Per Unit */}
+          {/* Order Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Price Per Unit (₹)
+              Order Type
             </label>
-            <input
-              type="number"
-              step="0.01"
-              value={pricePerUnit || ""}
-              onChange={(e) => setPricePerUnit(parseFloat(e.target.value) || 0)}
+            <select
+              value={orderType}
+              onChange={(e) => setOrderType(e.target.value as 'delivery' | 'intraday' | 'mtf')}
               className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                        text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter price per unit"
-              required
-              min="0.01"
-            />
+            >
+              <option value="delivery">Delivery (Standard)</option>
+              <option value="intraday">Intraday</option>
+              <option value="mtf">MTF (Multi-day)</option>
+            </select>
           </div>
-
-          {/* Total Amount */}
-          {quantity > 0 && pricePerUnit > 0 && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Total Amount:</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">
-                  ₹{totalAmount.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Receipt Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Upload Receipt
+              Upload Receipt (Optional)
             </label>
             <div className="relative">
               <input
@@ -194,7 +172,6 @@ export default function BuyProposalModal({
                 onChange={handleFileChange}
                 className="hidden"
                 id="receipt-upload"
-                required
               />
               <label
                 htmlFor="receipt-upload"

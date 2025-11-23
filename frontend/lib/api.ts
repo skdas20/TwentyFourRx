@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-// Use relative path for API calls so they go through Nginx proxy
+// Use relative path for API calls - Next.js dev server will proxy to backend
 const API_URL = '/api/v1'
 
 export const api = axios.create({
