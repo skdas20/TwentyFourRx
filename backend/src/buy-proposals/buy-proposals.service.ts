@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
-import { MinioService } from '../common/services/minio.service';
+import { GcsService } from '../common/services/gcs.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class BuyProposalsService {
   constructor(
     private prisma: PrismaService,
-    private minioService: MinioService,
+    private gcsService: GcsService,
   ) {}
 
   async createProposal(
@@ -39,7 +39,7 @@ export class BuyProposalsService {
     let receiptUrl: string | undefined;
     if (receipt) {
       try {
-        receiptUrl = await this.minioService.uploadFile(receipt, 'buy-receipts');
+        receiptUrl = await this.gcsService.uploadFile(receipt, 'buy-receipts');
       } catch (error) {
         console.error('Failed to upload receipt:', error);
         throw new BadRequestException('Failed to upload receipt');

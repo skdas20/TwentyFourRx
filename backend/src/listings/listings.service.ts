@@ -4,13 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
-import { MinioService } from '../common/services/minio.service';
+import { GcsService } from '../common/services/gcs.service';
 
 @Injectable()
 export class ListingsService {
   constructor(
     private prisma: PrismaService,
-    private minioService: MinioService,
+    private gcsService: GcsService,
   ) {}
 
   async createListing(
@@ -44,6 +44,19 @@ export class ListingsService {
 
     // If medicine doesn't exist, create proposal for admin approval
     if (!medicine) {
+      // Upload document if provided
+      let documentUrl: string | undefined;
+      if (document) {
+        try {
+          console.log('📤 Uploading document for proposal:', document.originalname, 'Size:', document.size);
+          documentUrl = await this.gcsService.uploadFile(document, 'listing-documents');
+          console.log('✅ Document uploaded successfully:', documentUrl);
+        } catch (error) {
+          console.error('❌ Failed to upload document:', error);
+          throw new BadRequestException(`Failed to upload document: ${error.message}`);
+        }
+      }
+
       const proposal = await this.prisma.medicineProposal.create({
         data: {
           sellerId,
@@ -53,8 +66,18 @@ export class ListingsService {
           manufacturerName: medicineRef.manufacturer,
           marketerName: medicineRef.marketer,
           basePrice,
+          stock,
+          documentUrl,
           status: 'PENDING',
         },
+      });
+
+      console.log('✅ Medicine proposal created:', {
+        id: proposal.id,
+        medicine: proposal.name,
+        status: proposal.status,
+        documentUrl: proposal.documentUrl,
+        hasDocument: !!proposal.documentUrl,
       });
 
       return {
@@ -69,7 +92,7 @@ export class ListingsService {
     if (document) {
       try {
         console.log('📤 Uploading document:', document.originalname, 'Size:', document.size);
-        documentUrl = await this.minioService.uploadFile(document, 'listing-documents');
+        documentUrl = await this.gcsService.uploadFile(document, 'listing-documents');
         console.log('✅ Document uploaded successfully:', documentUrl);
       } catch (error) {
         console.error('❌ Failed to upload document:', error);
@@ -97,6 +120,14 @@ export class ListingsService {
       },
     });
 
+    console.log('✅ Listing created:', {
+      id: listing.id,
+      medicine: listing.medicine?.name,
+      status: listing.status,
+      documentUrl: listing.documentUrl,
+      hasDocument: !!listing.documentUrl,
+    });
+
     return {
       message: 'Listing created successfully. Waiting for admin approval.',
       listing,
@@ -120,7 +151,7 @@ export class ListingsService {
   }
 
   async getPendingListings() {
-    return this.prisma.listing.findMany({
+    const listings = await this.prisma.listing.findMany({
       where: { status: 'PENDING' },
       include: {
         medicine: {
@@ -139,6 +170,13 @@ export class ListingsService {
       },
       orderBy: { createdAt: 'asc' },
     });
+    
+    console.log(`📋 Found ${listings.length} pending listings`);
+    listings.forEach(listing => {
+      console.log(`  - ${listing.medicine?.name} (${listing.id}) - Document: ${listing.documentUrl ? '✅' : '❌'}`);
+    });
+    
+    return listings;
   }
 
   async approveListing(
@@ -224,13 +262,29 @@ export class ListingsService {
     return { message: 'Listing rejected', listing: updated };
   }
 
-  async getActiveListings(medicineId?: string) {
+  async getActiveListings(medicineId?: string, search?: string) {
+    const whereClause: any = {
+      status: 'ACTIVE',
+      stock: { gt: 0 },
+    };
+
+    if (medicineId) {
+      whereClause.medicineId = medicineId;
+    }
+
+    if (search) {
+      whereClause.medicine = {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { form: { contains: search, mode: 'insensitive' } },
+          { strength: { contains: search, mode: 'insensitive' } },
+          { manufacturer: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      };
+    }
+
     return this.prisma.listing.findMany({
-      where: {
-        status: 'ACTIVE',
-        ...(medicineId && { medicineId }),
-        stock: { gt: 0 },
-      },
+      where: whereClause,
       include: {
         medicine: {
           include: {
@@ -246,6 +300,7 @@ export class ListingsService {
         },
       },
       orderBy: { listPrice: 'asc' },
+      take: 10, // Limit results for search
     });
   }
 
@@ -292,7 +347,7 @@ export class ListingsService {
     });
   }
 
-  async approveMedicineProposal(proposalId: string) {
+  async approveMedicineProposal(proposalId: string, adminMarkupPct?: number) {
     try {
       const proposal = await this.prisma.medicineProposal.findUnique({
         where: { id: proposalId },
@@ -352,14 +407,24 @@ export class ListingsService {
         },
       });
 
-      // Create the listing
+      // Calculate list price with markup
+      const markupPct = adminMarkupPct || 0;
+      const basePrice = Number(proposal.basePrice);
+      const listPrice = basePrice * (1 + markupPct / 100);
+
+      // Create the listing directly as ACTIVE (skip PENDING step)
       const listing = await this.prisma.listing.create({
         data: {
           medicineId: medicine.id,
           sellerId: proposal.sellerId,
-          basePrice: Number(proposal.basePrice),
-          stock: 100, // Default stock, seller can update later
-          status: 'PENDING',
+          basePrice: basePrice,
+          listPrice: listPrice,
+          adminMarkupPct: markupPct,
+          stock: proposal.stock || 100, // Use stock from proposal
+          documentUrl: proposal.documentUrl, // Use document from proposal
+          status: 'ACTIVE', // Directly activate
+          approvedAt: new Date(),
+          activatedAt: new Date(),
         },
         include: {
           medicine: {
@@ -378,7 +443,7 @@ export class ListingsService {
       });
 
       return {
-        message: 'Medicine proposal approved and listing created',
+        message: 'Medicine proposal approved and listing activated',
         medicine,
         listing,
       };

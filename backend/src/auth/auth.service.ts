@@ -9,7 +9,7 @@ import { PrismaService } from '../config/prisma.service';
 import { RedisService } from '../config/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from '../common/services/email.service';
-import { MinioService } from '../common/services/minio.service';
+import { GcsService } from '../common/services/gcs.service';
 import * as bcrypt from 'bcrypt';
 import { generateSecurePassword, generateResetToken, hashToken, validateToken } from '../common/utils/password.util';
 
@@ -52,7 +52,7 @@ export class AuthService {
     private redisService: RedisService,
     private configService: ConfigService,
     private emailService: EmailService,
-    private minioService: MinioService,
+    private gcsService: GcsService,
   ) {}
 
   async register(
@@ -118,8 +118,8 @@ export class AuthService {
             continue;
           }
 
-          // Upload to MinIO
-          const fileUrl = await this.minioService.uploadFile(file, `kyc/${user.id}`);
+          // Upload to Google Cloud Storage
+          const fileUrl = await this.gcsService.uploadFile(file, `kyc/${user.id}`);
 
           // Save to database
           const kycDoc = await this.prisma.kycDocument.create({

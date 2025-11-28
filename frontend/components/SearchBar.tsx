@@ -66,14 +66,14 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
           const listingsResponse = await fetch(`${apiUrl}/listings?search=${encodeURIComponent(query)}`);
           const listingsData = await listingsResponse.json();
 
-          const listingResults: SearchResult[] = (listingsData.data || []).slice(0, 2).map((listing: any) => ({
+          const listingResults: SearchResult[] = (Array.isArray(listingsData) ? listingsData : []).slice(0, 3).map((listing: any) => ({
             id: listing.id,
             type: "listing" as const,
-            title: listing.medicine?.name || 'Medicine',
-            description: `${listing.stock} units available`,
+            title: `${listing.medicine?.name || 'Medicine'} ${listing.medicine?.strength || ''}`,
+            description: `${listing.stock} units available - ${listing.medicine?.manufacturer?.name || 'Unknown'}`,
             price: listing.listPrice || listing.basePrice,
             url: `/medicines/${listing.medicineId}`,
-            icon: <TrendingUp className="w-4 h-4" />,
+            icon: <ShoppingCart className="w-4 h-4" />,
             clickable: isLoggedIn,
           }));
 
@@ -184,7 +184,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
         <div
           className={`absolute ${isHeroVariant ? "top-full mt-2 w-full" : "top-full mt-1 w-full min-w-[400px]"}
             bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl
-            overflow-hidden z-[9999] max-h-[500px] overflow-y-auto`}
+            overflow-hidden max-h-[500px] overflow-y-auto`}
+          style={{ zIndex: 99999 }}
         >
           {isLoading ? (
             <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">

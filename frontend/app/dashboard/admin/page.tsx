@@ -51,6 +51,10 @@ export default function AdminDashboard() {
       // Load listings data
       const listingsResponse = await listingsApi.getPendingListings();
       const pendingListingsData = listingsResponse.data;
+      console.log('📋 Pending listings loaded:', pendingListingsData.length, 'listings');
+      pendingListingsData.forEach((listing: any) => {
+        console.log(`  - ${listing.medicine?.name} - Document: ${listing.documentUrl || 'No document'}`);
+      });
       
       // Load medicine proposals
       const proposalsResponse = await listingsApi.getPendingProposals();
@@ -133,10 +137,19 @@ export default function AdminDashboard() {
   };
 
   const handleApproveProposal = async (proposalId: string) => {
+    const markupInput = prompt('Enter admin markup percentage (0-100):', '0');
+    if (markupInput === null) return; // User cancelled
+    
+    const markup = parseFloat(markupInput);
+    if (isNaN(markup) || markup < 0 || markup > 100) {
+      alert('Invalid markup percentage. Please enter a number between 0 and 100.');
+      return;
+    }
+    
     try {
-      const response = await listingsApi.approveMedicineProposal(proposalId);
+      const response = await listingsApi.approveMedicineProposal(proposalId, markup);
       console.log('Proposal approved:', response.data);
-      alert('Medicine proposal approved! A listing has been created and is now pending your approval.');
+      alert('Medicine proposal approved and listing activated successfully!');
       loadDashboardData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to approve proposal:', error);
@@ -340,6 +353,19 @@ export default function AdminDashboard() {
                             <p className="text-gray-900 dark:text-gray-100 font-medium">₹{proposal.basePrice}</p>
                           </div>
                         </div>
+                        {proposal.documentUrl && (
+                          <div className="mb-3">
+                            <a
+                              href={proposal.documentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm font-medium"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Document
+                            </a>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center pt-3 border-t border-orange-200 dark:border-orange-700">
                           <span className="text-sm text-gray-500">
                             {new Date(proposal.createdAt).toLocaleDateString()}

@@ -14,7 +14,7 @@ export default function HeroNew() {
         <BackgroundDNA className="opacity-20 dark:opacity-10" />
       </div>
 
-      <div className="container mx-auto px-4 py-12 md:py-20 relative z-10 w-full pt-20">
+      <div className="container mx-auto px-4 py-12 md:py-20 relative w-full pt-20" style={{ zIndex: 10 }}>
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 mb-6 animate-fade-in">
             <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-pulse" />
@@ -35,7 +35,7 @@ export default function HeroNew() {
           </p>
 
           {/* Search Bar - Hero Variant */}
-          <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div className="mb-8 animate-slide-up relative" style={{ animationDelay: '0.3s', zIndex: 100 }}>
             <div className="max-w-2xl mx-auto">
               <SearchBar variant="hero" isLoggedIn={false} />
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
@@ -44,7 +44,7 @@ export default function HeroNew() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up" style={{ animationDelay: '0.5s' }}>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up relative" style={{ animationDelay: '0.5s', zIndex: 1 }}>
             <Link
               href="/auth/register"
               className="px-8 py-4 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600

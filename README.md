@@ -37,7 +37,7 @@ A comprehensive B2B platform for medicine trading, inventory management, and pri
 - **Framework**: NestJS (Node.js)
 - **Database**: PostgreSQL
 - **Cache**: Redis
-- **Storage**: MinIO (S3-compatible)
+- **Storage**: Google Cloud Storage
 - **ORM**: Prisma
 - **Authentication**: JWT + Refresh Tokens
 - **Email**: Gmail SMTP
@@ -51,9 +51,8 @@ A comprehensive B2B platform for medicine trading, inventory management, and pri
 - **Icons**: Lucide React
 
 ### Infrastructure
-- **Containerization**: Docker
-- **Orchestration**: Docker Compose
-- **Deployment**: Railway (recommended)
+- **File Storage**: Google Cloud Storage
+- **Deployment**: Cloud-based (GCP, AWS, etc.)
 - **CI/CD**: GitHub Actions (optional)
 
 ## 📋 Prerequisites
@@ -61,32 +60,11 @@ A comprehensive B2B platform for medicine trading, inventory management, and pri
 - Node.js 18+ 
 - PostgreSQL 15+
 - Redis 7+
-- MinIO (or S3)
-- Docker & Docker Compose (for containerized deployment)
+- Google Cloud Storage account with service key
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
-
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd 24Rx
-
-# Start all services
-docker-compose up --build
-
-# Access the application
-# Frontend: http://localhost:3000
-# Backend: http://localhost:8080
-# MinIO Console: http://localhost:9001
-```
-
-See [DOCKER_README.md](./DOCKER_README.md) for detailed Docker instructions.
-
-### Option 2: Manual Setup
-
-#### 1. Setup Backend
+### 1. Setup Backend
 
 ```bash
 cd backend
@@ -108,7 +86,7 @@ npx prisma generate
 npm run start:dev
 ```
 
-#### 2. Setup Frontend
+### 2. Setup Frontend
 
 ```bash
 cd frontend
@@ -124,15 +102,14 @@ cp .env.example .env.local
 npm run dev
 ```
 
-#### 3. Setup MinIO
+#### 3. Setup Google Cloud Storage
 
-```bash
-# Windows
-start-minio.bat
-
-# Linux/Mac
-./start-minio.sh
+Ensure you have the service account key file at:
 ```
+backend/24rx-storage-service-key.json
+```
+
+The backend will automatically initialize the GCS bucket on startup.
 
 ## 🔧 Configuration
 
@@ -166,12 +143,8 @@ GMAIL_APP_PASSWORD=your_app_password
 # Frontend
 FRONTEND_URL=http://localhost:3000
 
-# MinIO
-MINIO_ENDPOINT=localhost
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin123
-MINIO_USE_SSL=false
+# Google Cloud Storage
+GCS_BUCKET_NAME=24rx-documents
 ```
 
 ### Frontend Environment Variables
@@ -182,8 +155,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
 
 ## 📚 Documentation
 
-- [Docker Deployment Guide](./DOCKER_README.md)
-- [Railway Deployment Guide](./RAILWAY_DEPLOYMENT.md)
+- [GCS Migration Guide](./MIGRATION_TO_GCS.md)
 - [API Documentation](./backend/README.md)
 - [Frontend Documentation](./frontend/README.md)
 
@@ -238,7 +210,9 @@ npm run test:watch
 
 ```bash
 cd backend
+npm install
 npm run build
+npx prisma migrate deploy
 npm run start:prod
 ```
 
@@ -246,29 +220,27 @@ npm run start:prod
 
 ```bash
 cd frontend
+npm install
 npm run build
 npm start
 ```
 
 ## 🚢 Deployment
 
-### Railway (Recommended)
+The application can be deployed to any cloud platform:
+- **Google Cloud Platform** (Recommended - already using GCS)
+- **AWS** (EC2, Elastic Beanstalk)
+- **Azure** (App Service)
+- **DigitalOcean** (Droplets, App Platform)
+- **Heroku**
+- **Vercel** (Frontend only)
 
-See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for step-by-step Railway deployment guide.
-
-### Docker
-
-See [DOCKER_README.md](./DOCKER_README.md) for Docker deployment instructions.
-
-### Other Platforms
-
-The application can be deployed to:
-- AWS (EC2, ECS, Elastic Beanstalk)
-- Google Cloud Platform (Cloud Run, GKE)
-- Azure (App Service, AKS)
-- DigitalOcean (App Platform, Droplets)
-- Heroku
-- Vercel (Frontend only)
+### Deployment Requirements:
+1. PostgreSQL database
+2. Redis instance
+3. Google Cloud Storage bucket
+4. Node.js 18+ runtime
+5. Service account key file in backend directory
 
 ## 🤝 Contributing
 
@@ -313,8 +285,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - ✅ Order processing
 - ✅ Price tracking
 - ✅ Admin dashboard
-- ✅ Docker support
-- ✅ Railway deployment ready
+- ✅ Google Cloud Storage integration
+- ✅ Cloud deployment ready
 - 🚧 Mobile app (planned)
 - 🚧 Advanced analytics (planned)
 
@@ -323,7 +295,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - NestJS team for the amazing framework
 - Next.js team for the React framework
 - Prisma team for the excellent ORM
-- Railway for easy deployment
+- Google Cloud for reliable storage
 - All open-source contributors
 
 ---

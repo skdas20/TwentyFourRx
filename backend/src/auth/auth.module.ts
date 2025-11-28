@@ -8,7 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../config/prisma.service';
 import { RedisService } from '../config/redis.service';
 import { EmailService } from '../common/services/email.service';
-import { MinioService } from '../common/services/minio.service';
+import { GcsService } from '../common/services/gcs.service';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { MinioService } from '../common/services/minio.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PrismaService, RedisService, EmailService, MinioService],
+  providers: [AuthService, JwtStrategy, PrismaService, RedisService, EmailService, GcsService],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

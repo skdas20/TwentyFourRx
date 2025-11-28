@@ -69,6 +69,12 @@ export default function NewListingPage() {
       return;
     }
 
+    // Validate price is lower than MRP
+    if (selectedMedicine.mrp && parsedPrice >= selectedMedicine.mrp) {
+      alert(`Your selling price (₹${parsedPrice}) must be lower than the MRP (₹${selectedMedicine.mrp}). Please offer a discount to attract buyers.`);
+      return;
+    }
+
     if (isNaN(parsedStock) || parsedStock <= 0) {
       alert("Please enter a valid stock quantity greater than 0");
       return;
@@ -212,13 +218,20 @@ export default function NewListingPage() {
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
                 <h3 className="font-medium text-gray-900 dark:text-gray-100">{selectedMedicine.name}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMedicine.composition}</p>
+                {selectedMedicine.mrp && (
+                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Maximum Retail Price (MRP)</p>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">₹{selectedMedicine.mrp}</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">⚠️ Your price must be lower than MRP</p>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Base Price (₹ per unit)
+                  Your Selling Price (₹ per unit) {selectedMedicine.mrp && <span className="text-red-500">*Must be less than ₹{selectedMedicine.mrp}</span>}
                 </label>
                 <input
                   type="number"
@@ -226,10 +239,22 @@ export default function NewListingPage() {
                   required
                   value={basePrice}
                   onChange={(e) => setBasePrice(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter base price"
+                  max={selectedMedicine.mrp || undefined}
+                  className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2
+                           ${parseFloat(basePrice) >= (selectedMedicine.mrp || Infinity) ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'}`}
+                  placeholder={selectedMedicine.mrp ? `Enter price below ₹${selectedMedicine.mrp}` : "Enter your selling price"}
                 />
+                {parseFloat(basePrice) >= (selectedMedicine.mrp || Infinity) && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                    ⚠️ Price must be lower than MRP (₹{selectedMedicine.mrp})
+                  </p>
+                )}
+                {basePrice && parseFloat(basePrice) < (selectedMedicine.mrp || Infinity) && selectedMedicine.mrp && (
+                  <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                    ✓ Discount: {(((selectedMedicine.mrp - parseFloat(basePrice)) / selectedMedicine.mrp) * 100).toFixed(1)}% off MRP
+                  </p>
+                )}
               </div>
 
               <div>
@@ -281,7 +306,7 @@ export default function NewListingPage() {
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (selectedMedicine.mrp && parseFloat(basePrice) >= selectedMedicine.mrp)}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
                 {submitting ? "Creating..." : (

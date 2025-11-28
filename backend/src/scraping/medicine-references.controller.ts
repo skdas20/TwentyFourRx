@@ -36,6 +36,7 @@ export class MedicineReferencesController {
       manufacturer: ref.manufacturer,
       marketer: ref.marketer,
       packSize: ref.packSize,
+      mrp: ref.mrp ? parseFloat(ref.mrp.toString()) : null,
     }));
   }
 }

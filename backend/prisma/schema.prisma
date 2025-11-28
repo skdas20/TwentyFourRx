@@ -345,6 +345,8 @@ model MedicineProposal {
   manufacturerName   String         @map("manufacturer_name")
   marketerName       String?        @map("marketer_name")
   basePrice          Decimal        @map("base_price") @db.Decimal(14, 2)
+  stock              Int            @default(100)
+  documentUrl        String?        @map("document_url")
   status             ProposalStatus @default(PENDING)
   reviewerNote       String?        @map("reviewer_note")
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -382,6 +384,7 @@ model MedicineReference {
   manufacturer    String
   marketer        String?
   packSize        String?  @map("pack_size")
+  mrp             Decimal? @db.Decimal(14, 2)  // Maximum Retail Price
 
   // Scraping metadata
   source          String   // "1mg", "pharmeasy", "cdsco"

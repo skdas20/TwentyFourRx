@@ -107,8 +107,11 @@ export class ListingsController {
   @Patch('proposals/:id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  async approveMedicineProposal(@Param('id') id: string) {
-    return this.listingsService.approveMedicineProposal(id);
+  async approveMedicineProposal(
+    @Param('id') id: string,
+    @Body() dto: ApproveListingDto,
+  ) {
+    return this.listingsService.approveMedicineProposal(id, dto.adminMarkupPct);
   }
 
   // ADMIN: Reject medicine proposal (MUST be before :id routes)
@@ -153,8 +156,11 @@ export class ListingsController {
   // PUBLIC: Get active listings (for buyers/traders)
   @Get()
   @Public()
-  async getActiveListings(@Query('medicineId') medicineId?: string) {
-    return this.listingsService.getActiveListings(medicineId);
+  async getActiveListings(
+    @Query('medicineId') medicineId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.listingsService.getActiveListings(medicineId, search);
   }
 
   // PUBLIC: Get listing by ID

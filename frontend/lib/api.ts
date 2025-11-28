@@ -89,8 +89,8 @@ export const listingsApi = {
   rejectListing: (id: string, reviewerNote: string) =>
     api.patch(`/listings/${id}/reject`, { reviewerNote }),
   getPendingProposals: () => api.get('/listings/proposals/pending'),
-  approveMedicineProposal: (id: string) =>
-    api.patch(`/listings/proposals/${id}/approve`, {}),
+  approveMedicineProposal: (id: string, adminMarkupPct?: number) =>
+    api.patch(`/listings/proposals/${id}/approve`, { adminMarkupPct }),
   rejectMedicineProposal: (id: string, reviewerNote: string) =>
     api.patch(`/listings/proposals/${id}/reject`, { reviewerNote }),
 }
