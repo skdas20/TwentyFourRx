@@ -167,3 +167,8 @@ generate-backend-modules.sh
 start-dev.bat
 start-dev.sh
 
+
+# Google Cloud Service Account Keys (sensitive)
+*-service-key.json
+*-storage-service-key.json
+backend/*-service-key.json
