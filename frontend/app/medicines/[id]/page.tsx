@@ -243,26 +243,31 @@ export default function MedicineDetailPage() {
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <Link href="/medicines" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
-              <Logo size="md" href="/" isLoggedIn={!!user} />
+              <Logo size="sm" href="/" isLoggedIn={!!user} />
             </div>
 
-            <div className="flex-1 max-w-md mx-8">
+            <div className="hidden md:flex flex-1 max-w-md mx-4">
               <SearchBar variant="navbar" isLoggedIn={!!user} />
             </div>
 
-            <div className="flex items-center gap-3">
-              <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <Bell className="w-5 h-5" />
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <ThemeToggle />
               {user && <ProfileDropdown user={user} />}
             </div>
+          </div>
+
+          {/* Mobile Search Bar */}
+          <div className="md:hidden pb-3 pt-1">
+            <SearchBar variant="navbar" isLoggedIn={!!user} />
           </div>
         </div>
       </header>

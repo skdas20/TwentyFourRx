@@ -133,32 +133,32 @@ export default function WatchlistPage() {
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-2">
             {/* Left Side - Back Button + Logo */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
-              <Logo size="md" href="/" isLoggedIn={true} />
+              <Logo size="sm" href="/" isLoggedIn={true} />
             </div>
 
             {/* Center - Fixed Navigation */}
-            <nav className="flex items-center gap-6">
-              <Link href="/medicines" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+            <nav className="hidden md:flex items-center gap-3 lg:gap-6">
+              <Link href="/medicines" className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Explore
               </Link>
-              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Dashboard
               </Link>
             </nav>
 
             {/* Right Side - Portfolio, Watchlist, Theme, User */}
-            <div className="flex items-center gap-4">
-              <Link href="/portfolio" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+            <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 flex-shrink-0">
+              <Link href="/portfolio" className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Portfolio
               </Link>
-              <Link href="/watchlist" className="text-blue-600 dark:text-blue-400 font-medium">
+              <Link href="/watchlist" className="hidden lg:block text-sm text-blue-600 dark:text-blue-400 font-medium">
                 Watchlist
               </Link>
 

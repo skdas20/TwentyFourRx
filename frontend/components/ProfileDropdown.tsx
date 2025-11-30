@@ -42,15 +42,15 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
       {/* Profile Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
+        className="flex items-center gap-1 sm:gap-2 pl-2 sm:pl-3 border-l border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
       >
-        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-          <span className="text-white text-sm font-semibold">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+          <span className="text-white text-xs sm:text-sm font-semibold">
             {user.name?.charAt(0).toUpperCase()}
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform ${
+          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600 dark:text-gray-400 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
         />

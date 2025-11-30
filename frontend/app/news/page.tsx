@@ -44,15 +44,15 @@ export default function NewsPage() {
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 gap-2">
             {/* Left Side - Back Button + Logo */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
               <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
               <Link href="/" className="flex items-center">
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-xl sm:text-2xl font-bold">
                   <span className="text-gray-900 dark:text-white">24R</span>
                   <span className="text-blue-600 dark:text-blue-400">x</span>
                 </h1>
@@ -60,17 +60,17 @@ export default function NewsPage() {
             </div>
 
             {/* Center - Fixed Navigation */}
-            <div className="flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-3 lg:gap-6">
               <Link
                 href="/medicines"
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
                 Explore
               </Link>
               {user && (
                 <Link
                   href={`/dashboard/${user.roleCode.toLowerCase()}`}
-                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                  className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                 >
                   Dashboard
                 </Link>
@@ -78,18 +78,18 @@ export default function NewsPage() {
             </div>
 
             {/* Right Side - User Menu */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 flex-shrink-0">
               {user && (user.roleCode === 'TRADER' || user.roleCode === 'SELLER') && (
                 <>
                   <Link
                     href="/portfolio"
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                    className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                   >
                     Portfolio
                   </Link>
                   <Link
                     href="/watchlist"
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+                    className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                   >
                     Watchlist
                   </Link>
@@ -101,7 +101,7 @@ export default function NewsPage() {
               ) : (
                 <Link
                   href="/auth/login"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="hidden sm:block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
                   Login
                 </Link>
