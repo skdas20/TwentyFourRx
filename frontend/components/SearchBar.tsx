@@ -182,7 +182,7 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
       {/* Search Results Dropdown */}
       {isOpen && (query.length > 0 || results.length > 0) && (
         <div
-          className={`absolute ${isHeroVariant ? "top-full mt-2 w-full" : "top-full mt-1 w-full min-w-[400px]"}
+          className={`absolute ${isHeroVariant ? "top-full mt-2 w-full" : "top-full mt-1 left-0 right-0 sm:min-w-[400px] sm:left-auto sm:right-auto sm:w-full"}
             bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl
             overflow-hidden max-h-[500px] overflow-y-auto`}
           style={{ zIndex: 99999 }}
