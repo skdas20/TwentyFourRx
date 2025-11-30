@@ -11,6 +11,7 @@ import {
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { listingsApi, dashboardApiNew, watchlistApi, pricesApi, inventoryApi } from "@/lib/api";
 
 export default function SellerDashboard() {
@@ -231,7 +232,7 @@ export default function SellerDashboard() {
           <div className="flex justify-between items-center h-16">
             {/* Logo & Nav */}
             <div className="flex items-center gap-8">
-              <Logo size="md" href="/" />
+              <Logo size="md" href="/" isLoggedIn={true} />
               
               <nav className="hidden md:flex items-center gap-1">
                 <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
@@ -254,15 +255,10 @@ export default function SellerDashboard() {
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              
+
               <ThemeToggle />
-              
-              <div className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">{user.name?.charAt(0)}</span>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              </div>
+
+              <ProfileDropdown user={user} />
             </div>
           </div>
         </div>

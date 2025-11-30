@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  Search, Plus, Edit2, X, TrendingUp, TrendingDown, 
+import {
+  Search, Plus, Edit2, X, TrendingUp, TrendingDown,
   ChevronRight, ChevronDown, Bell, ShoppingCart, Pill,
-  ArrowUpDown, Settings
+  ArrowUpDown, Settings, ArrowLeft
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { watchlistApi, medicinesApi } from "@/lib/api";
 
 export default function WatchlistPage() {
@@ -130,49 +131,40 @@ export default function WatchlistPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {/* Header - Same as Dashboard */}
+      {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-8">
-              <Logo size="md" href="/" />
-              
-              <nav className="hidden md:flex items-center gap-1">
-                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  Explore
-                </Link>
-                <Link href="/dashboard/seller" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  Dashboard
-                </Link>
-              </nav>
+            {/* Left Side - Back Button + Logo */}
+            <div className="flex items-center gap-4">
+              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <Logo size="md" href="/" isLoggedIn={true} />
             </div>
 
-            <div className="flex-1 max-w-md mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="What are you looking for today?"
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border-0 rounded-lg text-sm
-                           text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+            {/* Center - Fixed Navigation */}
+            <nav className="flex items-center gap-6">
+              <Link href="/medicines" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+                Explore
+              </Link>
+              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+                Dashboard
+              </Link>
+            </nav>
 
-            <div className="flex items-center gap-3">
-              <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              
+            {/* Right Side - Portfolio, Watchlist, Theme, User */}
+            <div className="flex items-center gap-4">
+              <Link href="/portfolio" className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+                Portfolio
+              </Link>
+              <Link href="/watchlist" className="text-blue-600 dark:text-blue-400 font-medium">
+                Watchlist
+              </Link>
+
               <ThemeToggle />
-              
-              <div className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">{user.name?.charAt(0)}</span>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-              </div>
+
+              <ProfileDropdown user={user} />
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Package, TrendingUp, Clock, LogOut, Bell, Search, Pill, ShoppingCart } from "lucide-react";
+import { Plus, Package, TrendingUp, Clock, LogOut, Bell, Search, Pill, ShoppingCart, ArrowLeft } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
 
@@ -58,13 +58,18 @@ export default function TraderDashboard() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/" className="flex items-center">
-              <h1 className="text-2xl font-bold">
-                <span className="text-gray-900 dark:text-gray-100">24R</span>
-                <span className="text-blue-600 dark:text-blue-400">x</span>
-              </h1>
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Trader</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <Link href="/" className="flex items-center">
+                <h1 className="text-2xl font-bold">
+                  <span className="text-gray-900 dark:text-gray-100">24R</span>
+                  <span className="text-blue-600 dark:text-blue-400">x</span>
+                </h1>
+                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Trader</span>
+              </Link>
+            </div>
 
             <div className="flex-1 max-w-lg mx-8">
               <div className="relative">

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, CheckCircle, XCircle, Clock, Eye, Download } from "lucide-react";
+import Link from "next/link";
+import { FileText, CheckCircle, XCircle, Clock, Eye, Download, ArrowLeft } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function BuyProposalsPage() {
   const router = useRouter();
@@ -92,14 +94,26 @@ export default function BuyProposalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Buy Proposals</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Review and approve buy proposals from users
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard/admin" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Buy Proposals</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Review and approve buy proposals from users</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
         </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {proposals.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
@@ -200,7 +214,7 @@ export default function BuyProposalsPage() {
             ))}
           </div>
         )}
-      </div>
+      </main>
 
       {/* Review Modal */}
       {selectedProposal && (

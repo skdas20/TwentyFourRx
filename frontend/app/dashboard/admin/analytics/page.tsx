@@ -11,6 +11,7 @@ export default function AnalyticsPage() {
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -29,15 +30,38 @@ export default function AnalyticsPage() {
 
   const loadAnalytics = async () => {
     try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.error('No access token found');
+        router.push('/auth/login');
+        return;
+      }
+
       const response = await fetch('http://localhost:8080/api/v1/analytics/dashboard-stats', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
+
+      if (!response.ok) {
+        console.error(`API error: ${response.status} ${response.statusText}`);
+        if (response.status === 401) {
+          localStorage.removeItem('accessToken');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(`API error: ${response.status}`);
+      }
+
       const data = await response.json();
       setStats(data);
+      setError(null);
     } catch (error) {
       console.error('Failed to load analytics:', error);
+      setStats(null);
+      setError(error instanceof Error ? error.message : 'Failed to load analytics');
     } finally {
       setLoading(false);
     }
@@ -52,11 +76,11 @@ export default function AnalyticsPage() {
 
   if (!user) return null;
 
-  const statsArray = stats ? [
-    { label: "Total Revenue", value: stats.totalRevenue.formatted, change: stats.totalRevenue.change, trend: stats.totalRevenue.trend, color: "blue" },
-    { label: "Total Orders", value: stats.totalOrders.formatted, change: stats.totalOrders.change, trend: stats.totalOrders.trend, color: "green" },
-    { label: "Active Users", value: stats.activeUsers.formatted, change: stats.activeUsers.change, trend: stats.activeUsers.trend, color: "purple" },
-    { label: "Avg Order Value", value: stats.avgOrderValue.formatted, change: stats.avgOrderValue.change, trend: stats.avgOrderValue.trend, color: "orange" },
+  const statsArray = stats && stats.totalRevenue ? [
+    { label: "Total Revenue", value: stats.totalRevenue?.formatted || "N/A", change: stats.totalRevenue?.change || "0%", trend: stats.totalRevenue?.trend || "up", color: "blue" },
+    { label: "Total Orders", value: stats.totalOrders?.formatted || "0", change: stats.totalOrders?.change || "0%", trend: stats.totalOrders?.trend || "up", color: "green" },
+    { label: "Active Users", value: stats.activeUsers?.formatted || "0", change: stats.activeUsers?.change || "0%", trend: stats.activeUsers?.trend || "up", color: "purple" },
+    { label: "Avg Order Value", value: stats.avgOrderValue?.formatted || "N/A", change: stats.avgOrderValue?.change || "0%", trend: stats.avgOrderValue?.trend || "up", color: "orange" },
   ] : [];
 
   return (
@@ -89,6 +113,13 @@ export default function AnalyticsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
         {/* Stats Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">

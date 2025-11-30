@@ -94,7 +94,8 @@ export default function NewListingPage() {
       
       console.log("Creating listing with document:", document?.name);
       
-      const response = await fetch('http://localhost:8080/api/v1/listings', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const response = await fetch(`${apiUrl}/listings`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,

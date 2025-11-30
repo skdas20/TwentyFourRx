@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, TrendingUp, Package, ArrowLeft, LogOut, PieChart } from "lucide-react";
+import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { inventoryApi } from "@/lib/api";
 
 export default function PortfolioPage() {
@@ -62,26 +63,53 @@ export default function PortfolioPage() {
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Left Side - Back Button + Logo */}
             <div className="flex items-center gap-4">
               <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Holdings</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">View your medicine inventory</p>
-              </div>
+              <Link href="/" className="flex items-center">
+                <h1 className="text-2xl font-bold">
+                  <span className="text-gray-900 dark:text-white">24R</span>
+                  <span className="text-blue-600 dark:text-blue-400">x</span>
+                </h1>
+              </Link>
             </div>
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                title="Logout"
+
+            {/* Center - Fixed Navigation */}
+            <div className="flex items-center gap-6">
+              <Link
+                href="/medicines"
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
-                <LogOut className="w-5 h-5" />
-              </button>
+                Explore
+              </Link>
+              <Link
+                href={`/dashboard/${user.roleCode.toLowerCase()}`}
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+              >
+                Dashboard
+              </Link>
+            </div>
+
+            {/* Right Side - Portfolio, Watchlist, Theme, Logout */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/portfolio"
+                className="text-blue-600 dark:text-blue-400 font-medium"
+              >
+                Portfolio
+              </Link>
+              <Link
+                href="/watchlist"
+                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+              >
+                Watchlist
+              </Link>
+              <ThemeToggle />
+              <ProfileDropdown user={user} />
             </div>
           </div>
         </div>

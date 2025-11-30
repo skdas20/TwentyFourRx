@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, ChevronDown, Heart, Share2, BarChart3, Activity, ShoppingCart
+  Bell, ChevronDown, Heart, Share2, BarChart3, Activity, ShoppingCart, ArrowLeft
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import BuyProposalModal from "@/components/BuyProposalModal";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { pricesApi, listingsApi, ordersApi, holdsApi } from "@/lib/api";
 
 export default function MedicineDetailPage() {
@@ -244,8 +245,11 @@ export default function MedicineDetailPage() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-8">
-              <Logo size="md" href="/" />
+            <div className="flex items-center gap-4">
+              <Link href="/medicines" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <Logo size="md" href="/" isLoggedIn={!!user} />
             </div>
 
             <div className="flex-1 max-w-md mx-8">
@@ -257,14 +261,7 @@ export default function MedicineDetailPage() {
                 <Bell className="w-5 h-5" />
               </button>
               <ThemeToggle />
-              {user && (
-                <div className="flex items-center gap-2 pl-3 border-l border-gray-200 dark:border-gray-700">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">{user.name?.charAt(0)}</span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                </div>
-              )}
+              {user && <ProfileDropdown user={user} />}
             </div>
           </div>
         </div>

@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pill, Search, Filter, Package, Users, ArrowLeft, LogOut, Bell } from "lucide-react";
+import { Pill, Search, Filter, Package, Users, Bell } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import Logo from "@/components/Logo";
+import SearchBar from "@/components/SearchBar";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { listingsApi } from "@/lib/api";
 
 export default function MedicinesPage() {
@@ -56,63 +59,60 @@ export default function MedicinesPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Header - Same as Dashboard */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex items-center gap-4">
-              <Link href="/" className="flex items-center">
-                <h1 className="text-2xl font-bold">
-                  <span className="text-gray-900 dark:text-white">24R</span>
-                  <span className="text-blue-600 dark:text-blue-400">x</span>
-                </h1>
-              </Link>
-              <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className="text-gray-700 dark:text-gray-300 font-medium">Medicines</span>
-            </div>
+            {/* Logo & Nav */}
+            <div className="flex items-center gap-8">
+              <Logo size="md" href="/" isLoggedIn={!!user} />
 
-            {/* User Menu */}
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              {user && (
-                <>
-                  <Link
-                    href={`/dashboard/${user.roleCode.toLowerCase()}`}
-                    className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
-                  >
+              <nav className="hidden md:flex items-center gap-1">
+                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                  Explore
+                </Link>
+                {user && (
+                  <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     Dashboard
                   </Link>
-                  {(user.roleCode === 'TRADER' || user.roleCode === 'SELLER') && (
-                    <>
-                      <Link
-                        href="/watchlist"
-                        className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
-                      >
-                        Watchlist
-                      </Link>
-                      <Link
-                        href="/portfolio"
-                        className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
-                      >
-                        Portfolio
-                      </Link>
-                    </>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    title="Logout"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
+                )}
+              </nav>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 max-w-md mx-8">
+              <SearchBar variant="navbar" isLoggedIn={!!user} />
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-3">
+              {user && (user.roleCode === 'TRADER' || user.roleCode === 'SELLER') && (
+                <>
+                  <Link href="/portfolio" className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    Portfolio
+                  </Link>
+                  <Link href="/watchlist" className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    Watchlist
+                  </Link>
                 </>
               )}
-              {!user && (
+
+              {user && (
+                <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative">
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
+              )}
+
+              <ThemeToggle />
+
+              {user ? (
+                <ProfileDropdown user={user} />
+              ) : (
                 <Link
                   href="/auth/login"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                 >
                   Login
                 </Link>
@@ -122,7 +122,7 @@ export default function MedicinesPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Browse Medicines</h1>

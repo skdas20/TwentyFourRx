@@ -175,22 +175,22 @@
   }
 }
 
-/* Apply animations - Light mode */
+/* Apply gradient fills - Light mode */
 .logo-text {
-  animation: textShine 6s ease-in-out infinite;
+  fill: url(#textShine);
 }
 
 .logo-top-line,
 .logo-bottom-line {
-  animation: lineShine 6s ease-in-out infinite;
+  fill: url(#lineShine);
 }
 
 /* Dark mode */
 .dark .logo-text {
-  animation: textShineDark 6s ease-in-out infinite;
+  fill: url(#textShineDark);
 }
 
 .dark .logo-top-line,
 .dark .logo-bottom-line {
-  animation: lineShineDark 6s ease-in-out infinite;
+  fill: url(#lineShineDark);
 }
