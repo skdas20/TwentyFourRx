@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Newspaper, Eye, Calendar, User, ArrowLeft } from "lucide-react";
+import { Newspaper, Calendar, ArrowLeft, ExternalLink } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { newsApi } from "@/lib/api";
@@ -25,19 +25,13 @@ export default function NewsPage() {
   const loadNews = async () => {
     try {
       const response = await newsApi.getNews();
-      setNews(response.data);
+      // API returns { data: [...], total, skip, take }
+      setNews(response.data.data || response.data || []);
     } catch (error) {
       console.error("Failed to load news:", error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    router.push("/auth/login");
   };
 
   return (
@@ -130,50 +124,60 @@ export default function NewsPage() {
             <p className="text-gray-600 dark:text-gray-400">Check back later for updates</p>
           </div>
         ) : (
-          <div className="grid gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {news.map((article: any) => (
-            <article
-              key={article.id}
-              className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all"
-            >
-              <div className="flex items-start gap-6">
-                {/* Icon */}
-                <div className="w-16 h-16 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Newspaper className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <article
+                key={article.id}
+                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all overflow-hidden group"
+              >
+                {/* Thumbnail */}
+                <div className="relative h-48 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20">
+                  {article.thumbnailUrl ? (
+                    <img
+                      src={article.thumbnailUrl}
+                      alt={article.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Newspaper className="w-16 h-16 text-blue-300 dark:text-blue-600" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Content */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                        {article.title}
-                      </h2>
-                      <p className="text-gray-600 dark:text-gray-400 mb-3">
-                        {article.excerpt}
-                      </p>
-                    </div>
-                    <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-sm font-medium rounded-full whitespace-nowrap ml-4">
-                      {article.category}
-                    </span>
-                  </div>
+                <div className="p-5">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 line-clamp-2">
+                    {article.title}
+                  </h2>
+                  
+                  {article.summary && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-3">
+                      {article.summary}
+                    </p>
+                  )}
 
                   {/* Meta */}
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 pt-3 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(article.createdAt || article.publishedAt).toLocaleDateString()}</span>
+                      <span>{new Date(article.publishedAt || article.createdAt).toLocaleDateString()}</span>
                     </div>
-                    {article.views && (
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-4 h-4" />
-                        <span>{article.views.toLocaleString()} views</span>
-                      </div>
+                    
+                    {article.externalUrl && (
+                      <a
+                        href={article.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        <span>Read More</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
                     )}
                   </div>
                 </div>
-              </div>
-            </article>
+              </article>
             ))}
           </div>
         )}

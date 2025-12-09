@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Upload, FileText, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Upload, AlertCircle, Mail, CheckCircle } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
 
 interface BuyProposalModalProps {
@@ -9,6 +9,7 @@ interface BuyProposalModalProps {
   onClose: () => void;
   listingId: string;
   medicineName: string;
+  listPrice: number;
 }
 
 export default function BuyProposalModal({
@@ -16,15 +17,39 @@ export default function BuyProposalModal({
   onClose,
   listingId,
   medicineName,
+  listPrice,
 }: BuyProposalModalProps) {
+  const [step, setStep] = useState<1 | 2>(1);
   const [quantity, setQuantity] = useState<number>(0);
-  const [orderType, setOrderType] = useState<'delivery' | 'intraday' | 'mtf'>('delivery');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [notes, setNotes] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [proposalId, setProposalId] = useState<string>("");
+
+  // Get user email from localStorage and reset form when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const user = JSON.parse(userData);
+        setUserEmail(user.email || "");
+      }
+    } else {
+      // Reset form when modal closes
+      setStep(1);
+      setQuantity(0);
+      setReceiptFile(null);
+      setNotes("");
+      setError("");
+      setProposalId("");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const totalCost = quantity * listPrice;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -45,8 +70,7 @@ export default function BuyProposalModal({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleProceedToCheckout = async () => {
     setError("");
 
     // Validation
@@ -58,29 +82,69 @@ export default function BuyProposalModal({
     try {
       setSubmitting(true);
 
-      // Create FormData
-      const formData = new FormData();
-      formData.append("listingId", listingId);
-      formData.append("qty", quantity.toString());
-      formData.append("orderType", orderType);
-      if (receiptFile) {
-        formData.append("receipt", receiptFile);
+      // Send invoice email and create proposal
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/buy-proposals/send-invoice`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: JSON.stringify({
+          listingId,
+          qty: quantity,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send invoice');
       }
 
-      await buyProposalsApi.createProposal(formData);
+      const data = await response.json();
+      // Store the proposal ID for receipt upload
+      setProposalId(data.proposal?.id || '');
+
+      // Move to step 2
+      setStep(2);
+    } catch (err: any) {
+      console.error("Failed to send invoice:", err);
+      setError(err.message || "Failed to send invoice");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    // Validation
+    if (!receiptFile) {
+      setError("Please upload payment receipt");
+      return;
+    }
+
+    if (!proposalId) {
+      setError("Proposal not found. Please try again.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Upload receipt to existing proposal
+      const formData = new FormData();
+      formData.append("receipt", receiptFile);
+
+      await buyProposalsApi.uploadReceipt(proposalId, formData);
 
       // Success
-      alert("Buy proposal submitted successfully! Admin will review it soon.");
-      onClose();
-      
-      // Reset form
-      setQuantity(0);
-      setOrderType('delivery');
-      setReceiptFile(null);
-      setNotes("");
+      alert("Purchase submitted successfully! Your order is pending admin approval.");
+      onClose(); // Form will be reset by useEffect
     } catch (err: any) {
-      console.error("Failed to submit proposal:", err);
-      setError(err.response?.data?.message || "Failed to submit proposal");
+      console.error("Failed to submit purchase:", err);
+      setError(err.response?.data?.message || "Failed to submit purchase");
     } finally {
       setSubmitting(false);
     }
@@ -95,7 +159,7 @@ export default function BuyProposalModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Submit Buy Proposal
+              {step === 1 ? "Buy Medicine" : "Complete Payment"}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {medicineName}
@@ -109,126 +173,195 @@ export default function BuyProposalModal({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
+        {/* Step 1: Order Details */}
+        {step === 1 && (
+          <div className="p-6 space-y-4">
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
 
-          {/* Info Box */}
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              Submit a proposal to buy this medicine. Upload your purchase receipt and admin will review it.
-            </p>
-          </div>
-
-          {/* Quantity */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Quantity (units)
-            </label>
-            <input
-              type="number"
-              value={quantity || ""}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
-                       text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter quantity"
-              required
-              min="1"
-            />
-          </div>
-
-          {/* Order Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Order Type
-            </label>
-            <select
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value as 'delivery' | 'intraday' | 'mtf')}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
-                       text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="delivery">Delivery (Standard)</option>
-              <option value="intraday">Intraday</option>
-              <option value="mtf">MTF (Multi-day)</option>
-            </select>
-          </div>
-
-          {/* Receipt Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Upload Receipt (Optional)
-            </label>
-            <div className="relative">
-              <input
-                type="file"
-                accept="image/jpeg,image/jpg,image/png,application/pdf"
-                onChange={handleFileChange}
-                className="hidden"
-                id="receipt-upload"
-              />
-              <label
-                htmlFor="receipt-upload"
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-              >
-                {receiptFile ? (
-                  <>
-                    <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {receiptFile.name}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Click to upload (JPG, PNG, PDF - Max 5MB)
-                    </span>
-                  </>
-                )}
+            {/* Quantity */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Quantity (units)
               </label>
+              <input
+                type="number"
+                value={quantity || ""}
+                onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter quantity"
+                required
+                min="1"
+              />
+            </div>
+
+            {/* Price Summary */}
+            {quantity > 0 && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Unit Price:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">₹{listPrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700">
+                  <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Total Cost:</span>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="Any additional information..."
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedToCheckout}
+                disabled={submitting || quantity <= 0}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Processing..." : "Proceed to Checkout"}
+              </button>
             </div>
           </div>
+        )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Additional Notes (Optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
-                       text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder="Any additional information..."
-            />
-          </div>
+        {/* Step 2: Payment Confirmation */}
+        {step === 2 && (
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? "Submitting..." : "Submit Proposal"}
-            </button>
-          </div>
-        </form>
+            {/* Invoice Sent Message */}
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-semibold text-green-900 dark:text-green-100 mb-1">
+                    Invoice Sent!
+                  </h3>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    An invoice has been sent to <strong>{userEmail}</strong> with payment details and bank account information.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Summary */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Order Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Quantity:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{quantity} units</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Unit Price:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">₹{listPrice.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Total:</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Next Steps:</h3>
+              <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
+                <li>Complete the payment using the bank details in the email</li>
+                <li>Upload the payment confirmation receipt below</li>
+                <li>Click "BUY" to submit your order</li>
+              </ol>
+            </div>
+
+            {/* Receipt Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Upload Payment Receipt <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,application/pdf"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  id="receipt-upload"
+                  required
+                />
+                <label
+                  htmlFor="receipt-upload"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                >
+                  {receiptFile ? (
+                    <>
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {receiptFile.name}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 text-gray-400" />
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Click to upload (JPG, PNG, PDF - Max 5MB)
+                      </span>
+                    </>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !receiptFile}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Submitting..." : "BUY"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

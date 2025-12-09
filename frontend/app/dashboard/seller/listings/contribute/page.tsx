@@ -1,0 +1,297 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Plus } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
+
+export default function ContributeMedicinePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Medicine fields
+  const [name, setName] = useState("");
+  const [genericName, setGenericName] = useState("");
+  const [composition, setComposition] = useState("");
+  const [form, setForm] = useState("");
+  const [strength, setStrength] = useState("");
+  const [manufacturer, setManufacturer] = useState("");
+  const [marketer, setMarketer] = useState("");
+  const [packSize, setPackSize] = useState("");
+  const [mrp, setMrp] = useState("");
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (!userData) {
+      router.push("/auth/login");
+      return;
+    }
+    setUser(JSON.parse(userData));
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name || !composition || !form || !strength || !manufacturer || !mrp) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    const parsedMrp = parseFloat(mrp);
+    if (isNaN(parsedMrp) || parsedMrp <= 0) {
+      alert("Please enter a valid MRP greater than 0");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const response = await fetch(`${apiUrl}/medicine-references/contribute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: JSON.stringify({
+          name,
+          genericName: genericName || null,
+          composition,
+          form,
+          strength,
+          manufacturer,
+          marketer: marketer || null,
+          packSize: packSize || null,
+          mrp: parsedMrp,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit medicine contribution');
+      }
+      
+      alert("Medicine contribution submitted successfully! Admin will review it soon.");
+      router.push("/dashboard/seller/listings/new");
+    } catch (error: any) {
+      console.error("Failed to contribute medicine:", error);
+      alert(error.message || "Failed to submit contribution. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard/seller/listings/new" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Contribute Medicine</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Add a new medicine to our database</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Help Us Grow Our Database!</h3>
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Can't find a medicine? Contribute it to our database. Admin will review and approve your submission.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Medicine Name */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Medicine Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Paracetamol 500mg Tablet"
+              />
+            </div>
+
+            {/* Generic Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Generic Name
+              </label>
+              <input
+                type="text"
+                value={genericName}
+                onChange={(e) => setGenericName(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Acetaminophen"
+              />
+            </div>
+
+            {/* Form */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Form <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={form}
+                onChange={(e) => setForm(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select form</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Capsule">Capsule</option>
+                <option value="Syrup">Syrup</option>
+                <option value="Injection">Injection</option>
+                <option value="Cream">Cream</option>
+                <option value="Ointment">Ointment</option>
+                <option value="Drops">Drops</option>
+                <option value="Powder">Powder</option>
+                <option value="Gel">Gel</option>
+                <option value="Lotion">Lotion</option>
+                <option value="Spray">Spray</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Composition */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Composition <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                required
+                value={composition}
+                onChange={(e) => setComposition(e.target.value)}
+                rows={2}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                placeholder="e.g., Paracetamol (500mg)"
+              />
+            </div>
+
+            {/* Strength */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Strength <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={strength}
+                onChange={(e) => setStrength(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 500mg"
+              />
+            </div>
+
+            {/* Pack Size */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Pack Size
+              </label>
+              <input
+                type="text"
+                value={packSize}
+                onChange={(e) => setPackSize(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 10 tablets"
+              />
+            </div>
+
+            {/* Manufacturer */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Manufacturer <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={manufacturer}
+                onChange={(e) => setManufacturer(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Sun Pharma"
+              />
+            </div>
+
+            {/* Marketer */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Marketer
+              </label>
+              <input
+                type="text"
+                value={marketer}
+                onChange={(e) => setMarketer(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Sun Pharma"
+              />
+            </div>
+
+            {/* MRP */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Maximum Retail Price (MRP) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={mrp}
+                onChange={(e) => setMrp(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter MRP in ₹"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/seller/listings/new")}
+              className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
+            >
+              {submitting ? "Submitting..." : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  Submit Contribution
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </main>
+    </div>
+  );
+}

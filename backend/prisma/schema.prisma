@@ -62,6 +62,14 @@ enum ProposalStatus {
   REJECTED
 }
 
+enum DeliveryRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISPATCHED
+  DELIVERED
+}
+
 // ===== MODELS =====
 model Role {
   code  String @id @db.VarChar(32)
@@ -95,6 +103,7 @@ model User {
   watchlists           Watchlist[]
   priceAlerts          PriceAlert[]
   passwordResetTokens  PasswordResetToken[]
+  deliveryRequests     DeliveryRequest[]
 
   @@index([roleCode])
   @@index([status])
@@ -188,6 +197,7 @@ model Listing {
   medicineId      String        @map("medicine_id") @db.Uuid
   sellerId        String        @map("seller_id") @db.Uuid
   basePrice       Decimal       @map("base_price") @db.Decimal(14, 2)
+  proposedMrp     Decimal?      @map("proposed_mrp") @db.Decimal(14, 2) // Seller's proposed MRP for admin review
   adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2)
   listPrice       Decimal?      @map("list_price") @db.Decimal(14, 2)
   stock           Int
@@ -281,9 +291,10 @@ model InventoryLot {
   sourceOrderId String?  @map("source_order_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user        User      @relation(fields: [userId], references: [id])
-  medicine    Medicine  @relation(fields: [medicineId], references: [id])
-  sourceOrder Order?    @relation(fields: [sourceOrderId], references: [id])
+  user             User              @relation(fields: [userId], references: [id])
+  medicine         Medicine          @relation(fields: [medicineId], references: [id])
+  sourceOrder      Order?            @relation(fields: [sourceOrderId], references: [id])
+  deliveryRequests DeliveryRequest[]
 
   @@index([userId, medicineId])
   @@map("inventory_lots")
@@ -293,10 +304,15 @@ model NewsArticle {
   id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title         String
   slug          String         @unique
-  content       String
+  content       String         @db.Text
+  summary       String?        @db.Text // Short summary for card display
+  thumbnailUrl  String?        @map("thumbnail_url") // Custom thumbnail or auto-generated
+  externalUrl   String?        @map("external_url") // Link to external article
   isPublished   Boolean        @default(false) @map("is_published")
   publishedAt   DateTime?      @map("published_at") @db.Timestamptz(6)
   authorAdminId String         @map("author_admin_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   author        User           @relation(fields: [authorAdminId], references: [id])
   newsMedicines NewsMedicine[]
@@ -344,6 +360,7 @@ model MedicineProposal {
   strength           String
   manufacturerName   String         @map("manufacturer_name")
   marketerName       String?        @map("marketer_name")
+  proposedMrp        Decimal?       @map("proposed_mrp") @db.Decimal(14, 2) // Proposed MRP for new medicine
   basePrice          Decimal        @map("base_price") @db.Decimal(14, 2)
   stock              Int            @default(100)
   documentUrl        String?        @map("document_url")
@@ -385,6 +402,7 @@ model MedicineReference {
   marketer        String?
   packSize        String?  @map("pack_size")
   mrp             Decimal? @db.Decimal(14, 2)  // Maximum Retail Price
+  imageUrl        String?  @map("image_url")   // Product image URL from GCS
 
   // Scraping metadata
   source          String   // "1mg", "pharmeasy", "cdsco"
@@ -464,6 +482,7 @@ model BuyProposal {
   qty             Int
   orderType       String         @map("order_type") // "delivery", "intraday", "mtf"
   receiptUrl      String?        @map("receipt_url") // Uploaded receipt/proof
+  notes           String?        // Optional notes from buyer
   status          ProposalStatus @default(PENDING)
   reviewerNote    String?        @map("reviewer_note")
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -478,4 +497,26 @@ model BuyProposal {
   @@index([listingId])
   @@index([status])
   @@map("buy_proposals")
+}
+
+// Physical delivery requests from sellers/traders for their inventory
+model DeliveryRequest {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId     String                @map("requester_id") @db.Uuid
+  inventoryLotId  String                @map("inventory_lot_id") @db.Uuid
+  qty             Int
+  status          DeliveryRequestStatus @default(PENDING)
+  reviewerNote    String?               @map("reviewer_note")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt      DateTime?             @map("reviewed_at") @db.Timestamptz(6)
+  dispatchedAt    DateTime?             @map("dispatched_at") @db.Timestamptz(6)
+  deliveredAt     DateTime?             @map("delivered_at") @db.Timestamptz(6)
+
+  requester     User          @relation(fields: [requesterId], references: [id])
+  inventoryLot  InventoryLot  @relation(fields: [inventoryLotId], references: [id])
+
+  @@index([requesterId])
+  @@index([inventoryLotId])
+  @@index([status])
+  @@map("delivery_requests")
 }

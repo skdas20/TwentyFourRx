@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, Plus, FileText } from "lucide-react";
+import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper } from "lucide-react";
 import { usersApi, listingsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
+import Logo from "@/components/Logo";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -189,13 +190,10 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center">
-              <h1 className="text-2xl font-bold">
-                <span className="text-gray-900 dark:text-gray-100">24R</span>
-                <span className="text-[var(--brand-blue)]">x</span>
-              </h1>
-              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Admin</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Logo size="sm" href="/" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Admin</span>
+            </div>
 
             {/* Search */}
             <div className="flex-1 max-w-lg mx-8">
@@ -554,17 +552,17 @@ export default function AdminDashboard() {
                 </Link>
 
                 <Link
-                  href="/news"
+                  href="/dashboard/admin/news"
                   className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 
                            hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30
                            rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 
                            transition-all text-center hover:scale-105"
                 >
                   <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Activity className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    <Newspaper className="w-6 h-6 text-green-600 dark:text-green-400" />
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">News</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Latest updates</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">News Management</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Create & manage news</p>
                 </Link>
 
                 <Link
@@ -607,6 +605,20 @@ export default function AdminDashboard() {
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Buy Proposals</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Review proposals</p>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/delivery-requests"
+                  className="group p-6 bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 
+                           hover:from-teal-100 hover:to-teal-200 dark:hover:from-teal-900/30 dark:hover:to-teal-800/30
+                           rounded-xl border border-teal-200 dark:border-teal-700 hover:border-teal-300 dark:hover:border-teal-600 
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-teal-100 dark:bg-teal-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Activity className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Delivery Requests</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Approve deliveries</p>
                 </Link>
 
                 <Link

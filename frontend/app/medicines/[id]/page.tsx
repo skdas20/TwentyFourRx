@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, ChevronDown, Heart, Share2, BarChart3, Activity, ShoppingCart, ArrowLeft
+  Bell, Heart, Share2, BarChart3, Activity, ShoppingCart, ArrowLeft
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import BuyProposalModal from "@/components/BuyProposalModal";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import { pricesApi, listingsApi, ordersApi, holdsApi } from "@/lib/api";
+import { pricesApi, listingsApi, watchlistApi, inventoryApi } from "@/lib/api";
 
 export default function MedicineDetailPage() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function MedicineDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [medicine, setMedicine] = useState<any>(null);
-  const [availableListings, setAvailableListings] = useState<any[]>([]);
   const [selectedListing, setSelectedListing] = useState<any>(null);
   const [priceHistory, setPriceHistory] = useState<any[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -32,6 +31,12 @@ export default function MedicineDetailPage() {
   const [timeframe, setTimeframe] = useState<"1d" | "5d" | "1m" | "3m" | "1y" | "5y">("1m");
   
   const [showBuyProposalModal, setShowBuyProposalModal] = useState(false);
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+  
+  // User holdings check
+  const [userHolding, setUserHolding] = useState<any>(null);
+  const [holdingsLoaded, setHoldingsLoaded] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -39,7 +44,82 @@ export default function MedicineDetailPage() {
       setUser(JSON.parse(userData));
     }
     loadMedicineData();
+    checkWatchlistStatus();
+    checkUserHoldings();
   }, [medicineId, timeframe]);
+
+  const checkUserHoldings = async () => {
+    try {
+      const res = await inventoryApi.getUserInventory();
+      const inventory = Array.isArray(res.data?.inventory) ? res.data.inventory : [];
+      const holding = inventory.find((h: any) => h.medicineId === medicineId);
+      setUserHolding(holding || null);
+      setHoldingsLoaded(true);
+    } catch (error) {
+      console.error("Failed to check holdings:", error);
+      setHoldingsLoaded(true);
+    }
+  };
+
+  const checkWatchlistStatus = async () => {
+    if (!user) return;
+    try {
+      const res = await watchlistApi.isInWatchlist(medicineId);
+      setIsInWatchlist(res.data?.isInWatchlist || false);
+    } catch (error) {
+      console.error("Failed to check watchlist status:", error);
+    }
+  };
+
+  const handleToggleWatchlist = async () => {
+    if (!user) {
+      alert("Please login to add to watchlist");
+      return;
+    }
+
+    setWatchlistLoading(true);
+    try {
+      if (isInWatchlist) {
+        // Need to get watchlist item ID first
+        const watchlistRes = await watchlistApi.getWatchlist();
+        const item = watchlistRes.data?.find((w: any) => w.medicineId === medicineId);
+        if (item) {
+          await watchlistApi.removeFromWatchlist(item.id);
+          setIsInWatchlist(false);
+        }
+      } else {
+        await watchlistApi.addToWatchlist({ medicineId });
+        setIsInWatchlist(true);
+      }
+    } catch (error: any) {
+      console.error("Failed to toggle watchlist:", error);
+      alert(error.response?.data?.message || "Failed to update watchlist");
+    } finally {
+      setWatchlistLoading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = `${medicine?.name || "Medicine"} on 24Rx`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch (error) {
+        // User cancelled or share failed
+        console.log("Share cancelled");
+      }
+    } else {
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("Link copied to clipboard!");
+      } catch (error) {
+        console.error("Failed to copy:", error);
+      }
+    }
+  };
 
   const loadMedicineData = async () => {
     try {
@@ -48,7 +128,9 @@ export default function MedicineDetailPage() {
       // Load available listings for this medicine
       const listingsRes = await listingsApi.getListings({ medicineId });
       const listings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
-      setAvailableListings(listings);
+      
+      // Track the listing price for use in price history
+      let listingPrice = 0;
       
       // Get medicine details from first listing
       if (listings.length > 0) {
@@ -59,6 +141,10 @@ export default function MedicineDetailPage() {
           parseFloat(a.listPrice || a.basePrice) - parseFloat(b.listPrice || b.basePrice)
         )[0];
         setSelectedListing(cheapest);
+        
+        // Set current price from the cheapest listing
+        listingPrice = parseFloat(cheapest.listPrice || cheapest.basePrice || 0);
+        setCurrentPrice(listingPrice);
       } else {
         // No active listings found
         console.log("No active listings found for medicine:", medicineId);
@@ -72,19 +158,20 @@ export default function MedicineDetailPage() {
       const priceRes = await pricesApi.getPriceHistory(medicineId, days);
       const history = priceRes.data || [];
       
-      // If no price history, create flat line with base price
+      // If no price history, create flat line with listing price
       if (history.length === 0) {
-        const basePrice = 100; // Default base price
-        const mockHistory = Array.from({ length: 30 }, (_, i) => ({
-          day: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          minPrice: basePrice,
-          maxPrice: basePrice,
-          avgPrice: basePrice,
-          openPrice: basePrice,
-          closePrice: basePrice,
-        }));
-        setPriceHistory(mockHistory);
-        setCurrentPrice(basePrice);
+        // Use the listing price we just calculated
+        if (listingPrice > 0) {
+          const mockHistory = Array.from({ length: 30 }, (_, i) => ({
+            day: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            minPrice: listingPrice,
+            maxPrice: listingPrice,
+            avgPrice: listingPrice,
+            openPrice: listingPrice,
+            closePrice: listingPrice,
+          }));
+          setPriceHistory(mockHistory);
+        }
         setPriceChange(0);
         setPriceChangePercent(0);
       } else {
@@ -92,10 +179,17 @@ export default function MedicineDetailPage() {
         const latest = history[history.length - 1];
         const previous = history[history.length - 2] || latest;
         
-        setCurrentPrice(parseFloat(latest.avgPrice));
-        const change = parseFloat(latest.avgPrice) - parseFloat(previous.avgPrice);
+        // Safely parse prices with fallback to listing price
+        const latestPrice = latest?.avgPrice ? parseFloat(latest.avgPrice) : listingPrice;
+        const previousPrice = previous?.avgPrice ? parseFloat(previous.avgPrice) : latestPrice;
+        
+        // Only update current price if we got a valid price from history, otherwise keep listing price
+        if (latestPrice > 0) {
+          setCurrentPrice(latestPrice);
+        }
+        const change = latestPrice - previousPrice;
         setPriceChange(change);
-        setPriceChangePercent((change / parseFloat(previous.avgPrice)) * 100);
+        setPriceChangePercent(previousPrice > 0 ? (change / previousPrice) * 100 : 0);
       }
     } catch (error) {
       console.error("Failed to load medicine data:", error);
@@ -162,8 +256,9 @@ export default function MedicineDetailPage() {
             const high = parseFloat(d.maxPrice);
             const low = parseFloat(d.minPrice);
             
-            const isGreen = close >= open;
-            const color = isGreen ? "#10b981" : "#ef4444";
+            const isPriceUp = close >= open;
+            // Price up = red (bad for buyers), Price down = green (good for buyers)
+            const color = isPriceUp ? "#ef4444" : "#10b981";
             
             const x = padding + i * candleWidth + candleWidth / 2;
             const yHigh = padding + (1 - (high - minPrice) / priceRange) * (height - 2 * padding);
@@ -205,8 +300,9 @@ export default function MedicineDetailPage() {
           {data.map((d, i) => {
             const open = parseFloat(d.openPrice || d.avgPrice);
             const close = parseFloat(d.closePrice || d.avgPrice);
-            const isGreen = close >= open;
-            const color = isGreen ? "#10b981" : "#ef4444";
+            const isPriceUp = close >= open;
+            // Price up = red (bad for buyers), Price down = green (good for buyers)
+            const color = isPriceUp ? "#ef4444" : "#10b981";
             
             const volume = Math.random() * 100; // Mock volume
             const maxVolume = 100;
@@ -297,22 +393,40 @@ export default function MedicineDetailPage() {
             {/* Medicine Info */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-4">
               <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                     {medicine?.name || "Medicine Name"}
                   </h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    NSE ₹{currentPrice.toFixed(2)} 
-                    <span className={`ml-2 ${priceChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent >= 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                      ₹{currentPrice.toFixed(2)}
                     </span>
+                    <span className={`text-lg font-semibold ${priceChange >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                      {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    PSE (Pharmaceutical Stock Exchange)
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
-                    <Heart className="w-5 h-5" />
+                  <button 
+                    onClick={handleToggleWatchlist}
+                    disabled={watchlistLoading}
+                    className={`p-2 transition-colors ${
+                      isInWatchlist 
+                        ? "text-red-600 dark:text-red-400" 
+                        : "text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                    } ${watchlistLoading ? "opacity-50" : ""}`}
+                    title={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+                  >
+                    <Heart className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
                   </button>
-                  <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+                  <button 
+                    onClick={handleShare}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    title="Share"
+                  >
                     <Share2 className="w-5 h-5" />
                   </button>
                 </div>
@@ -388,7 +502,7 @@ export default function MedicineDetailPage() {
                       className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                     >
                       <ShoppingCart className="w-5 h-5" />
-                      Submit Buy Proposal
+                      BUY
                     </button>
                     <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
                       Already bought? Upload receipt for admin approval
@@ -398,31 +512,56 @@ export default function MedicineDetailPage() {
               ) : (
                 <>
                   {/* SELL Tab Content */}
-                  <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Want to sell this medicine?</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {user?.roleCode === "SELLER" 
-                        ? "Create a new listing to offer this medicine for sale on the platform."
-                        : "Sell from your existing holdings or create a new listing."}
-                    </p>
-                    <button
-                      onClick={() => router.push('/dashboard/seller/listings/new')}
-                      className="w-full py-2 px-4 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Create New Listing
-                    </button>
-                  </div>
+                  {userHolding ? (
+                    // User owns this medicine
+                    <div className="mb-4">
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
+                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          Available in holdings: <span className="font-bold">{userHolding.totalQty} units</span>
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          Avg. cost: ₹{userHolding.avgCost?.toFixed(2) || '0.00'} per unit
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
+                        className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
+                      >
+                        Create Listing to Sell
+                      </button>
+                    </div>
+                  ) : holdingsLoaded ? (
+                    // User doesn't own this medicine
+                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                      <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+                        To sell this medicine, you need to buy it first. Purchase it using the BUY tab, and once your order is approved, you can create a listing.
+                      </p>
+                      <button
+                        onClick={() => setActiveTab("buy")}
+                        className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors"
+                      >
+                        Go to Buy Tab
+                      </button>
+                    </div>
+                  ) : (
+                    // Loading holdings
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
+                    </div>
+                  )}
 
-                  {user?.roleCode === "TRADER" && (
+                  {user && (
                     <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Or sell from your portfolio:
+                        View all your holdings:
                       </p>
                       <button
                         onClick={() => router.push('/portfolio')}
                         className="w-full py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
                       >
-                        View My Holdings
+                        View My Portfolio
                       </button>
                     </div>
                   )}
@@ -442,6 +581,7 @@ export default function MedicineDetailPage() {
           onClose={() => setShowBuyProposalModal(false)}
           listingId={selectedListing.id}
           medicineName={medicine?.name || "Medicine"}
+          listPrice={Number(selectedListing.listPrice || selectedListing.basePrice || 0)}
         />
       )}
     </div>

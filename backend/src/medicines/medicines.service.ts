@@ -26,8 +26,42 @@ export class MedicinesService {
       this.prisma.medicineReference.count({ where }),
     ]);
 
+    // For each medicine reference, find the lowest price from active listings
+    const medicinesWithPrices = await Promise.all(
+      medicines.map(async (med) => {
+        // Find matching medicine in the medicines table
+        const medicine = await this.prisma.medicine.findFirst({
+          where: {
+            name: med.name,
+            form: med.form,
+            strength: med.strength,
+          },
+        });
+
+        if (medicine) {
+          // Find the lowest price active listing for this medicine
+          const lowestListing = await this.prisma.listing.findFirst({
+            where: {
+              medicineId: medicine.id,
+              status: 'ACTIVE',
+              stock: { gt: 0 },
+            },
+            orderBy: { listPrice: 'asc' },
+            select: { listPrice: true },
+          });
+
+          return {
+            ...med,
+            lowestPrice: lowestListing ? Number(lowestListing.listPrice) : null,
+          };
+        }
+
+        return { ...med, lowestPrice: null };
+      })
+    );
+
     return {
-      data: medicines,
+      data: medicinesWithPrices,
       total,
       skip,
       take,

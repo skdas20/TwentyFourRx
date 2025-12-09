@@ -13,12 +13,20 @@ export class ListingsService {
     private gcsService: GcsService,
   ) {}
 
+  // Lazy load EmailService to avoid circular dependencies
+  private getEmailService() {
+    const { EmailService } = require('../common/services/email.service');
+    return new EmailService();
+  }
+
   async createListing(
     sellerId: string,
     medicineReferenceId: string,
     basePrice: number,
     stock: number,
     document?: Express.Multer.File,
+    proposedMrp?: number,
+    productImage?: Express.Multer.File,
   ) {
     // Get medicine reference
     const medicineRef = await this.prisma.medicineReference.findUnique({
@@ -27,6 +35,29 @@ export class ListingsService {
 
     if (!medicineRef) {
       throw new NotFoundException('Medicine reference not found');
+    }
+
+    // Upload product image if provided and update medicine reference
+    if (productImage) {
+      try {
+        console.log('📤 Uploading product image:', productImage.originalname);
+        const imageUrl = await this.gcsService.uploadFile(productImage, 'product-images');
+        console.log('✅ Product image uploaded:', imageUrl);
+        
+        // Update medicine reference with image URL
+        await this.prisma.medicineReference.update({
+          where: { id: medicineReferenceId },
+          data: { imageUrl },
+        });
+      } catch (error) {
+        console.error('❌ Failed to upload product image:', error);
+        // Don't throw - continue with listing creation
+      }
+    }
+
+    // If proposedMrp is provided and different from current MRP, store it for admin review
+    if (proposedMrp && proposedMrp !== Number(medicineRef.mrp)) {
+      console.log(`📝 Proposed MRP change: ${medicineRef.mrp} → ${proposedMrp}`);
     }
 
     // Check if medicine already exists in medicines table
@@ -65,6 +96,7 @@ export class ListingsService {
           strength: medicineRef.strength,
           manufacturerName: medicineRef.manufacturer,
           marketerName: medicineRef.marketer,
+          proposedMrp: proposedMrp || medicineRef.mrp,
           basePrice,
           stock,
           documentUrl,
@@ -106,6 +138,7 @@ export class ListingsService {
         medicineId: medicine.id,
         sellerId,
         basePrice,
+        proposedMrp: proposedMrp || medicineRef.mrp,
         stock,
         documentUrl,
         status: 'PENDING',
@@ -186,7 +219,14 @@ export class ListingsService {
   ) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
-      include: { medicine: true },
+      include: { 
+        medicine: {
+          include: {
+            manufacturer: true,
+            marketer: true,
+          },
+        },
+      },
     });
 
     if (!listing) {
@@ -195,6 +235,27 @@ export class ListingsService {
 
     if (listing.status !== 'PENDING') {
       throw new BadRequestException('Listing is not pending');
+    }
+
+    // If proposedMrp is provided and different from current MRP, update medicine_references
+    if (listing.proposedMrp) {
+      const medicineRef = await this.prisma.medicineReference.findFirst({
+        where: {
+          name: listing.medicine.name,
+          form: listing.medicine.form,
+          strength: listing.medicine.strength,
+          manufacturer: listing.medicine.manufacturer.name,
+        },
+      });
+
+      if (medicineRef && Number(medicineRef.mrp) !== Number(listing.proposedMrp)) {
+        console.log(`📝 Updating MRP: ${medicineRef.mrp} → ${listing.proposedMrp} for ${medicineRef.name}`);
+        await this.prisma.medicineReference.update({
+          where: { id: medicineRef.id },
+          data: { mrp: listing.proposedMrp },
+        });
+        console.log('✅ MRP updated in medicine_references');
+      }
     }
 
     const markupPct = adminMarkupPct || 0;
@@ -229,10 +290,103 @@ export class ListingsService {
       },
     });
 
+    // Check if this new listing has a lower price than existing active listings
+    await this.notifyDeprioritizedSellers(listing.medicineId, listPrice, listingId);
+
     return {
       message: 'Listing approved and activated successfully',
       listing: updated,
     };
+  }
+
+  private async notifyDeprioritizedSellers(
+    medicineId: string,
+    newListPrice: number,
+    newListingId: string,
+  ) {
+    try {
+      // Find all other active listings for the same medicine with higher prices
+      const higherPriceListings = await this.prisma.listing.findMany({
+        where: {
+          medicineId,
+          status: 'ACTIVE',
+          id: { not: newListingId },
+          listPrice: { gt: newListPrice },
+        },
+        include: {
+          seller: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          medicine: {
+            include: {
+              manufacturer: true,
+              marketer: true,
+            },
+          },
+        },
+      });
+
+      // Send email notification to each affected seller
+      const emailService = this.getEmailService();
+
+      for (const listing of higherPriceListings) {
+        const medicineName = `${listing.medicine.name} ${listing.medicine.strength || ''} ${listing.medicine.form}`;
+        const manufacturerName = listing.medicine.manufacturer?.name || 'Unknown';
+        
+        await emailService.sendEmail(
+          listing.seller.email,
+          'Your Listing Has Been Deprioritized - Lower Price Available',
+          `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #f59e0b;">Listing Priority Update</h2>
+              
+              <p>Dear ${listing.seller.name},</p>
+              
+              <p>We wanted to inform you that your listing has been temporarily hidden from priority display due to a new listing with a lower price for the same product.</p>
+              
+              <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #92400e;">Listing Details:</h3>
+                <p style="margin: 5px 0;"><strong>Medicine:</strong> ${medicineName}</p>
+                <p style="margin: 5px 0;"><strong>Manufacturer:</strong> ${manufacturerName}</p>
+                <p style="margin: 5px 0;"><strong>Your Price:</strong> ₹${Number(listing.listPrice).toLocaleString()}</p>
+                <p style="margin: 5px 0;"><strong>New Lower Price:</strong> ₹${newListPrice.toLocaleString()}</p>
+              </div>
+              
+              <h3>What This Means:</h3>
+              <ul>
+                <li>Your listing is still active and can receive orders</li>
+                <li>However, it won't appear in search results as the primary option</li>
+                <li>The lower-priced listing will be shown to buyers first</li>
+              </ul>
+              
+              <h3>What You Can Do:</h3>
+              <ul>
+                <li>Consider adjusting your price to be more competitive</li>
+                <li>Keep your listing as is - it may still receive orders</li>
+                <li>Contact support if you have questions</li>
+              </ul>
+              
+              <p style="margin-top: 30px;">Thank you for being a valued seller on our platform.</p>
+              
+              <p>Best regards,<br>24Rx Exchange Team</p>
+            </div>
+          `,
+        );
+
+        console.log(`📧 Sent deprioritization notification to ${listing.seller.email} for listing ${listing.id}`);
+      }
+
+      if (higherPriceListings.length > 0) {
+        console.log(`✅ Notified ${higherPriceListings.length} seller(s) about deprioritized listings`);
+      }
+    } catch (error) {
+      console.error('❌ Error notifying deprioritized sellers:', error);
+      // Don't throw - this is a non-critical operation
+    }
   }
 
   async rejectListing(listingId: string, reviewerNote: string) {
@@ -283,7 +437,7 @@ export class ListingsService {
       };
     }
 
-    return this.prisma.listing.findMany({
+    const allListings = await this.prisma.listing.findMany({
       where: whereClause,
       include: {
         medicine: {
@@ -296,12 +450,27 @@ export class ListingsService {
           select: {
             id: true,
             name: true,
+            email: true,
           },
         },
       },
       orderBy: { listPrice: 'asc' },
-      take: 10, // Limit results for search
     });
+
+    // Group by medicineId and keep only the lowest price listing per medicine
+    const lowestPriceListings = new Map<string, any>();
+    
+    for (const listing of allListings) {
+      const medicineId = listing.medicineId;
+      const existing = lowestPriceListings.get(medicineId);
+      
+      if (!existing || Number(listing.listPrice) < Number(existing.listPrice)) {
+        lowestPriceListings.set(medicineId, listing);
+      }
+    }
+
+    // Convert map to array and limit results
+    return Array.from(lowestPriceListings.values()).slice(0, 10);
   }
 
   async getListingById(id: string) {
@@ -407,6 +576,27 @@ export class ListingsService {
         },
       });
 
+      // Update medicine_reference MRP if proposedMrp is provided
+      if (proposal.proposedMrp) {
+        const medicineRef = await this.prisma.medicineReference.findFirst({
+          where: {
+            name: proposal.name,
+            form: proposal.form,
+            strength: proposal.strength,
+            manufacturer: proposal.manufacturerName,
+          },
+        });
+
+        if (medicineRef && Number(medicineRef.mrp) !== Number(proposal.proposedMrp)) {
+          console.log(`📝 Updating MRP from proposal: ${medicineRef.mrp} → ${proposal.proposedMrp}`);
+          await this.prisma.medicineReference.update({
+            where: { id: medicineRef.id },
+            data: { mrp: proposal.proposedMrp },
+          });
+          console.log('✅ MRP updated in medicine_references');
+        }
+      }
+
       // Calculate list price with markup
       const markupPct = adminMarkupPct || 0;
       const basePrice = Number(proposal.basePrice);
@@ -441,6 +631,9 @@ export class ListingsService {
         where: { id: proposalId },
         data: { status: 'APPROVED' },
       });
+
+      // Check if this new listing has a lower price than existing active listings
+      await this.notifyDeprioritizedSellers(medicine.id, listPrice, listing.id);
 
       return {
         message: 'Medicine proposal approved and listing activated',

@@ -56,7 +56,7 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
             type: "medicine" as const,
             title: `${med.name} ${med.strength || ''}`,
             description: `${med.form} - ${med.manufacturer}`,
-            price: med.price || med.mrp, // Show price if available from reference data
+            price: med.lowestPrice || med.price || med.mrp, // Show lowest listing price first
             url: `/medicines/${med.id}`,
             icon: <Package className="w-4 h-4" />,
             clickable: isLoggedIn, // Only clickable if user is logged in

@@ -70,6 +70,23 @@ export class EmailService {
     }
   }
 
+  async sendEmail(to: string, subject: string, html: string) {
+    const mailOptions = {
+      from: `24Rx Exchange <${this.configService.get<string>('GMAIL_USER')}>`,
+      to,
+      subject,
+      html,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Email sent to ${to}: ${subject}`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${to}:`, error);
+      throw error;
+    }
+  }
+
   async sendApprovalEmail(to: string, name: string) {
     const mailOptions = {
       from: `24Rx Medicine Trading <${this.configService.get<string>('GMAIL_USER')}>`,

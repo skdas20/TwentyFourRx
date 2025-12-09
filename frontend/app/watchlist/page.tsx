@@ -11,7 +11,7 @@ import {
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import { watchlistApi, medicinesApi } from "@/lib/api";
+import { watchlistApi, medicineReferencesApi } from "@/lib/api";
 
 export default function WatchlistPage() {
   const router = useRouter();
@@ -25,6 +25,12 @@ export default function WatchlistPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
+  
+  // Search state
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [addingToWatchlist, setAddingToWatchlist] = useState<string | null>(null);
 
 
 
@@ -84,6 +90,57 @@ export default function WatchlistPage() {
       setActiveWatchlist("My Watchlist");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Search for medicines to add
+  const handleSearch = async () => {
+    if (searchQuery.length < 2) return;
+    
+    try {
+      setSearching(true);
+      setShowSearchResults(true);
+      const res = await medicineReferencesApi.search(searchQuery);
+      const medicines = res.data || [];
+      setSearchResults(medicines);
+    } catch (error) {
+      console.error("Search failed:", error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Add medicine to watchlist
+  const handleAddToWatchlist = async (medicine: any) => {
+    try {
+      setAddingToWatchlist(medicine.id);
+      await watchlistApi.addToWatchlist({ 
+        medicineId: medicine.id,
+        name: activeWatchlist,
+      });
+      
+      // Refresh watchlists
+      await loadWatchlists();
+      setSearchQuery("");
+      setSearchResults([]);
+      setShowSearchResults(false);
+    } catch (error: any) {
+      console.error("Failed to add to watchlist:", error);
+      alert(error.response?.data?.message || "Failed to add to watchlist");
+    } finally {
+      setAddingToWatchlist(null);
+    }
+  };
+
+  // Remove from watchlist
+  const handleRemoveFromWatchlist = async (itemId: string) => {
+    try {
+      await watchlistApi.removeFromWatchlist(itemId);
+      await loadWatchlists();
+    } catch (error: any) {
+      console.error("Failed to remove from watchlist:", error);
+      alert(error.response?.data?.message || "Failed to remove from watchlist");
     }
   };
 
@@ -209,11 +266,22 @@ export default function WatchlistPage() {
                 <button 
                   onClick={() => setIsEditMode(!isEditMode)}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  title="Edit watchlists"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 
-                <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <button 
+                  onClick={() => {
+                    const newName = prompt("Enter new watchlist name:");
+                    if (newName && newName.trim()) {
+                      setWatchlists([...watchlists, { name: newName.trim(), items: [] }]);
+                      setActiveWatchlist(newName.trim());
+                    }
+                  }}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  title="Create new watchlist"
+                >
                   <Plus className="w-4 h-4" />
                 </button>
 
@@ -223,18 +291,89 @@ export default function WatchlistPage() {
               </div>
 
               {/* Search Bar */}
-              <div className="mb-6">
+              <div className="mb-6 relative">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Search & add"
+                    placeholder="Search & add medicines..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (e.target.value.length >= 2) {
+                        handleSearch();
+                      } else {
+                        setShowSearchResults(false);
+                        setSearchResults([]);
+                      }
+                    }}
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm
                              text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                
+                {/* Search Results Dropdown */}
+                {showSearchResults && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                    {searching ? (
+                      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                        Searching...
+                      </div>
+                    ) : searchResults.length > 0 ? (
+                      <>
+                        <div className="p-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                          {searchResults.length} results found
+                        </div>
+                        {searchResults.map((medicine: any) => {
+                          const isInWatchlist = currentWatchlist?.items.some((item: any) => item.medicineId === medicine.id);
+                          return (
+                            <button
+                              key={medicine.id}
+                              onClick={() => !isInWatchlist && handleAddToWatchlist(medicine)}
+                              disabled={isInWatchlist || addingToWatchlist === medicine.id}
+                              className={`w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 flex items-center justify-between ${
+                                isInWatchlist ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                            >
+                              <div>
+                                <div className="font-medium text-gray-900 dark:text-white text-sm">{medicine.name}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {medicine.form} {medicine.strength && `- ${medicine.strength}`}
+                                </div>
+                              </div>
+                              {addingToWatchlist === medicine.id ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                              ) : isInWatchlist ? (
+                                <span className="text-xs text-green-600 dark:text-green-400">✓ Added</span>
+                              ) : (
+                                <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </>
+                    ) : searchQuery.length >= 2 ? (
+                      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                        No medicines found
+                      </div>
+                    ) : null}
+                    
+                    {/* Close button */}
+                    <button
+                      onClick={() => {
+                        setShowSearchResults(false);
+                        setSearchQuery("");
+                        setSearchResults([]);
+                      }}
+                      className="w-full p-2 text-center text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-t border-gray-200 dark:border-gray-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Sort Controls */}
@@ -274,45 +413,60 @@ export default function WatchlistPage() {
               <div className="space-y-2">
                 {sortedItems && sortedItems.length > 0 ? (
                   sortedItems.map((item: any) => (
-                    <button
+                    <div
                       key={item.id}
-                      onClick={() => setSelectedMedicine(item)}
-                      className={`w-full p-4 rounded-lg border transition-all text-left ${
+                      className={`p-4 rounded-lg border transition-all ${
                         selectedMedicine?.id === item.id
                           ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
                           : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
+                        <button
+                          onClick={() => setSelectedMedicine(item)}
+                          className="flex-1 text-left"
+                        >
                           <div className="font-medium text-gray-900 dark:text-white mb-1">{item.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">{item.manufacturer}</div>
-                        </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{item.form}</div>
+                        </button>
 
-                        <div className="flex items-center gap-6">
-                          <div className="text-center">
+                        <div className="flex items-center gap-4">
+                          <div className="text-center hidden sm:block">
                             <MiniChart data={item.chartData} />
                           </div>
 
                           <div className="text-right">
                             <div className="font-semibold text-gray-900 dark:text-white">₹{item.price.toFixed(2)}</div>
                             <div className={`text-sm font-medium ${
-                              item.changePercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                              item.changePercent >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                             }`}>
-                              {item.changePercent >= 0 ? "+" : ""}{item.changePercent.toFixed(2)}%
+                              {item.changePercent > 0 ? "▲ +" : "▼ "}{item.changePercent.toFixed(2)}%
                             </div>
                           </div>
+                          
+                          {isEditMode && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveFromWatchlist(item.id);
+                              }}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Remove from watchlist"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   ))
                 ) : (
                   <div className="text-center py-12">
                     <Pill className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
                     <p className="text-gray-600 dark:text-gray-400">No medicines in this watchlist</p>
-                    <button className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                      Add medicines
-                    </button>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+                      Use the search bar above to find and add medicines
+                    </p>
                   </div>
                 )}
               </div>
@@ -326,9 +480,9 @@ export default function WatchlistPage() {
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedMedicine.name}</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        NSE ₹{selectedMedicine.price.toFixed(2)} 
+                        PSE ₹{selectedMedicine.price.toFixed(2)} 
                         <span className={`ml-2 ${
-                          selectedMedicine.changePercent >= 0 ? "text-green-600" : "text-red-600"
+                          selectedMedicine.changePercent >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                         }`}>
                           ({selectedMedicine.changePercent >= 0 ? "+" : ""}{selectedMedicine.changePercent.toFixed(2)}%)
                         </span>
@@ -379,9 +533,9 @@ export default function WatchlistPage() {
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Day Change:</span>
                         <span className={`font-semibold ${
-                          selectedMedicine.changePercent >= 0 ? "text-green-600" : "text-red-600"
+                          selectedMedicine.changePercent >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                         }`}>
-                          {selectedMedicine.changePercent >= 0 ? "+" : ""}{selectedMedicine.changePercent.toFixed(2)}%
+                          {selectedMedicine.changePercent > 0 ? "▲ +" : "▼ "}{selectedMedicine.changePercent.toFixed(2)}%
                         </span>
                       </div>
                     </div>

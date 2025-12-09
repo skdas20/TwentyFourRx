@@ -29,6 +29,24 @@ export class CreateBuyProposalDto {
 
   @IsString()
   orderType: string; // "delivery", "intraday", "mtf"
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class SendInvoiceDto {
+  @IsString()
+  listingId: string;
+
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @IsPositive()
+  qty: number;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }
 
 export class ReviewProposalDto {
@@ -39,6 +57,21 @@ export class ReviewProposalDto {
 @Controller('buy-proposals')
 export class BuyProposalsController {
   constructor(private buyProposalsService: BuyProposalsService) {}
+
+  @Post('send-invoice')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRADER', 'SELLER')
+  async sendInvoice(
+    @CurrentUser() user: any,
+    @Body() dto: SendInvoiceDto,
+  ) {
+    return this.buyProposalsService.sendInvoice(
+      user.sub,
+      dto.listingId,
+      dto.qty,
+      dto.notes,
+    );
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -92,5 +125,20 @@ export class BuyProposalsController {
       throw new Error('Reviewer note is required for rejection');
     }
     return this.buyProposalsService.rejectProposal(id, dto.reviewerNote);
+  }
+
+  @Post(':id/upload-receipt')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TRADER', 'SELLER')
+  @UseInterceptors(FileInterceptor('receipt'))
+  async uploadReceipt(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @UploadedFile() receipt: Express.Multer.File,
+  ) {
+    if (!receipt) {
+      throw new Error('Receipt file is required');
+    }
+    return this.buyProposalsService.uploadReceipt(id, user.sub, receipt);
   }
 }

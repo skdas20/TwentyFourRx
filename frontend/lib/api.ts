@@ -192,11 +192,39 @@ export const notificationsApi = {
 
 // Buy Proposals API
 export const buyProposalsApi = {
-  createProposal: (data: FormData) => api.post('/buy-proposals', data),
+  createProposal: (data: FormData) =>
+    api.post('/buy-proposals', data, {
+      headers: { 'Content-Type': undefined }, // Let browser set multipart boundary
+    }),
+  uploadReceipt: (proposalId: string, data: FormData) =>
+    api.post(`/buy-proposals/${proposalId}/upload-receipt`, data, {
+      headers: { 'Content-Type': undefined }, // Let browser set multipart boundary
+    }),
   getMyProposals: () => api.get('/buy-proposals/my'),
   getPendingProposals: () => api.get('/buy-proposals/pending'),
   approveProposal: (id: string, reviewerNote?: string) =>
     api.patch(`/buy-proposals/${id}/approve`, { reviewerNote }),
   rejectProposal: (id: string, reviewerNote: string) =>
     api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
+}
+
+// Delivery Requests API
+export const deliveryRequestsApi = {
+  // Seller/Trader: Create delivery request
+  createRequest: (data: { inventoryLotId: string; qty: number }) =>
+    api.post('/delivery-requests', data),
+  // Seller/Trader: Get my delivery requests
+  getMyRequests: () => api.get('/delivery-requests/my'),
+  // Admin: Get all delivery requests
+  getAllRequests: (status?: string) =>
+    api.get('/delivery-requests', { params: status ? { status } : {} }),
+  // Admin: Approve delivery request
+  approveRequest: (id: string, reviewerNote?: string) =>
+    api.post(`/delivery-requests/${id}/approve`, { reviewerNote }),
+  // Admin: Reject delivery request
+  rejectRequest: (id: string, reviewerNote: string) =>
+    api.post(`/delivery-requests/${id}/reject`, { reviewerNote }),
+  // Admin/Seller: Mark as dispatched
+  markDispatched: (id: string) =>
+    api.post(`/delivery-requests/${id}/dispatch`),
 }

@@ -1,23 +1,35 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search, Plus } from "lucide-react";
+import { ArrowLeft, Search, Plus, AlertCircle } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
-import { medicineReferencesApi, listingsApi } from "@/lib/api";
+import { medicineReferencesApi, inventoryApi } from "@/lib/api";
 
 export default function NewListingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const medicineIdFromUrl = searchParams.get("medicineId");
+  
   const [user, setUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
+  const [proposedMrp, setProposedMrp] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [stock, setStock] = useState("");
   const [document, setDocument] = useState<File | null>(null);
+  const [productImage, setProductImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingMedicine, setLoadingMedicine] = useState(false);
+  
+  // User holdings for validation
+  const [userHoldings, setUserHoldings] = useState<any[]>([]);
+  const [holdingsLoaded, setHoldingsLoaded] = useState(false);
+  const [ownsSelectedMedicine, setOwnsSelectedMedicine] = useState(false);
+  const [maxStockFromHoldings, setMaxStockFromHoldings] = useState(0);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -26,7 +38,136 @@ export default function NewListingPage() {
       return;
     }
     setUser(JSON.parse(userData));
+    loadUserHoldings();
   }, [router]);
+
+  // Load user's holdings to validate they own the medicine
+  const loadUserHoldings = async () => {
+    try {
+      const res = await inventoryApi.getUserInventory();
+      const inventory = Array.isArray(res.data?.inventory) ? res.data.inventory : [];
+      setUserHoldings(inventory);
+      setHoldingsLoaded(true);
+      console.log("User holdings loaded:", inventory);
+    } catch (error) {
+      console.error("Failed to load holdings:", error);
+      setHoldingsLoaded(true);
+    }
+  };
+
+  // Auto-load medicine if medicineId is provided in URL
+  useEffect(() => {
+    if (medicineIdFromUrl && !selectedMedicine && holdingsLoaded) {
+      loadMedicineById(medicineIdFromUrl);
+    }
+  }, [medicineIdFromUrl, holdingsLoaded]);
+
+  // Check if user owns the selected medicine
+  useEffect(() => {
+    if (selectedMedicine && userHoldings.length > 0) {
+      const holding = userHoldings.find(h => h.medicineId === selectedMedicine.medicineId || h.medicineId === selectedMedicine.id);
+      if (holding) {
+        setOwnsSelectedMedicine(true);
+        setMaxStockFromHoldings(holding.totalQty || 0);
+      } else {
+        setOwnsSelectedMedicine(false);
+        setMaxStockFromHoldings(0);
+      }
+    } else {
+      setOwnsSelectedMedicine(false);
+      setMaxStockFromHoldings(0);
+    }
+  }, [selectedMedicine, userHoldings]);
+
+  const loadMedicineById = async (medicineId: string) => {
+    try {
+      setLoadingMedicine(true);
+      console.log("Loading medicine by ID:", medicineId);
+      
+      // First check if user owns this medicine in their holdings
+      const holding = userHoldings.find(h => h.medicineId === medicineId);
+      
+      if (holding) {
+        console.log("Found medicine in user holdings:", holding);
+        // User owns this medicine - use holding data
+        setSelectedMedicine({
+          id: holding.medicineId,
+          medicineId: holding.medicineId,
+          name: holding.medicineName,
+          form: holding.form,
+          strength: holding.strength,
+          composition: `${holding.form}${holding.strength ? ` - ${holding.strength}` : ''}`,
+          mrp: holding.avgCost, // Use avg cost as reference
+          manufacturerName: holding.manufacturer,
+        });
+        setOwnsSelectedMedicine(true);
+        setMaxStockFromHoldings(holding.totalQty || 0);
+        return;
+      }
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+      
+      // Try to get medicine from listings API
+      const listingsResponse = await fetch(`${apiUrl}/listings?medicineId=${medicineId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+      
+      if (listingsResponse.ok) {
+        const listings = await listingsResponse.json();
+        if (listings && listings.length > 0 && listings[0].medicine) {
+          const medicine = listings[0].medicine;
+          console.log("Loaded medicine from listings:", medicine);
+          
+          setSelectedMedicine({
+            id: medicine.id,
+            medicineId: medicine.id,
+            name: medicine.name,
+            form: medicine.form,
+            strength: medicine.strength,
+            composition: `${medicine.form}${medicine.strength ? ` - ${medicine.strength}` : ''}`,
+            mrp: listings[0].listPrice || listings[0].basePrice,
+            manufacturerName: medicine.manufacturer?.name,
+          });
+          
+          if (listings[0].listPrice || listings[0].basePrice) {
+            setProposedMrp((listings[0].listPrice || listings[0].basePrice).toString());
+          }
+          return;
+        }
+      }
+      
+      // Fallback: try to get from medicine references API
+      const response = await fetch(`${apiUrl}/medicine-references/search?q=${medicineId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load medicine');
+      }
+      
+      const medicines = await response.json();
+      if (medicines && medicines.length > 0) {
+        const medicine = medicines[0];
+        console.log("Loaded medicine from references:", medicine);
+        setSelectedMedicine(medicine);
+        
+        if (medicine.mrp) {
+          setProposedMrp(medicine.mrp.toString());
+        }
+      } else {
+        throw new Error('Medicine not found');
+      }
+    } catch (error: any) {
+      console.error("Failed to load medicine:", error);
+      alert("Failed to load medicine. Please search manually.");
+    } finally {
+      setLoadingMedicine(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (searchQuery.length < 2) {
@@ -56,22 +197,28 @@ export default function NewListingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMedicine || !basePrice || !stock) {
+    if (!selectedMedicine || !proposedMrp || !basePrice || !stock) {
       alert("Please fill in all fields");
       return;
     }
 
+    const parsedMrp = parseFloat(proposedMrp);
     const parsedPrice = parseFloat(basePrice);
     const parsedStock = parseInt(stock);
+
+    if (isNaN(parsedMrp) || parsedMrp <= 0) {
+      alert("Please enter a valid MRP greater than 0");
+      return;
+    }
 
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
       alert("Please enter a valid price greater than 0");
       return;
     }
 
-    // Validate price is lower than MRP
-    if (selectedMedicine.mrp && parsedPrice >= selectedMedicine.mrp) {
-      alert(`Your selling price (₹${parsedPrice}) must be lower than the MRP (₹${selectedMedicine.mrp}). Please offer a discount to attract buyers.`);
+    // Validate price is lower than proposed MRP
+    if (parsedPrice >= parsedMrp) {
+      alert(`Your selling price (₹${parsedPrice}) must be lower than the MRP (₹${parsedMrp}). Please offer a discount to attract buyers.`);
       return;
     }
 
@@ -86,13 +233,17 @@ export default function NewListingPage() {
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('medicineReferenceId', selectedMedicine.id);
+      formData.append('proposedMrp', parsedMrp.toString());
       formData.append('basePrice', parsedPrice.toString());
       formData.append('stock', parsedStock.toString());
       if (document) {
         formData.append('document', document);
       }
+      if (productImage) {
+        formData.append('productImage', productImage);
+      }
       
-      console.log("Creating listing with document:", document?.name);
+      console.log("Creating listing with document:", document?.name, "and product image:", productImage?.name);
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
       const response = await fetch(`${apiUrl}/listings`, {
@@ -152,9 +303,25 @@ export default function NewListingPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!selectedMedicine ? (
+        {loadingMedicine ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading medicine details...</p>
+            </div>
+          </div>
+        ) : !selectedMedicine ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Search Medicine</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Search Medicine</h2>
+              <button
+                onClick={() => router.push("/dashboard/seller/listings/contribute")}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Contribute Medicine
+              </button>
+            </div>
             <div className="flex gap-2 mb-6">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -185,21 +352,84 @@ export default function NewListingPage() {
               </div>
             )}
 
+            {/* Show user's holdings as quick-select options */}
+            {!searching && searchResults.length === 0 && userHoldings.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Quick Select from Your Holdings
+                </h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {userHoldings.map((holding: any) => (
+                    <button
+                      key={holding.medicineId}
+                      onClick={() => {
+                        setSelectedMedicine({
+                          id: holding.medicineId,
+                          medicineId: holding.medicineId,
+                          name: holding.medicineName,
+                          form: holding.form,
+                          strength: holding.strength,
+                          composition: `${holding.form}${holding.strength ? ` - ${holding.strength}` : ''}`,
+                          mrp: holding.avgCost,
+                          manufacturerName: holding.manufacturer,
+                        });
+                      }}
+                      className="w-full p-3 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700 text-left transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">{holding.medicineName}</h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {holding.form}{holding.strength ? ` - ${holding.strength}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800/50 px-2 py-1 rounded">
+                          {holding.totalQty} units
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!searching && searchResults.length > 0 && (
               <div className="space-y-2">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Found {searchResults.length} results</p>
-                {searchResults.map((medicine: any) => (
-                  <button
-                    key={medicine.id}
-                    onClick={() => setSelectedMedicine(medicine)}
-                    className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 text-left transition-colors"
-                  >
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100">{medicine.name}</h3>
-                    {medicine.composition && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{medicine.composition}</p>
-                    )}
-                  </button>
-                ))}
+                {searchResults.map((medicine: any) => {
+                  // Check if user owns this medicine
+                  const holding = userHoldings.find(h => 
+                    h.medicineName?.toLowerCase() === medicine.name?.toLowerCase() ||
+                    h.medicineId === medicine.id
+                  );
+                  const isOwned = !!holding;
+                  
+                  return (
+                    <button
+                      key={medicine.id}
+                      onClick={() => setSelectedMedicine(medicine)}
+                      className={`w-full p-4 rounded-lg border text-left transition-colors ${
+                        isOwned 
+                          ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 border-green-200 dark:border-green-700' 
+                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-200 dark:border-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-gray-100">{medicine.name}</h3>
+                          {medicine.composition && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{medicine.composition}</p>
+                          )}
+                        </div>
+                        {isOwned && (
+                          <span className="text-xs font-medium text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800/50 px-2 py-1 rounded">
+                            ✓ In Holdings ({holding.totalQty} units)
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -216,23 +446,83 @@ export default function NewListingPage() {
                   Change
                 </button>
               </div>
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <div className={`p-4 rounded-lg border ${ownsSelectedMedicine ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'}`}>
                 <h3 className="font-medium text-gray-900 dark:text-gray-100">{selectedMedicine.name}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMedicine.composition}</p>
+                {ownsSelectedMedicine && (
+                  <div className="mt-3 p-3 bg-green-100 dark:bg-green-800/30 rounded-lg">
+                    <p className="text-xs text-green-700 dark:text-green-300">✓ You own this medicine</p>
+                    <p className="text-sm font-semibold text-green-800 dark:text-green-200">Available in holdings: {maxStockFromHoldings} units</p>
+                  </div>
+                )}
                 {selectedMedicine.mrp && (
-                  <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Maximum Retail Price (MRP)</p>
-                    <p className="text-xl font-bold text-green-600 dark:text-green-400">₹{selectedMedicine.mrp}</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">⚠️ Your price must be lower than MRP</p>
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Reference Price</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">₹{selectedMedicine.mrp}</p>
                   </div>
                 )}
               </div>
+              
+              {/* Warning if user doesn't own the medicine */}
+              {!ownsSelectedMedicine && holdingsLoaded && (
+                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">You don't own this medicine</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        You can only create listings for medicines you have in your portfolio. 
+                        Please buy this medicine first or select a medicine from your holdings.
+                      </p>
+                      <Link 
+                        href="/portfolio" 
+                        className="inline-block mt-2 text-xs font-medium text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                      >
+                        View My Holdings →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Your Selling Price (₹ per unit) {selectedMedicine.mrp && <span className="text-red-500">*Must be less than ₹{selectedMedicine.mrp}</span>}
+                  Maximum Retail Price (MRP) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={proposedMrp}
+                  onChange={(e) => {
+                    setProposedMrp(e.target.value);
+                    // Auto-populate with current MRP if empty
+                    if (!e.target.value && selectedMedicine.mrp) {
+                      setProposedMrp(selectedMedicine.mrp.toString());
+                    }
+                  }}
+                  onFocus={() => {
+                    // Auto-populate with current MRP on focus if empty
+                    if (!proposedMrp && selectedMedicine.mrp) {
+                      setProposedMrp(selectedMedicine.mrp.toString());
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={selectedMedicine.mrp ? `Current: ₹${selectedMedicine.mrp}` : "Enter MRP"}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {selectedMedicine.mrp && parseFloat(proposedMrp) !== parseFloat(selectedMedicine.mrp) 
+                    ? "⚠️ You're proposing a different MRP. Admin will review this change." 
+                    : "You can edit the MRP if needed. Admin will review any changes."}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Your Selling Price (₹ per unit) <span className="text-red-500">*Must be less than MRP</span>
                 </label>
                 <input
                   type="number"
@@ -240,49 +530,90 @@ export default function NewListingPage() {
                   required
                   value={basePrice}
                   onChange={(e) => setBasePrice(e.target.value)}
-                  max={selectedMedicine.mrp || undefined}
+                  max={proposedMrp || undefined}
                   className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border rounded-lg 
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2
-                           ${parseFloat(basePrice) >= (selectedMedicine.mrp || Infinity) ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'}`}
-                  placeholder={selectedMedicine.mrp ? `Enter price below ₹${selectedMedicine.mrp}` : "Enter your selling price"}
+                           ${parseFloat(basePrice) >= parseFloat(proposedMrp || "0") ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'}`}
+                  placeholder={proposedMrp ? `Enter price below ₹${proposedMrp}` : "Enter your selling price"}
                 />
-                {parseFloat(basePrice) >= (selectedMedicine.mrp || Infinity) && (
+                {parseFloat(basePrice) >= parseFloat(proposedMrp || "0") && proposedMrp && (
                   <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                    ⚠️ Price must be lower than MRP (₹{selectedMedicine.mrp})
+                    ⚠️ Price must be lower than MRP (₹{proposedMrp})
                   </p>
                 )}
-                {basePrice && parseFloat(basePrice) < (selectedMedicine.mrp || Infinity) && selectedMedicine.mrp && (
+                {basePrice && proposedMrp && parseFloat(basePrice) < parseFloat(proposedMrp) && (
                   <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    ✓ Discount: {(((selectedMedicine.mrp - parseFloat(basePrice)) / selectedMedicine.mrp) * 100).toFixed(1)}% off MRP
+                    ✓ Discount: {(((parseFloat(proposedMrp) - parseFloat(basePrice)) / parseFloat(proposedMrp)) * 100).toFixed(1)}% off MRP
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Stock Quantity
+                  Stock Quantity {ownsSelectedMedicine && <span className="text-gray-500">(Max: {maxStockFromHoldings})</span>}
                 </label>
                 <input
                   type="number"
                   required
+                  min={1}
+                  max={ownsSelectedMedicine ? maxStockFromHoldings : undefined}
                   value={stock}
-                  onChange={(e) => setStock(e.target.value)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (ownsSelectedMedicine && val > maxStockFromHoldings) {
+                      setStock(maxStockFromHoldings.toString());
+                    } else {
+                      setStock(e.target.value);
+                    }
+                  }}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter stock quantity"
+                  placeholder={ownsSelectedMedicine ? `Enter quantity (1-${maxStockFromHoldings})` : "Enter stock quantity"}
                 />
+                {ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                    ⚠️ Cannot exceed your holdings ({maxStockFromHoldings} units)
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Credibility Document (Optional)
+                  Product Image (Optional)
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  Upload invoice, receipt, or purchase proof (PDF, JPG, PNG - Max 5MB)
+                  Upload product/medicine image (JPG, PNG - Max 5MB)
+                </p>
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png"
+                  onChange={(e) => setProductImage(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
+                           file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
+                           file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-300"
+                />
+                {productImage && (
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                    ✓ {productImage.name} ({(productImage.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Credibility Document {!ownsSelectedMedicine && <span className="text-red-500">*</span>}
+                  {ownsSelectedMedicine && <span className="text-gray-500">(Optional)</span>}
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {!ownsSelectedMedicine 
+                    ? "Required: Upload invoice, receipt, or purchase proof to verify you have this medicine (PDF, JPG, PNG - Max 5MB)"
+                    : "Upload invoice, receipt, or purchase proof (PDF, JPG, PNG - Max 5MB)"}
                 </p>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
+                  required={!ownsSelectedMedicine}
                   onChange={(e) => setDocument(e.target.files?.[0] || null)}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -292,6 +623,11 @@ export default function NewListingPage() {
                 {document && (
                   <p className="mt-2 text-sm text-green-600 dark:text-green-400">
                     ✓ {document.name} ({(document.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                {!ownsSelectedMedicine && !document && (
+                  <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                    ⚠️ This document is required since you don't own this medicine in your holdings
                   </p>
                 )}
               </div>
@@ -307,7 +643,7 @@ export default function NewListingPage() {
               </button>
               <button
                 type="submit"
-                disabled={submitting || (selectedMedicine.mrp && parseFloat(basePrice) >= selectedMedicine.mrp)}
+                disabled={submitting || !proposedMrp || (!ownsSelectedMedicine && !document) || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
                 {submitting ? "Creating..." : (
@@ -318,6 +654,11 @@ export default function NewListingPage() {
                 )}
               </button>
             </div>
+            {!ownsSelectedMedicine && !document && holdingsLoaded && (
+              <p className="text-center text-sm text-red-600 dark:text-red-400 mt-3">
+                Please upload a credibility document to verify you have this medicine
+              </p>
+            )}
           </form>
         )}
       </main>

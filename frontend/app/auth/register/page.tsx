@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import Link from 'next/link'
 import { Upload, FileText, Check, X, Download } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 // Document type definitions
 const documentTypes = [
@@ -182,12 +183,9 @@ export default function RegisterPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <h1 className="text-5xl font-bold mb-2">
-              <span className="text-[var(--ink)]">24R</span>
-              <span className="text-[var(--brand-blue)]">x</span>
-            </h1>
-          </Link>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" href="/" isLoggedIn={false} />
+          </div>
           <h2 className="mt-6 text-3xl font-semibold text-[var(--ink)]">
             Vendor/Trader Registration
           </h2>

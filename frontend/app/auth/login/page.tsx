@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { KeyRound, Lock, Mail, ShieldCheck } from "lucide-react";
+import Logo from "@/components/Logo";
 import { authApi } from "@/lib/api";
 
 export default function LoginPage() {
@@ -50,12 +51,9 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md space-y-6">
         <div className="text-center">
-          <Link href="/" className="inline-block">
-            <h1 className="text-5xl font-bold mb-2">
-              <span className="text-[var(--ink)]">24R</span>
-              <span className="text-[var(--brand-blue)]">x</span>
-            </h1>
-          </Link>
+          <div className="flex justify-center mb-6">
+            <Logo size="lg" href="/" isLoggedIn={false} />
+          </div>
           <h2 className="mt-6 text-3xl font-semibold text-[var(--ink)]">Sign in to your account</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Or <Link href="/auth/register" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">register for a new account</Link>

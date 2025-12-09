@@ -279,56 +279,64 @@ export default function SellerDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Top Trending Medicines (Like Indices) */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Top Trending</h2>
-                  <Link href="/medicines" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              {/* Top Trending Medicines - Compact Groww Style */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">Top Trending</h2>
+                  <Link href="/medicines" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
                     View all
                   </Link>
                 </div>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {dashboardData.topMedicines.map((med: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{med.name}</div>
-                      <div className="text-lg font-semibold text-gray-900 dark:text-white">₹{med.price.toFixed(2)}</div>
-                      <div className={`text-xs font-medium flex items-center gap-1 ${
+                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 truncate">{med.name}</div>
+                      <div className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">₹{med.price.toFixed(2)}</div>
+                      <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
                         med.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
-                        {med.change >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {med.changePercent >= 0 ? '+' : ''}{med.changePercent}%
+                        {med.change >= 0 ? '▲' : '▼'}
+                        {Math.abs(med.changePercent).toFixed(1)}%
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Most Bought Medicines */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Most Bought on 24Rx</h2>
+              {/* Most Bought Medicines - Compact Groww Style */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Most Bought on 24Rx</h2>
                 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {dashboardData.mostBought.map((med: any) => (
                     <Link 
                       key={med.id}
                       href={`/medicines/${med.medicineId}`}
-                      className="group p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:shadow-md transition-all"
+                      className="group p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
                     >
-                      <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg flex items-center justify-center">
-                        <Pill className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white mb-1 truncate">
-                          {med.name}
+                      <div className="flex items-start gap-2 mb-2">
+                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg flex items-center justify-center">
+                          <Pill className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-gray-900 dark:text-white mb-0.5 truncate leading-tight">
+                            {med.name}
+                          </div>
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {med.form}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
                           ₹{med.price.toFixed(2)}
                         </div>
-                        <div className={`text-xs font-medium ${
+                        <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
                           parseFloat(med.changePercent) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {parseFloat(med.changePercent) >= 0 ? '+' : ''}{med.changePercent}%
+                          {parseFloat(med.changePercent) >= 0 ? '▲' : '▼'}
+                          {Math.abs(parseFloat(med.changePercent)).toFixed(1)}%
                         </div>
                       </div>
                     </Link>

@@ -8,9 +8,9 @@ import {
   UseGuards,
   Query,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsPositive, IsInt, IsOptional, Min, Max } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ListingsService } from './listings.service';
@@ -23,6 +23,12 @@ import { Public } from '../common/decorators/public.decorator';
 export class CreateListingDto {
   @IsString()
   medicineReferenceId: string;
+
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  proposedMrp?: number;
 
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
@@ -62,20 +68,28 @@ export class ListingsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')
-  @UseInterceptors(FileInterceptor('document'))
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'document', maxCount: 1 },
+    { name: 'productImage', maxCount: 1 },
+  ]))
   async createListing(
     @CurrentUser() user: any,
     @Body() dto: CreateListingDto,
-    @UploadedFile() document?: Express.Multer.File,
+    @UploadedFiles() files?: { document?: Express.Multer.File[], productImage?: Express.Multer.File[] },
   ) {
+    const document = files?.document?.[0];
+    const productImage = files?.productImage?.[0];
+    
     console.log('📥 Received listing creation request:', {
       userId: user.sub,
       medicineReferenceId: dto.medicineReferenceId,
+      proposedMrp: dto.proposedMrp,
       basePrice: dto.basePrice,
       stock: dto.stock,
       hasDocument: !!document,
+      hasProductImage: !!productImage,
       documentName: document?.originalname,
-      documentSize: document?.size,
+      productImageName: productImage?.originalname,
     });
     
     return this.listingsService.createListing(
@@ -84,6 +98,8 @@ export class ListingsController {
       dto.basePrice,
       dto.stock,
       document,
+      dto.proposedMrp,
+      productImage,
     );
   }
 
