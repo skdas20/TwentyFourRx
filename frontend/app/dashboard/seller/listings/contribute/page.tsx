@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Upload, X, ImageIcon } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function ContributeMedicinePage() {
@@ -21,6 +21,8 @@ export default function ContributeMedicinePage() {
   const [marketer, setMarketer] = useState("");
   const [packSize, setPackSize] = useState("");
   const [mrp, setMrp] = useState("");
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -31,11 +33,48 @@ export default function ContributeMedicinePage() {
     setUser(JSON.parse(userData));
   }, [router]);
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Only JPG, PNG, and WebP images are allowed.');
+        return;
+      }
+      
+      // Validate file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File is too large. Maximum size is 5MB.');
+        return;
+      }
+      
+      setProductImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setProductImage(null);
+    setImagePreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name || !composition || !form || !strength || !manufacturer || !mrp) {
       alert("Please fill in all required fields");
+      return;
+    }
+
+    if (!productImage) {
+      alert("Product image is required. Please upload an image of the medicine.");
       return;
     }
 
@@ -48,24 +87,26 @@ export default function ContributeMedicinePage() {
     try {
       setSubmitting(true);
       
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('name', name);
+      if (genericName) formData.append('genericName', genericName);
+      formData.append('composition', composition);
+      formData.append('form', form);
+      formData.append('strength', strength);
+      formData.append('manufacturer', manufacturer);
+      if (marketer) formData.append('marketer', marketer);
+      if (packSize) formData.append('packSize', packSize);
+      formData.append('mrp', parsedMrp.toString());
+      formData.append('productImage', productImage);
+      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
       const response = await fetch(`${apiUrl}/medicine-references/contribute`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
         },
-        body: JSON.stringify({
-          name,
-          genericName: genericName || null,
-          composition,
-          form,
-          strength,
-          manufacturer,
-          marketer: marketer || null,
-          packSize: packSize || null,
-          mrp: parsedMrp,
-        }),
+        body: formData,
       });
       
       const data = await response.json();
@@ -74,7 +115,7 @@ export default function ContributeMedicinePage() {
         throw new Error(data.message || 'Failed to submit medicine contribution');
       }
       
-      alert("Medicine contribution submitted successfully! Admin will review it soon.");
+      alert("Medicine contribution submitted successfully! You can now create a listing for this medicine.");
       router.push("/dashboard/seller/listings/new");
     } catch (error: any) {
       console.error("Failed to contribute medicine:", error);
@@ -108,7 +149,7 @@ export default function ContributeMedicinePage() {
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
           <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Help Us Grow Our Database!</h3>
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Can't find a medicine? Contribute it to our database. Admin will review and approve your submission.
+            Can't find a medicine? Contribute it to our database. Your submission will be reviewed by an admin before being added to the reference database. Once approved, you'll be able to create listings for this medicine.
           </p>
         </div>
 
@@ -266,6 +307,59 @@ export default function ContributeMedicinePage() {
                          text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter MRP in ₹"
               />
+            </div>
+
+            {/* Product Image - REQUIRED */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Product Image <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Upload a clear photo of the medicine packaging (JPG, PNG, WebP - Max 5MB)
+              </p>
+              
+              {!imagePreview ? (
+                <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors bg-gray-50 dark:bg-gray-700/50">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-10 h-10 text-gray-400 mb-3" />
+                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG or WebP (MAX. 5MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleImageChange}
+                  />
+                </label>
+              ) : (
+                <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                  <img
+                    src={imagePreview}
+                    alt="Product preview"
+                    className="w-full h-full object-contain bg-gray-100 dark:bg-gray-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3" />
+                    {productImage?.name}
+                  </div>
+                </div>
+              )}
+              
+              {!productImage && (
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                  ⚠️ Product image is required to contribute a new medicine
+                </p>
+              )}
             </div>
           </div>
 

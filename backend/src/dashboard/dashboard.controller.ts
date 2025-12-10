@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)
@@ -24,9 +25,17 @@ export class DashboardController {
   }
 
   @Get('trending')
+  @Public()
   async getTrendingMedicines(@Query('limit') limit?: string) {
     const limitNum = limit ? parseInt(limit, 10) : 10;
     return this.dashboardService.getTrendingMedicines(limitNum);
+  }
+
+  @Get('most-bought')
+  @Public()
+  async getPlatformMostBought(@Query('limit') limit?: string) {
+    const limitNum = limit ? parseInt(limit, 10) : 8;
+    return this.dashboardService.getPlatformMostBought(limitNum);
   }
 
   @Get('portfolio-value')

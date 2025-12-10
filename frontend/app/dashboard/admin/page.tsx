@@ -536,7 +536,7 @@ export default function AdminDashboard() {
             {/* Quick Actions */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <Link
                   href="/medicines"
                   className="group p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 
@@ -633,6 +633,20 @@ export default function AdminDashboard() {
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Analytics</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400">View reports</p>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/contributions"
+                  className="group p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 
+                           hover:from-cyan-100 hover:to-cyan-200 dark:hover:from-cyan-900/30 dark:hover:to-cyan-800/30
+                           rounded-xl border border-cyan-200 dark:border-cyan-700 hover:border-cyan-300 dark:hover:border-cyan-600 
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-cyan-100 dark:bg-cyan-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Pill className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Contributions</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Review medicines</p>
                 </Link>
               </div>
             </div>

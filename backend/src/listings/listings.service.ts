@@ -27,6 +27,8 @@ export class ListingsService {
     document?: Express.Multer.File,
     proposedMrp?: number,
     productImage?: Express.Multer.File,
+    batchNo?: string,
+    expiryDate?: string,
   ) {
     // Get medicine reference
     const medicineRef = await this.prisma.medicineReference.findUnique({
@@ -140,6 +142,8 @@ export class ListingsService {
         basePrice,
         proposedMrp: proposedMrp || medicineRef.mrp,
         stock,
+        batchNo: batchNo || null,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
         documentUrl,
         status: 'PENDING',
       },

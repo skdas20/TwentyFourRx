@@ -39,6 +39,14 @@ export class CreateListingDto {
   @IsInt()
   @IsPositive()
   stock: number;
+
+  @IsString()
+  @IsOptional()
+  batchNo?: string; // Batch number for admin verification
+
+  @IsString()
+  @IsOptional()
+  expiryDate?: string; // Expiry date (YYYY-MM-DD format) for admin verification
 }
 
 export class ApproveListingDto {
@@ -86,6 +94,8 @@ export class ListingsController {
       proposedMrp: dto.proposedMrp,
       basePrice: dto.basePrice,
       stock: dto.stock,
+      batchNo: dto.batchNo,
+      expiryDate: dto.expiryDate,
       hasDocument: !!document,
       hasProductImage: !!productImage,
       documentName: document?.originalname,
@@ -100,6 +110,8 @@ export class ListingsController {
       document,
       dto.proposedMrp,
       productImage,
+      dto.batchNo,
+      dto.expiryDate,
     );
   }
 

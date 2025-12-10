@@ -532,18 +532,21 @@ export default function MedicineDetailPage() {
                       </button>
                     </div>
                   ) : holdingsLoaded ? (
-                    // User doesn't own this medicine
+                    // User doesn't own this medicine - allow creating listing with credibility proof
                     <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
                       <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
-                        To sell this medicine, you need to buy it first. Purchase it using the BUY tab, and once your order is approved, you can create a listing.
+                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                        You can still create a listing for this medicine by uploading a credibility document (invoice/receipt) to prove you have it.
                       </p>
                       <button
-                        onClick={() => setActiveTab("buy")}
-                        className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors"
+                        onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
+                        className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors mb-2"
                       >
-                        Go to Buy Tab
+                        Create Listing with Proof
                       </button>
+                      <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                        📄 Credibility document will be required
+                      </p>
                     </div>
                   ) : (
                     // Loading holdings

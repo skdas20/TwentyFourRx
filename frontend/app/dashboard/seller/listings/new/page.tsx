@@ -20,6 +20,8 @@ function NewListingContent() {
   const [proposedMrp, setProposedMrp] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [stock, setStock] = useState("");
+  const [batchNo, setBatchNo] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
   const [document, setDocument] = useState<File | null>(null);
   const [productImage, setProductImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -236,6 +238,12 @@ function NewListingContent() {
       formData.append('proposedMrp', parsedMrp.toString());
       formData.append('basePrice', parsedPrice.toString());
       formData.append('stock', parsedStock.toString());
+      if (batchNo) {
+        formData.append('batchNo', batchNo);
+      }
+      if (expiryDate) {
+        formData.append('expiryDate', expiryDate);
+      }
       if (document) {
         formData.append('document', document);
       }
@@ -243,7 +251,7 @@ function NewListingContent() {
         formData.append('productImage', productImage);
       }
       
-      console.log("Creating listing with document:", document?.name, "and product image:", productImage?.name);
+      console.log("Creating listing with batch:", batchNo, "expiry:", expiryDate, "document:", document?.name);
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
       const response = await fetch(`${apiUrl}/listings`, {
@@ -496,16 +504,10 @@ function NewListingContent() {
                   step="0.01"
                   required
                   value={proposedMrp}
-                  onChange={(e) => {
-                    setProposedMrp(e.target.value);
-                    // Auto-populate with current MRP if empty
-                    if (!e.target.value && selectedMedicine.mrp) {
-                      setProposedMrp(selectedMedicine.mrp.toString());
-                    }
-                  }}
+                  onChange={(e) => setProposedMrp(e.target.value)}
                   onFocus={() => {
-                    // Auto-populate with current MRP on focus if empty
-                    if (!proposedMrp && selectedMedicine.mrp) {
+                    // Auto-populate with current MRP on focus ONLY if completely empty (never been set)
+                    if (proposedMrp === "" && selectedMedicine.mrp) {
                       setProposedMrp(selectedMedicine.mrp.toString());
                     }
                   }}
@@ -514,7 +516,7 @@ function NewListingContent() {
                   placeholder={selectedMedicine.mrp ? `Current: ₹${selectedMedicine.mrp}` : "Enter MRP"}
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {selectedMedicine.mrp && parseFloat(proposedMrp) !== parseFloat(selectedMedicine.mrp) 
+                  {selectedMedicine.mrp && proposedMrp && parseFloat(proposedMrp) !== parseFloat(selectedMedicine.mrp) 
                     ? "⚠️ You're proposing a different MRP. Admin will review this change." 
                     : "You can edit the MRP if needed. Admin will review any changes."}
                 </p>
@@ -575,6 +577,43 @@ function NewListingContent() {
                     ⚠️ Cannot exceed your holdings ({maxStockFromHoldings} units)
                   </p>
                 )}
+              </div>
+
+              {/* Batch Number and Expiry Date - for admin verification */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Batch Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={batchNo}
+                    onChange={(e) => setBatchNo(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                             text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., BN12345"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Admin will verify this with your uploaded bill
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Expiry Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                             text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Admin will verify this with your uploaded bill
+                  </p>
+                </div>
               </div>
 
               <div>

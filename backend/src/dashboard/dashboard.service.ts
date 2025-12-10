@@ -471,6 +471,80 @@ export class DashboardService {
   }
 
   /**
+   * Get platform-wide most bought medicines (not user-specific)
+   */
+  async getPlatformMostBought(limit = 8) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Get medicines with most orders across the platform
+    const orderStats = await this.prisma.order.groupBy({
+      by: ['listingId'],
+      where: {
+        status: { in: ['PAID', 'SHIPPED', 'DELIVERED'] },
+        createdAt: { gte: thirtyDaysAgo },
+      },
+      _sum: {
+        qty: true,
+        amount: true,
+      },
+      _count: true,
+      orderBy: {
+        _sum: {
+          qty: 'desc',
+        },
+      },
+      take: limit * 2,
+    });
+
+    const listingIds = orderStats.map((o) => o.listingId);
+
+    const listings = await this.prisma.listing.findMany({
+      where: { id: { in: listingIds } },
+      include: {
+        medicine: {
+          include: {
+            manufacturer: true,
+          },
+        },
+      },
+    });
+
+    const listingMap = new Map(listings.map((l) => [l.id, l]));
+
+    // Deduplicate by medicine ID and aggregate
+    const medicineMap = new Map<string, any>();
+
+    for (const order of orderStats) {
+      const listing = listingMap.get(order.listingId);
+      if (!listing) continue;
+
+      const medicineId = listing.medicine.id;
+      if (medicineMap.has(medicineId)) {
+        const existing = medicineMap.get(medicineId);
+        existing.totalQty += order._sum.qty || 0;
+        existing.totalAmount += Number(order._sum.amount || 0);
+        existing.orderCount += order._count;
+      } else {
+        medicineMap.set(medicineId, {
+          id: listing.medicine.id,
+          name: listing.medicine.name,
+          form: listing.medicine.form,
+          strength: listing.medicine.strength,
+          manufacturer: listing.medicine.manufacturer?.name || 'Unknown',
+          currentPrice: Number(listing.listPrice || listing.basePrice || 0),
+          totalQty: order._sum.qty || 0,
+          totalAmount: Number(order._sum.amount || 0),
+          orderCount: order._count,
+        });
+      }
+    }
+
+    return Array.from(medicineMap.values())
+      .sort((a, b) => b.totalQty - a.totalQty)
+      .slice(0, limit);
+  }
+
+  /**
    * Get trending medicines (most watched/bought recently)
    */
   async getTrendingMedicines(limit = 10) {

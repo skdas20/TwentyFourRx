@@ -61,107 +61,66 @@ export default function SellerDashboard() {
       );
 
       // Get top trending medicines from API
-      let topMedicines = [];
+      let topMedicines: any[] = [];
       try {
         const trendingRes = await dashboardApiNew.getTrendingMedicines(4).catch(() => ({ data: [] }));
-        topMedicines = await Promise.all(
-          (trendingRes.data || []).map(async (med: any) => {
-            try {
-              // Get price history to calculate change
-              const priceRes = await pricesApi.getPriceHistory(med.id, 7).catch(() => ({ data: [] }));
-              const history = priceRes.data || [];
-              
-              if (history.length >= 2) {
-                const latest = history[history.length - 1];
-                const previous = history[history.length - 2];
-                const currentPrice = parseFloat(latest.avgPrice);
-                const previousPrice = parseFloat(previous.avgPrice);
-                const change = currentPrice - previousPrice;
-                const changePercent = (change / previousPrice) * 100;
-                
-                return {
-                  id: med.id,
-                  name: med.name,
-                  price: currentPrice,
-                  change: change,
-                  changePercent: changePercent,
-                };
-              } else {
-                // No price history, use base price from listings
-                const listingRes = await listingsApi.getListings({ medicineId: med.id }).catch(() => ({ data: [] }));
-                const listings = listingRes.data || [];
-                const avgPrice = listings.length > 0 
-                  ? listings.reduce((sum: number, l: any) => sum + parseFloat(l.listPrice || l.basePrice || 0), 0) / listings.length
-                  : 0;
-                
-                return {
-                  id: med.id,
-                  name: med.name,
-                  price: avgPrice,
-                  change: 0,
-                  changePercent: 0,
-                };
-              }
-            } catch (error) {
-              return {
-                id: med.id,
-                name: med.name,
-                price: 0,
-                change: 0,
-                changePercent: 0,
-              };
-            }
-          })
-        );
+        topMedicines = (trendingRes.data || []).map((med: any) => ({
+          id: med.medicineId || med.id,
+          medicineId: med.medicineId || med.id,
+          name: med.name,
+          price: parseFloat(med.currentPrice || 0),
+          change: 0,
+          changePercent: 0,
+        }));
       } catch (error) {
         console.error("Failed to load trending medicines:", error);
         topMedicines = [];
       }
 
-      // Get most bought medicines with real price changes
-      const mostBought = await Promise.all(
-        listings.slice(0, 4).map(async (l: any) => {
-          try {
-            // Get price history for this medicine
-            const priceRes = await pricesApi.getPriceHistory(l.medicineId, 7).catch(() => ({ data: [] }));
-            const history = priceRes.data || [];
-            
-            let change = 0;
-            let changePercent = 0;
-            
-            if (history.length >= 2) {
-              const latest = history[history.length - 1];
-              const previous = history[history.length - 2];
-              const currentPrice = parseFloat(latest.avgPrice);
-              const previousPrice = parseFloat(previous.avgPrice);
-              change = currentPrice - previousPrice;
-              changePercent = (change / previousPrice) * 100;
-            }
-            
-            return {
-              id: l.id,
-              medicineId: l.medicineId,
-              name: l.medicine?.name || "Medicine",
-              form: l.medicine?.form || "",
-              price: parseFloat(l.listPrice || l.basePrice || 0),
-              change: change,
-              changePercent: changePercent.toFixed(2),
-              image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${l.medicine?.name?.charAt(0) || 'M'}`,
-            };
-          } catch (error) {
-            return {
-              id: l.id,
-              medicineId: l.medicineId,
-              name: l.medicine?.name || "Medicine",
-              form: l.medicine?.form || "",
-              price: parseFloat(l.listPrice || l.basePrice || 0),
-              change: 0,
-              changePercent: "0.00",
-              image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${l.medicine?.name?.charAt(0) || 'M'}`,
-            };
-          }
-        })
-      );
+      // Get platform-wide most bought medicines (fallback to trending if no purchases yet)
+      let mostBought: any[] = [];
+      try {
+        const mostBoughtRes = await dashboardApiNew.getPlatformMostBought(4).catch(() => ({ data: [] }));
+        const mostBoughtData = mostBoughtRes.data || [];
+        
+        // If no purchases yet, use trending medicines as fallback
+        if (mostBoughtData.length === 0 && topMedicines.length > 0) {
+          mostBought = topMedicines.map((med: any) => ({
+            id: med.id,
+            medicineId: med.medicineId || med.id,
+            name: med.name || "Medicine",
+            form: "",
+            price: parseFloat(med.price || 0),
+            change: 0,
+            changePercent: "0.00",
+            image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+          }));
+        } else {
+          mostBought = mostBoughtData.map((med: any) => ({
+            id: med.id,
+            medicineId: med.id,
+            name: med.name || "Medicine",
+            form: med.form || "",
+            price: parseFloat(med.currentPrice || 0),
+            change: 0,
+            changePercent: "0.00",
+            image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load most bought:", error);
+        // Fallback to trending medicines if API fails
+        mostBought = topMedicines.slice(0, 4).map((med: any) => ({
+          id: med.id,
+          medicineId: med.medicineId || med.id,
+          name: med.name || "Medicine",
+          form: "",
+          price: parseFloat(med.price || 0),
+          change: 0,
+          changePercent: "0.00",
+          image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+        }));
+      }
 
       // Group watchlists
       const groupedWatchlists = watchlistRes.data.reduce((acc: any, item: any) => {
@@ -290,7 +249,11 @@ export default function SellerDashboard() {
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {dashboardData.topMedicines.map((med: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <Link 
+                      key={idx} 
+                      href={`/medicines/${med.id || med.medicineId}`}
+                      className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md transition-all"
+                    >
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 truncate">{med.name}</div>
                       <div className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">₹{med.price.toFixed(2)}</div>
                       <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
@@ -299,7 +262,7 @@ export default function SellerDashboard() {
                         {med.change >= 0 ? '▲' : '▼'}
                         {Math.abs(med.changePercent).toFixed(1)}%
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>

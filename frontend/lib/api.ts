@@ -170,6 +170,7 @@ export const dashboardApiNew = {
   getSellerDashboard: () => api.get('/dashboard/seller'),
   getRecentListings: (limit = 10) => api.get('/dashboard/recent-listings', { params: { limit } }),
   getTrendingMedicines: (limit = 10) => api.get('/dashboard/trending', { params: { limit } }),
+  getPlatformMostBought: (limit = 8) => api.get('/dashboard/most-bought', { params: { limit } }),
   getPortfolioValue: () => api.get('/dashboard/portfolio-value'),
   getStatistics: () => api.get('/dashboard/statistics'),
 }

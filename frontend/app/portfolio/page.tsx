@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2 } from "lucide-react";
+import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2, DollarSign } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import Logo from "@/components/Logo";
@@ -360,15 +360,25 @@ export default function PortfolioPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <button
-                            onClick={() => openDeliveryModal(holding)}
-                            disabled={statusInfo.status === 'PENDING' || statusInfo.status === 'DELIVERY_PENDING' || statusInfo.status === 'IN_TRANSIT'}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
-                            title={statusInfo.status === 'PENDING' ? 'Waiting for buy approval' : statusInfo.status === 'DELIVERY_PENDING' ? 'Delivery request pending' : statusInfo.status === 'IN_TRANSIT' ? 'Already in transit' : 'Request physical delivery'}
-                          >
-                            <Truck className="w-4 h-4" />
-                            Request Delivery
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${holding.medicineId}`)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                              title="Create a listing to sell this medicine"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              Sell
+                            </button>
+                            <button
+                              onClick={() => openDeliveryModal(holding)}
+                              disabled={statusInfo.status === 'PENDING' || statusInfo.status === 'DELIVERY_PENDING' || statusInfo.status === 'IN_TRANSIT'}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                              title={statusInfo.status === 'PENDING' ? 'Waiting for buy approval' : statusInfo.status === 'DELIVERY_PENDING' ? 'Delivery request pending' : statusInfo.status === 'IN_TRANSIT' ? 'Already in transit' : 'Request physical delivery'}
+                            >
+                              <Truck className="w-4 h-4" />
+                              Delivery
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

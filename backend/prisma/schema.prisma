@@ -70,6 +70,12 @@ enum DeliveryRequestStatus {
   DELIVERED
 }
 
+enum ContributionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ===== MODELS =====
 model Role {
   code  String @id @db.VarChar(32)
@@ -89,21 +95,23 @@ model User {
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  role                 Role                   @relation(fields: [roleCode], references: [code])
-  kycDocuments         KycDocument[]
-  listings             Listing[]
-  orders               Order[]
-  holds                Hold[]
-  inventoryLots        InventoryLot[]
-  newsArticles         NewsArticle[]
-  notifications        Notification[]
-  proposals            MedicineProposal[]
-  buyProposals         BuyProposal[]
-  reviewedDocuments    KycDocument[]          @relation("ReviewedBy")
-  watchlists           Watchlist[]
-  priceAlerts          PriceAlert[]
-  passwordResetTokens  PasswordResetToken[]
-  deliveryRequests     DeliveryRequest[]
+  role                    Role                   @relation(fields: [roleCode], references: [code])
+  kycDocuments            KycDocument[]
+  listings                Listing[]
+  orders                  Order[]
+  holds                   Hold[]
+  inventoryLots           InventoryLot[]
+  newsArticles            NewsArticle[]
+  notifications           Notification[]
+  proposals               MedicineProposal[]
+  buyProposals            BuyProposal[]
+  reviewedDocuments       KycDocument[]          @relation("ReviewedBy")
+  watchlists              Watchlist[]
+  priceAlerts             PriceAlert[]
+  passwordResetTokens     PasswordResetToken[]
+  deliveryRequests        DeliveryRequest[]
+  contributedMedicines    MedicineContribution[] @relation("ContributedMedicines")
+  reviewedContributions   MedicineContribution[] @relation("ReviewedContributions")
 
   @@index([roleCode])
   @@index([status])
@@ -201,6 +209,8 @@ model Listing {
   adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2)
   listPrice       Decimal?      @map("list_price") @db.Decimal(14, 2)
   stock           Int
+  batchNo         String?       @map("batch_no") // Batch number for verification
+  expiryDate      DateTime?     @map("expiry_date") @db.Date // Expiry date for verification
   status          ListingStatus @default(PENDING)
   reviewerNote    String?       @map("reviewer_note")
   documentUrl     String?       @map("document_url") // Credibility document (invoice/receipt)
@@ -405,9 +415,9 @@ model MedicineReference {
   imageUrl        String?  @map("image_url")   // Product image URL from GCS
 
   // Scraping metadata
-  source          String   // "1mg", "pharmeasy", "cdsco"
+  source          String   @default("user_contributed") // "1mg", "pharmeasy", "cdsco", "user_contributed"
   sourceId        String?  @map("source_id")
-  lastScrapedAt   DateTime @map("last_scraped_at") @db.Timestamptz(6)
+  lastScrapedAt   DateTime @default(now()) @map("last_scraped_at") @db.Timestamptz(6)
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -416,6 +426,34 @@ model MedicineReference {
   @@index([genericName])
   @@index([composition])
   @@map("medicine_references")
+}
+
+// Medicine contributions pending admin approval
+model MedicineContribution {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contributorId   String             @map("contributor_id") @db.Uuid
+  name            String
+  genericName     String?            @map("generic_name")
+  composition     String
+  form            String
+  strength        String
+  manufacturer    String
+  marketer        String?
+  packSize        String?            @map("pack_size")
+  mrp             Decimal?           @db.Decimal(14, 2)
+  imageUrl        String?            @map("image_url")
+  status          ContributionStatus @default(PENDING)
+  reviewerNote    String?            @map("reviewer_note")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt      DateTime?          @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy      String?            @map("reviewed_by") @db.Uuid
+
+  contributor User @relation("ContributedMedicines", fields: [contributorId], references: [id])
+  reviewer    User? @relation("ReviewedContributions", fields: [reviewedBy], references: [id])
+
+  @@index([contributorId])
+  @@index([status])
+  @@map("medicine_contributions")
 }
 
 // Watchlist for users to track medicines they're interested in

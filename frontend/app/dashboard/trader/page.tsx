@@ -3,15 +3,29 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Package, TrendingUp, Clock, LogOut, Bell, Search, Pill, ShoppingCart, ArrowLeft } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
+  Eye, Bell, ChevronDown, ChevronRight, Pill,
+  Activity, BarChart3, Wallet, FileText
+} from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
-import { listingsApi } from "@/lib/api";
+import Logo from "@/components/Logo";
+import SearchBar from "@/components/SearchBar";
+import ProfileDropdown from "@/components/ProfileDropdown";
+import { listingsApi, dashboardApiNew, watchlistApi, pricesApi, inventoryApi } from "@/lib/api";
 
 export default function TraderDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>({
+    portfolio: { totalValue: 0, totalReturns: 0, returnsPercentage: 0 },
+    topMedicines: [],
+    mostBought: [],
+    recentListings: [],
+  });
+  const [watchlists, setWatchlists] = useState<any[]>([]);
+  const [expandedWatchlist, setExpandedWatchlist] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -30,10 +44,132 @@ export default function TraderDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const response = await listingsApi.getMyListings();
-      setListings(response.data);
+      setLoading(true);
+      
+      // Load dashboard data
+      const [dashboardRes, watchlistRes, listingsRes, inventoryRes] = await Promise.all([
+        dashboardApiNew.getSellerDashboard().catch(() => ({ data: {} })),
+        watchlistApi.getWatchlist().catch(() => ({ data: [] })),
+        listingsApi.getMyListings().catch(() => ({ data: [] })),
+        inventoryApi.getUserInventory().catch(() => ({ data: [] })),
+      ]);
+
+      // Calculate portfolio value from listings
+      const listings = listingsRes.data || [];
+      const totalValue = listings.reduce((sum: number, l: any) => 
+        sum + (parseFloat(l.basePrice || 0) * parseInt(l.stock || 0)), 0
+      );
+
+
+      // Get top trending medicines from API
+      let topMedicines: any[] = [];
+      try {
+        const trendingRes = await dashboardApiNew.getTrendingMedicines(4).catch(() => ({ data: [] }));
+        topMedicines = (trendingRes.data || []).map((med: any) => ({
+          id: med.medicineId || med.id,
+          medicineId: med.medicineId || med.id,
+          name: med.name,
+          price: parseFloat(med.currentPrice || 0),
+          change: 0,
+          changePercent: 0,
+        }));
+      } catch (error) {
+        console.error("Failed to load trending medicines:", error);
+        topMedicines = [];
+      }
+
+      // Get platform-wide most bought medicines (fallback to trending if no purchases yet)
+      let mostBought: any[] = [];
+      try {
+        const mostBoughtRes = await dashboardApiNew.getPlatformMostBought(4).catch(() => ({ data: [] }));
+        const mostBoughtData = mostBoughtRes.data || [];
+        
+        // If no purchases yet, use trending medicines as fallback
+        if (mostBoughtData.length === 0 && topMedicines.length > 0) {
+          mostBought = topMedicines.map((med: any) => ({
+            id: med.id,
+            medicineId: med.medicineId || med.id,
+            name: med.name || "Medicine",
+            form: "",
+            price: parseFloat(med.price || 0),
+            change: 0,
+            changePercent: "0.00",
+            image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+          }));
+        } else {
+          mostBought = mostBoughtData.map((med: any) => ({
+            id: med.id,
+            medicineId: med.id,
+            name: med.name || "Medicine",
+            form: med.form || "",
+            price: parseFloat(med.currentPrice || 0),
+            change: 0,
+            changePercent: "0.00",
+            image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load most bought:", error);
+        // Fallback to trending medicines if API fails
+        mostBought = topMedicines.slice(0, 4).map((med: any) => ({
+          id: med.id,
+          medicineId: med.medicineId || med.id,
+          name: med.name || "Medicine",
+          form: "",
+          price: parseFloat(med.price || 0),
+          change: 0,
+          changePercent: "0.00",
+          image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+        }));
+      }
+
+      // Group watchlists
+      const groupedWatchlists = watchlistRes.data.reduce((acc: any, item: any) => {
+        const listName = item.name || 'My Watchlist 1';
+        if (!acc[listName]) {
+          acc[listName] = [];
+        }
+        acc[listName].push(item);
+        return {};
+      }, {});
+
+      // Calculate real returns based on price changes
+      let totalReturns = 0;
+      let totalInvestment = 0;
+      
+      for (const listing of listings) {
+        try {
+          const basePrice = parseFloat(listing.basePrice || 0);
+          const currentPrice = parseFloat(listing.listPrice || listing.basePrice || 0);
+          const stock = parseInt(listing.stock || 0);
+          
+          const invested = basePrice * stock;
+          const currentValue = currentPrice * stock;
+          const returns = currentValue - invested;
+          
+          totalInvestment += invested;
+          totalReturns += returns;
+        } catch (error) {
+          // Skip if calculation fails
+        }
+      }
+      
+      const returnsPercentage = totalInvestment > 0 ? (totalReturns / totalInvestment) * 100 : 0;
+
+      setDashboardData({
+        portfolio: {
+          totalValue,
+          totalReturns,
+          returnsPercentage,
+        },
+        topMedicines,
+        mostBought,
+        recentListings: listings.slice(0, 5),
+      });
+
+      setWatchlists(watchlistRes.data || []);
     } catch (error) {
-      console.error("Failed to load listings:", error);
+      console.error("Failed to load dashboard:", error);
     } finally {
       setLoading(false);
     }
@@ -48,184 +184,283 @@ export default function TraderDashboard() {
 
   if (!user) return null;
 
-  const activeListings = listings.filter((l: any) => l.status === "ACTIVE").length;
-  const pendingListings = listings.filter((l: any) => l.status === "PENDING").length;
-  const totalStock = listings.reduce((sum: number, l: any) => sum + (l.stock || 0), 0);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <Link href="/" className="flex items-center">
-                <h1 className="text-2xl font-bold">
-                  <span className="text-gray-900 dark:text-gray-100">24R</span>
-                  <span className="text-blue-600 dark:text-blue-400">x</span>
-                </h1>
-                <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Trader</span>
-              </Link>
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Header - Groww Style */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-2">
+            {/* Logo & Nav */}
+            <div className="flex items-center gap-3 sm:gap-8 flex-shrink-0">
+              <Logo size="sm" href="/" isLoggedIn={true} />
+
+              <nav className="hidden lg:flex items-center gap-1">
+                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Explore
+                </Link>
+                <Link href="/dashboard/trader" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                  Dashboard
+                </Link>
+              </nav>
             </div>
 
-            <div className="flex-1 max-w-lg mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search medicines..."
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg 
-                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 
-                           focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            {/* Search - Hidden on mobile, shown in separate row */}
+            <div className="hidden md:flex flex-1 max-w-md mx-4">
+              <SearchBar variant="navbar" isLoggedIn={true} />
             </div>
 
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <button className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
-                <Bell className="w-5 h-5" />
+            {/* Right Actions */}
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative">
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.roleCode}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
+
+              <ThemeToggle />
+
+              <ProfileDropdown user={user} />
             </div>
+          </div>
+
+          {/* Mobile Search Bar - Full width on small screens */}
+          <div className="md:hidden pb-3 pt-1">
+            <SearchBar variant="navbar" isLoggedIn={true} />
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Welcome back, {user.name}</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage your trading activities</p>
-          </div>
-        </div>
 
+      {/* Main Content - Groww Style Layout */}
+      <main className="max-w-7xl mx-auto px-6 py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Listings</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{listings.length}</p>
-                  </div>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Top Trending Medicines - Compact Groww Style */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold text-gray-900 dark:text-white">Top Trending</h2>
+                  <Link href="/medicines" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                    View all
+                  </Link>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {dashboardData.topMedicines.map((med: any, idx: number) => (
+                    <Link 
+                      key={idx} 
+                      href={`/medicines/${med.id || med.medicineId}`}
+                      className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 hover:shadow-md transition-all"
+                    >
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 truncate">{med.name}</div>
+                      <div className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">₹{med.price.toFixed(2)}</div>
+                      <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
+                        med.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {med.change >= 0 ? '▲' : '▼'}
+                        {Math.abs(med.changePercent).toFixed(1)}%
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Listings</p>
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">{activeListings}</p>
-                  </div>
-                  <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
+              {/* Most Bought Medicines - Compact Groww Style */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Most Bought on 24Rx</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {dashboardData.mostBought.map((med: any) => (
+                    <Link 
+                      key={med.id}
+                      href={`/medicines/${med.medicineId}`}
+                      className="group p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                    >
+                      <div className="flex items-start gap-2 mb-2">
+                        <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg flex items-center justify-center">
+                          <Pill className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium text-gray-900 dark:text-white mb-0.5 truncate leading-tight">
+                            {med.name}
+                          </div>
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                            {med.form}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          ₹{med.price.toFixed(2)}
+                        </div>
+                        <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
+                          parseFloat(med.changePercent) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {parseFloat(med.changePercent) >= 0 ? '▲' : '▼'}
+                          {Math.abs(parseFloat(med.changePercent)).toFixed(1)}%
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Pending</p>
-                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{pendingListings}</p>
-                  </div>
-                  <div className="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
-                    <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </div>
+              {/* Products & Tools */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Products & tools</h2>
+                
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                  <Link href="/dashboard/seller/listings/new" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-lg flex items-center justify-center">
+                      <Plus className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">New Listing</span>
+                  </Link>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Stock</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{totalStock.toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
-                    <Pill className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
+                  <Link href="/dashboard/seller/listings" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg flex items-center justify-center">
+                      <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">My Listings</span>
+                  </Link>
+
+                  <Link href="/portfolio" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg flex items-center justify-center">
+                      <Wallet className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Portfolio</span>
+                  </Link>
+
+                  <Link href="/watchlist" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg flex items-center justify-center">
+                      <Eye className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Watchlist</span>
+                  </Link>
+
+                  <Link href="/news" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/30 dark:to-pink-800/30 rounded-lg flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">News</span>
+                  </Link>
+
+                  <Link href="/medicines" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30 rounded-lg flex items-center justify-center">
+                      <Activity className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Explore</span>
+                  </Link>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Quick Actions</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Link
-                  href="/medicines"
-                  className="group p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 
-                           hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/30 dark:hover:to-blue-800/30
-                           rounded-xl border border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 
-                           transition-all text-center hover:scale-105"
+
+            {/* Right Column - Sidebar */}
+            <div className="space-y-6">
+              {/* Your Investments */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your Investments</h2>
+                  <Link href="/portfolio" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    Dashboard
+                  </Link>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Current Value</div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                      ₹{dashboardData.portfolio.totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Returns</div>
+                    <div className={`text-xl font-semibold ${
+                      dashboardData.portfolio.totalReturns >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {dashboardData.portfolio.totalReturns >= 0 ? '+' : ''}₹{dashboardData.portfolio.totalReturns.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      <span className="text-sm ml-2">
+                        ({dashboardData.portfolio.returnsPercentage >= 0 ? '+' : ''}{dashboardData.portfolio.returnsPercentage.toFixed(2)}%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Holdings Summary */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My Holdings</h2>
+                </div>
+
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  View your complete medicine inventory and portfolio details.
+                </p>
+                
+                <Link 
+                  href="/portfolio"
+                  className="block w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors text-center"
                 >
-                  <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <ShoppingCart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Browse Market</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Find medicines</p>
+                  View My Holdings
                 </Link>
+              </div>
 
-                <Link
-                  href="/news"
-                  className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 
-                           hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30
-                           rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 
-                           transition-all text-center hover:scale-105"
-                >
-                  <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">News</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Latest updates</p>
-                </Link>
+              {/* All Watchlists */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">All watchlists</h2>
+                  <Link href="/watchlist" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                    View all
+                  </Link>
+                </div>
 
-                <button className="group p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 
-                                 hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-900/30 dark:hover:to-purple-800/30
-                                 rounded-xl border border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 
-                                 transition-all text-center hover:scale-105">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-purple-100 dark:bg-purple-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Package className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">My Orders</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Track orders</p>
-                </button>
-
-                <button className="group p-6 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 
-                                 hover:from-orange-100 hover:to-orange-200 dark:hover:from-orange-900/30 dark:hover:to-orange-800/30
-                                 rounded-xl border border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 
-                                 transition-all text-center hover:scale-105">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Pill className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">My Listings</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">View inventory</p>
-                </button>
+                <div className="space-y-2">
+                  {watchlists.length === 0 ? (
+                    <div className="text-center py-6">
+                      <Eye className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No watchlists yet</p>
+                      <Link href="/watchlist" className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">
+                        Create watchlist
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      {['My Watchlist 1', 'Antibiotics', 'Pain Relief', 'Vitamins'].map((name, idx) => (
+                        <div key={idx} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
+                          <button
+                            onClick={() => setExpandedWatchlist(expandedWatchlist === name ? null : name)}
+                            className="w-full flex items-center justify-between py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg px-2 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">{name}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">{Math.floor(Math.random() * 10) + 1} items</span>
+                            </div>
+                            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${
+                              expandedWatchlist === name ? 'rotate-90' : ''
+                            }`} />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      <Link 
+                        href="/watchlist"
+                        className="flex items-center gap-2 py-3 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create new watchlist
+                      </Link>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>

@@ -4,11 +4,12 @@ import { ScrapingService } from './scraping.service';
 import { ScrapingController } from './scraping.controller';
 import { MedicineReferencesController } from './medicine-references.controller';
 import { PrismaService } from '../config/prisma.service';
+import { GcsService } from '../common/services/gcs.service';
 
 @Module({
   imports: [ScheduleModule.forRoot()],
   controllers: [ScrapingController, MedicineReferencesController],
-  providers: [ScrapingService, PrismaService],
+  providers: [ScrapingService, PrismaService, GcsService],
   exports: [ScrapingService],
 })
 export class ScrapingModule {}
