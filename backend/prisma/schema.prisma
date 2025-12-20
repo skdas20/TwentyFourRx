@@ -112,6 +112,7 @@ model User {
   deliveryRequests        DeliveryRequest[]
   contributedMedicines    MedicineContribution[] @relation("ContributedMedicines")
   reviewedContributions   MedicineContribution[] @relation("ReviewedContributions")
+  supportTickets          SupportTicket[]
 
   @@index([roleCode])
   @@index([status])
@@ -208,6 +209,7 @@ model Listing {
   proposedMrp     Decimal?      @map("proposed_mrp") @db.Decimal(14, 2) // Seller's proposed MRP for admin review
   adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2)
   listPrice       Decimal?      @map("list_price") @db.Decimal(14, 2)
+  gstPercentage   Decimal       @default(0) @map("gst_percentage") @db.Decimal(5, 2) // GST percentage: 0 or 5
   stock           Int
   batchNo         String?       @map("batch_no") // Batch number for verification
   expiryDate      DateTime?     @map("expiry_date") @db.Date // Expiry date for verification
@@ -545,6 +547,10 @@ model DeliveryRequest {
   qty             Int
   status          DeliveryRequestStatus @default(PENDING)
   reviewerNote    String?               @map("reviewer_note")
+  invoiceUrl      String?               @map("invoice_url")
+  deliveryOtp     String?               @map("delivery_otp") @db.VarChar(6)
+  otpExpiresAt    DateTime?             @map("otp_expires_at") @db.Timestamptz(6)
+  otpVerifiedAt   DateTime?             @map("otp_verified_at") @db.Timestamptz(6)
   createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   reviewedAt      DateTime?             @map("reviewed_at") @db.Timestamptz(6)
   dispatchedAt    DateTime?             @map("dispatched_at") @db.Timestamptz(6)
@@ -552,9 +558,32 @@ model DeliveryRequest {
 
   requester     User          @relation(fields: [requesterId], references: [id])
   inventoryLot  InventoryLot  @relation(fields: [inventoryLotId], references: [id])
+  supportTickets SupportTicket[]
 
   @@index([requesterId])
   @@index([inventoryLotId])
   @@index([status])
   @@map("delivery_requests")
+}
+
+// Support tickets for delivery issues
+model SupportTicket {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  deliveryRequestId String?  @map("delivery_request_id") @db.Uuid
+  subject           String
+  message           String   @db.Text
+  status            String   @default("OPEN") @db.VarChar(20)
+  adminResponse     String?  @map("admin_response") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  resolvedAt        DateTime? @map("resolved_at") @db.Timestamptz(6)
+
+  user            User              @relation(fields: [userId], references: [id])
+  deliveryRequest DeliveryRequest?  @relation(fields: [deliveryRequestId], references: [id])
+
+  @@index([userId])
+  @@index([deliveryRequestId])
+  @@index([status])
+  @@map("support_tickets")
 }

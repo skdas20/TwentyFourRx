@@ -27,6 +27,14 @@ export default function PortfolioPage() {
   const [deliveryError, setDeliveryError] = useState("");
   const [deliverySuccess, setDeliverySuccess] = useState("");
 
+  // OTP confirmation state
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [selectedDeliveryRequest, setSelectedDeliveryRequest] = useState<any>(null);
+  const [otp, setOtp] = useState("");
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccess, setOtpSuccess] = useState("");
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -205,6 +213,54 @@ export default function PortfolioPage() {
     }
   };
 
+  const openOtpModal = (deliveryRequest: any) => {
+    setSelectedDeliveryRequest(deliveryRequest);
+    setOtp("");
+    setOtpError("");
+    setOtpSuccess("");
+    setShowOtpModal(true);
+  };
+
+  const closeOtpModal = () => {
+    setShowOtpModal(false);
+    setSelectedDeliveryRequest(null);
+    setOtp("");
+    setOtpError("");
+    setOtpSuccess("");
+  };
+
+  const handleConfirmDelivery = async () => {
+    if (!selectedDeliveryRequest || !otp) {
+      setOtpError("Please enter the OTP");
+      return;
+    }
+
+    if (otp.length !== 6) {
+      setOtpError("OTP must be 6 digits");
+      return;
+    }
+
+    setConfirmingDelivery(true);
+    setOtpError("");
+
+    try {
+      const res = await deliveryRequestsApi.confirmDelivery(selectedDeliveryRequest.id, otp);
+
+      setOtpSuccess(res.data?.message || "Delivery confirmed successfully!");
+
+      setTimeout(() => {
+        closeOtpModal();
+        loadHoldings(); // Refresh holdings after successful confirmation
+      }, 2000);
+    } catch (error: any) {
+      console.error("OTP confirmation error:", error);
+      const msg = error.response?.data?.message || error.message || "Failed to confirm delivery";
+      setOtpError(msg);
+    } finally {
+      setConfirmingDelivery(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -369,15 +425,35 @@ export default function PortfolioPage() {
                               <DollarSign className="w-4 h-4" />
                               Sell
                             </button>
-                            <button
-                              onClick={() => openDeliveryModal(holding)}
-                              disabled={statusInfo.status === 'PENDING' || statusInfo.status === 'DELIVERY_PENDING' || statusInfo.status === 'IN_TRANSIT'}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
-                              title={statusInfo.status === 'PENDING' ? 'Waiting for buy approval' : statusInfo.status === 'DELIVERY_PENDING' ? 'Delivery request pending' : statusInfo.status === 'IN_TRANSIT' ? 'Already in transit' : 'Request physical delivery'}
-                            >
-                              <Truck className="w-4 h-4" />
-                              Delivery
-                            </button>
+
+                            {statusInfo.status === 'IN_TRANSIT' ? (
+                              <button
+                                onClick={() => {
+                                  const lotIds = holding.lots?.map((lot: any) => lot.id) || [];
+                                  const deliveryRequest = deliveryRequests.find((req: any) =>
+                                    lotIds.includes(req.inventoryLotId) && req.status === 'DISPATCHED'
+                                  );
+                                  if (deliveryRequest) {
+                                    openOtpModal(deliveryRequest);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                                title="Confirm delivery with OTP"
+                              >
+                                <Package className="w-4 h-4" />
+                                Confirm Delivery
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openDeliveryModal(holding)}
+                                disabled={statusInfo.status === 'PENDING' || statusInfo.status === 'DELIVERY_PENDING'}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                title={statusInfo.status === 'PENDING' ? 'Waiting for buy approval' : statusInfo.status === 'DELIVERY_PENDING' ? 'Delivery request pending' : 'Request physical delivery'}
+                              >
+                                <Truck className="w-4 h-4" />
+                                Delivery
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -478,6 +554,108 @@ export default function PortfolioPage() {
                   <>
                     <Truck className="w-4 h-4" />
                     Submit Request
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OTP Confirmation Modal */}
+      {showOtpModal && selectedDeliveryRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-purple-50 dark:bg-purple-900/20">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Package className="w-5 h-5 text-purple-600" />
+                Confirm Delivery with OTP
+              </h3>
+              <button
+                onClick={closeOtpModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 space-y-4">
+              {/* Delivery Info */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {selectedDeliveryRequest.inventoryLot?.medicine?.name || "Medicine"}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Quantity: <span className="font-semibold">{selectedDeliveryRequest.qty} units</span>
+                </div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  Status: Dispatched - Awaiting delivery confirmation
+                </div>
+              </div>
+
+              {/* OTP Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Enter 6-Digit OTP
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+                    setOtp(value);
+                  }}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center text-2xl font-bold tracking-widest focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Check your email for the OTP sent when the order was dispatched
+                </p>
+              </div>
+
+              {/* Info Note */}
+              <div className="text-xs text-gray-600 dark:text-gray-400 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3 border-l-4 border-yellow-500">
+                <strong>Important:</strong> Once you confirm delivery with the OTP, the transaction will be completed and your inventory will be updated.
+              </div>
+
+              {/* Error/Success Messages */}
+              {otpError && (
+                <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                  {otpError}
+                </div>
+              )}
+              {otpSuccess && (
+                <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                  {otpSuccess}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+              <button
+                onClick={closeOtpModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelivery}
+                disabled={confirmingDelivery || otp.length !== 6}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 rounded-lg transition-colors"
+              >
+                {confirmingDelivery ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4" />
+                    Confirm Delivery
                   </>
                 )}
               </button>

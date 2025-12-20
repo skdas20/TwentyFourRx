@@ -228,4 +228,7 @@ export const deliveryRequestsApi = {
   // Admin/Seller: Mark as dispatched
   markDispatched: (id: string) =>
     api.post(`/delivery-requests/${id}/dispatch`),
+  // Buyer: Confirm delivery with OTP
+  confirmDelivery: (id: string, otp: string) =>
+    api.post(`/delivery-requests/${id}/confirm`, { otp }),
 }

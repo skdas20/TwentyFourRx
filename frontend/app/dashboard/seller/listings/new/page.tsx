@@ -20,8 +20,10 @@ function NewListingContent() {
   const [proposedMrp, setProposedMrp] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [stock, setStock] = useState("");
+  const [gstPercentage, setGstPercentage] = useState<number>(0); // Default to 0%
   const [batchNo, setBatchNo] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
+  const [hsnCode, setHsnCode] = useState("");
   const [document, setDocument] = useState<File | null>(null);
   const [productImage, setProductImage] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -238,11 +240,15 @@ function NewListingContent() {
       formData.append('proposedMrp', parsedMrp.toString());
       formData.append('basePrice', parsedPrice.toString());
       formData.append('stock', parsedStock.toString());
+      formData.append('gstPercentage', gstPercentage.toString());
       if (batchNo) {
         formData.append('batchNo', batchNo);
       }
       if (expiryDate) {
         formData.append('expiryDate', expiryDate);
+      }
+      if (hsnCode) {
+        formData.append('hsnCode', hsnCode);
       }
       if (document) {
         formData.append('document', document);
@@ -568,7 +574,7 @@ function NewListingContent() {
                       setStock(e.target.value);
                     }
                   }}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder={ownsSelectedMedicine ? `Enter quantity (1-${maxStockFromHoldings})` : "Enter stock quantity"}
                 />
@@ -577,6 +583,56 @@ function NewListingContent() {
                     ⚠️ Cannot exceed your holdings ({maxStockFromHoldings} units)
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  GST Percentage <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gst"
+                      value="0"
+                      checked={gstPercentage === 0}
+                      onChange={() => setGstPercentage(0)}
+                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-gray-100">0%</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gst"
+                      value="5"
+                      checked={gstPercentage === 5}
+                      onChange={() => setGstPercentage(5)}
+                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-900 dark:text-gray-100">5%</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Select the applicable GST rate for this medicine
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  HSN Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={hsnCode}
+                  onChange={(e) => setHsnCode(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                           text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., 3004"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Enter the Harmonized System of Nomenclature code for this medicine
+                </p>
               </div>
 
               {/* Batch Number and Expiry Date - for admin verification */}

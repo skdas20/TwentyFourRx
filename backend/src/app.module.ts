@@ -29,6 +29,7 @@ import { PriceAlertsModule } from './price-alerts/price-alerts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BuyProposalsModule } from './buy-proposals/buy-proposals.module';
 import { DeliveryRequestsModule } from './delivery-requests/delivery-requests.module';
+import { SupportModule } from './support/support.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -71,6 +72,7 @@ import { HealthController } from './health/health.controller';
     DashboardModule,
     BuyProposalsModule,
     DeliveryRequestsModule,
+    SupportModule,
   ],
   providers: [
     PrismaService,

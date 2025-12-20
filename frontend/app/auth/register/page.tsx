@@ -12,29 +12,28 @@ const documentTypes = [
   // Screenshot 1 - Basic Business Documents
   { code: 'GST_CERTIFICATE', label: 'GST Registration Certificate', required: true, section: 'basic' },
   { code: 'PAN_CARD', label: 'PAN Card', required: true, section: 'basic' },
-  { code: 'FACTORY_LICENSE', label: 'Factory License/ Panchayath/ Corporation Certificate', required: true, section: 'basic' },
+  { code: 'FACTORY_LICENSE', label: 'Factory License/ Panchayath/ Corporation Certificate', required: false, section: 'basic' },
   { code: 'FSSAI_CERTIFICATE', label: 'FSSAI Certificate', required: false, section: 'basic' },
   { code: 'CANCELLED_CHEQUE', label: 'Cancelled Cheque', required: true, section: 'basic' },
   { code: 'INDEMNITY_CERTIFICATE', label: 'Indemnity Certificate', required: true, section: 'basic' },
   { code: 'COMPANY_PROFILE', label: 'Company Profile', required: false, section: 'basic' },
-  { code: 'DRUG_LICENSE_1', label: 'Drug License 1', required: true, section: 'basic' },
-  { code: 'DRUG_LICENSE_2', label: 'Drug License 2', required: false, section: 'basic' },
-  { code: 'DRUG_LICENSE_3', label: 'Drug License 3', required: false, section: 'basic' },
+  { code: 'DRUG_LICENSE_1', label: '20B Drug License', required: true, section: 'basic' },
+  { code: 'DRUG_LICENSE_2', label: '21B', required: false, section: 'basic' },
+  { code: 'DRUG_LICENSE_3', label: 'Intimation Letter', required: false, section: 'basic' },
   { code: 'DRUG_LICENSE_4', label: 'Drug License 4', required: false, section: 'basic' },
 
   // Screenshot 2 - Authorization & Quality Documents
-  { code: 'MANUFACTURER_AUTH_LETTER', label: 'Manufacturer Authorization Letter', required: true, section: 'auth' },
+  { code: 'MANUFACTURER_AUTH_LETTER', label: 'Manufacturer Authorization Letter', required: false, section: 'auth' },
   { code: 'MANUFACTURER_AGREEMENT', label: 'Agreement with Manufacturer', required: false, section: 'auth' },
   { code: 'QUALITY_CERTIFICATIONS', label: 'Quality Certifications (FDA, CE, etc.)', required: false, section: 'auth' },
   { code: 'INCORPORATION_CERTIFICATE', label: 'Certificate of Incorporation', required: true, section: 'auth' },
-  { code: 'MSE_CERTIFICATE', label: 'MSE Certificate', required: false, section: 'auth' },
+  { code: 'MSE_CERTIFICATE', label: 'MSME Certificate', required: false, section: 'auth' },
   { code: 'UDYOG_AADHAR', label: 'Udyog Aadhar', required: false, section: 'auth' },
   { code: 'NSIC_CERTIFICATE', label: 'NSIC/KVIC/UAM Certificate', required: false, section: 'auth' },
 
   // Screenshot 3 - Legal & Compliance Documents
   { code: 'NON_CONVICTION_CERTIFICATE', label: 'Non-Conviction Certificate', required: true, section: 'legal' },
   { code: 'SUPPLY_ORDER', label: 'Supply Order', required: false, section: 'legal' },
-  { code: 'SAMPLE_DECLARATION_FORM', label: 'Sample Declaration Form', required: false, section: 'legal' },
   { code: 'DECLARATION_FORM', label: 'Declaration Form', required: true, section: 'legal' },
 ]
 

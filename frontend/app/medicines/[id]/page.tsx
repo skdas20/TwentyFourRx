@@ -33,10 +33,14 @@ export default function MedicineDetailPage() {
   const [showBuyProposalModal, setShowBuyProposalModal] = useState(false);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
-  
+
   // User holdings check
   const [userHolding, setUserHolding] = useState<any>(null);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
+
+  // Related medicines
+  const [relatedMedicines, setRelatedMedicines] = useState<any[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -48,6 +52,12 @@ export default function MedicineDetailPage() {
     checkUserHoldings();
   }, [medicineId, timeframe]);
 
+  useEffect(() => {
+    if (medicine) {
+      loadRelatedMedicines();
+    }
+  }, [medicine]);
+
   const checkUserHoldings = async () => {
     try {
       const res = await inventoryApi.getUserInventory();
@@ -58,6 +68,53 @@ export default function MedicineDetailPage() {
     } catch (error) {
       console.error("Failed to check holdings:", error);
       setHoldingsLoaded(true);
+    }
+  };
+
+  const loadRelatedMedicines = async () => {
+    if (!medicine) return;
+
+    try {
+      setLoadingRelated(true);
+
+      // Fetch all active listings
+      const listingsRes = await listingsApi.getListings({});
+      const allListings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
+
+      // Filter medicines with similar form and strength (composition proxy)
+      // Exclude the current medicine
+      const related = allListings.filter((listing: any) => {
+        if (!listing.medicine) return false;
+        if (listing.medicineId === medicineId) return false;
+
+        // Match by form (Tablet, Capsule, etc.)
+        const sameForm = listing.medicine.form === medicine.form;
+
+        // Match by similar name or manufacturer
+        const sameName = listing.medicine.name?.toLowerCase().includes(medicine.name?.toLowerCase().split(' ')[0] || '');
+        const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
+
+        // Consider it related if it has same form and (similar name OR same manufacturer)
+        return sameForm && (sameName || sameManufacturer);
+      });
+
+      // Group by medicine ID to avoid duplicates
+      const uniqueMedicines = Array.from(
+        related.reduce((map, listing) => {
+          const medId = listing.medicineId;
+          if (!map.has(medId)) {
+            map.set(medId, listing);
+          }
+          return map;
+        }, new Map())
+      ).map(([_, listing]) => listing);
+
+      // Take only first 6 related medicines
+      setRelatedMedicines(uniqueMedicines.slice(0, 6));
+    } catch (error) {
+      console.error("Failed to load related medicines:", error);
+    } finally {
+      setLoadingRelated(false);
     }
   };
 
@@ -400,13 +457,14 @@ export default function MedicineDetailPage() {
                   <div className="flex items-baseline gap-3">
                     <span className="text-3xl font-bold text-gray-900 dark:text-white">
                       ₹{currentPrice.toFixed(2)}
+                      <sup className="text-sm ml-1">*</sup>
                     </span>
                     <span className={`text-lg font-semibold ${priceChange >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
                       {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    PSE (Pharmaceutical Stock Exchange)
+                    PSE (Pharmaceutical Stock Exchange) | <span className="text-xs">*Price excluding GST</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -575,6 +633,65 @@ export default function MedicineDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Related Medicines Section */}
+        {relatedMedicines.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              Related Medicines
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Medicines with similar composition and form
+            </p>
+
+            {loadingRelated ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {relatedMedicines.map((listing: any) => (
+                  <Link
+                    key={listing.id}
+                    href={`/medicines/${listing.medicineId}`}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-105 transition-all"
+                  >
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      {listing.medicine?.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      {listing.medicine?.form} {listing.medicine?.strength && `- ${listing.medicine.strength}`}
+                    </p>
+                    {listing.medicine?.manufacturer && (
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
+                        by {listing.medicine.manufacturer.name}
+                      </p>
+                    )}
+
+                    {/* Price */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        ₹{listing.listPrice || listing.basePrice}
+                        <sup className="text-xs ml-0.5">*</sup>
+                      </span>
+                      <span className="text-xs text-gray-500">per unit</span>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      *Excl. GST
+                    </div>
+
+                    {/* Stock */}
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                        {listing.stock?.toLocaleString() || 0} units available
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Buy Proposal Modal */}

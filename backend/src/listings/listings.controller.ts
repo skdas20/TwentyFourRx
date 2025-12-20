@@ -40,6 +40,12 @@ export class CreateListingDto {
   @IsPositive()
   stock: number;
 
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  gstPercentage: number; // GST percentage: 0 or 5
+
   @IsString()
   @IsOptional()
   batchNo?: string; // Batch number for admin verification
@@ -94,6 +100,7 @@ export class ListingsController {
       proposedMrp: dto.proposedMrp,
       basePrice: dto.basePrice,
       stock: dto.stock,
+      gstPercentage: dto.gstPercentage,
       batchNo: dto.batchNo,
       expiryDate: dto.expiryDate,
       hasDocument: !!document,
@@ -101,7 +108,7 @@ export class ListingsController {
       documentName: document?.originalname,
       productImageName: productImage?.originalname,
     });
-    
+
     return this.listingsService.createListing(
       user.sub,
       dto.medicineReferenceId,
@@ -112,6 +119,7 @@ export class ListingsController {
       productImage,
       dto.batchNo,
       dto.expiryDate,
+      dto.gstPercentage,
     );
   }
 

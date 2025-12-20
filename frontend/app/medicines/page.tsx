@@ -231,8 +231,12 @@ export default function MedicinesPage() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                       ₹{listing.listPrice || listing.basePrice}
+                      <sup className="text-xs ml-0.5">*</sup>
                     </span>
                     <span className="text-sm text-gray-500">per unit</span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    *Excl. GST
                   </div>
                 </div>
 
