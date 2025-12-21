@@ -674,7 +674,7 @@ function NewListingContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Medicine Photo <span class=	ext-red-500>*</span>
+                  Medicine Photo <span className="text-red-500">*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   Upload product/medicine image (JPG, PNG - Max 5MB)
