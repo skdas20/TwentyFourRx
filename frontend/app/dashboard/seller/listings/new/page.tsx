@@ -683,8 +683,20 @@ function NewListingContent() {
                   type="file"
                   accept=".jpg,.jpeg,.png"
                   required
-                  onChange={(e) => setProductImage(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert("Image file size must be less than 5MB. Please compress or resize the image.");
+                        e.target.value = '';
+                        setProductImage(null);
+                        return;
+                      }
+                      setProductImage(file);
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
                            file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
                            file:bg-green-50 file:text-green-700 hover:file:bg-green-100 dark:file:bg-green-900/30 dark:file:text-green-300"
@@ -710,7 +722,19 @@ function NewListingContent() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   required={!ownsSelectedMedicine}
-                  onChange={(e) => setDocument(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // Check file size (5MB = 5 * 1024 * 1024 bytes)
+                      if (file.size > 5 * 1024 * 1024) {
+                        alert("Document file size must be less than 5MB. Please compress the file.");
+                        e.target.value = '';
+                        setDocument(null);
+                        return;
+                      }
+                      setDocument(file);
+                    }
+                  }}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
                            file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
