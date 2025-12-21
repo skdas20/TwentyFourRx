@@ -99,16 +99,12 @@ export default function MedicineDetailPage() {
       });
 
       // Group by medicine ID to avoid duplicates
-      const uniqueMedicines = Array.from(
-        related.reduce((map, listing) => {
-          const medId = listing.medicineId;
-          if (!map.has(medId)) {
-            map.set(medId, listing);
-          }
-          return map;
-        }, new Map())
-      ).map(([_, listing]) => listing);
-
+      const medicineMap = related.reduce((map: Map<string, any>, listing: any) => {
+        const medId = listing.medicineId;
+        if (!map.has(medId)) map.set(medId, listing);
+        return map;
+      }, new Map());
+      const uniqueMedicines = Array.from(medicineMap.values());
       // Take only first 6 related medicines
       setRelatedMedicines(uniqueMedicines.slice(0, 6));
     } catch (error) {

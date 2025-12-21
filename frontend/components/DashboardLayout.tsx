@@ -41,8 +41,8 @@ export default function DashboardLayout({ children, user, title, navLinks = [] }
             <NotificationCenter />
             <div className="flex items-center gap-3 pl-6 border-l border-[var(--border)]/10">
               <div>
-                <p className="text-sm font-medium text-[var(--ink)]">{user.name}</p>
-                <p className="text-xs text-[var(--brand-blue)]">{user.role}</p>
+                <p className="text-sm font-medium text-[var(--ink)]">{user?.name || "User"}</p>
+                <p className="text-xs text-[var(--brand-blue)]">{user?.role || "Guest"}</p>
               </div>
               <button
                 onClick={() => {

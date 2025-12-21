@@ -6,7 +6,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:300
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,7 +17,7 @@ export async function POST(
 
     const body = await req.json();
 
-    const response = await fetch(`${BACKEND_URL}/support/${params.id}/respond`, {
+    const response = await fetch(`${BACKEND_URL}/support/${(await params).id}/respond`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

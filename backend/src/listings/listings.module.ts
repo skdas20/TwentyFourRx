@@ -4,11 +4,12 @@ import { ListingsService } from './listings.service';
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
 import { ConfigModule } from '@nestjs/config';
+import { WatermarkService } from '../common/services/watermark.service';
 
 @Module({
   imports: [ConfigModule],
   controllers: [ListingsController],
-  providers: [ListingsService, PrismaService, GcsService],
+  providers: [ListingsService, PrismaService, GcsService, WatermarkService],
   exports: [ListingsService],
 })
 export class ListingsModule {}

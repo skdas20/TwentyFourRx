@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Storage } from '@google-cloud/storage';
+import { WatermarkService } from './watermark.service';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -10,7 +11,7 @@ export class GcsService implements OnModuleInit {
   private bucketName: string;
   private bucket: any;
 
-  constructor(private configService: ConfigService) {
+  constructor(private configService: ConfigService, private watermarkService: WatermarkService) {
     try {
       // Initialize Google Cloud Storage with service account key
       const keyFilePath = path.join(process.cwd(), '24rx-storage-service-key.json');
@@ -60,6 +61,17 @@ export class GcsService implements OnModuleInit {
       console.warn('⚠️ GCS initialization warning (non-critical):', error.message);
       console.warn('Application will continue without GCS file uploads');
     }
+  }
+
+
+  async uploadImageWithWatermark(
+    file: Express.Multer.File,
+    folder: string = "product-images",
+  ): Promise<string> {
+    console.log("🖼️  Adding watermark to image:", file.originalname);
+    const watermarkedBuffer = await this.watermarkService.addWatermark(file.buffer);
+    const watermarkedFile = { ...file, buffer: watermarkedBuffer };
+    return this.uploadFile(watermarkedFile, folder);
   }
 
   async uploadFile(

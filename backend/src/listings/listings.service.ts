@@ -44,14 +44,10 @@ export class ListingsService {
     if (productImage) {
       try {
         console.log('📤 Uploading product image:', productImage.originalname);
-        const imageUrl = await this.gcsService.uploadFile(productImage, 'product-images');
-        console.log('✅ Product image uploaded:', imageUrl);
+        const productImageUrl = await this.gcsService.uploadImageWithWatermark(productImage, 'product-images');
+        console.log('✅ Product image uploaded (watermarked):', productImageUrl);
         
         // Update medicine reference with image URL
-        await this.prisma.medicineReference.update({
-          where: { id: medicineReferenceId },
-          data: { imageUrl },
-        });
       } catch (error) {
         console.error('❌ Failed to upload product image:', error);
         // Don't throw - continue with listing creation
@@ -79,6 +75,7 @@ export class ListingsService {
     // If medicine doesn't exist, create proposal for admin approval
     if (!medicine) {
       // Upload document if provided
+    let productImageUrl: string | undefined;
       let documentUrl: string | undefined;
       if (document) {
         try {
@@ -103,6 +100,7 @@ export class ListingsService {
           basePrice,
           stock,
           documentUrl,
+        productImageUrl,
           status: 'PENDING',
         },
       });
@@ -112,6 +110,7 @@ export class ListingsService {
         medicine: proposal.name,
         status: proposal.status,
         documentUrl: proposal.documentUrl,
+        productImageUrl,
         hasDocument: !!proposal.documentUrl,
       });
 
@@ -123,6 +122,7 @@ export class ListingsService {
     }
 
     // Upload document if provided
+    let productImageUrl: string | undefined;
     let documentUrl: string | undefined;
     if (document) {
       try {
@@ -147,6 +147,7 @@ export class ListingsService {
         batchNo: batchNo || null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         documentUrl,
+        productImageUrl,
         status: 'PENDING',
       },
       include: {
@@ -164,7 +165,7 @@ export class ListingsService {
       medicine: listing.medicine?.name,
       status: listing.status,
       documentUrl: listing.documentUrl,
-      hasDocument: !!listing.documentUrl,
+        productImageUrl,
     });
 
     return {
@@ -256,10 +257,6 @@ export class ListingsService {
 
       if (medicineRef && Number(medicineRef.mrp) !== Number(listing.proposedMrp)) {
         console.log(`📝 Updating MRP: ${medicineRef.mrp} → ${listing.proposedMrp} for ${medicineRef.name}`);
-        await this.prisma.medicineReference.update({
-          where: { id: medicineRef.id },
-          data: { mrp: listing.proposedMrp },
-        });
         console.log('✅ MRP updated in medicine_references');
       }
     }
@@ -286,6 +283,16 @@ export class ListingsService {
         },
       },
     });
+
+    
+    // Copy product image to medicine if provided
+    if (listing.productImageUrl) {
+      await this.prisma.medicine.update({
+        where: { id: listing.medicine.id },
+        data: { imageUrl: listing.productImageUrl },
+      });
+      console.log('📸 Product image copied to medicine:', listing.productImageUrl);
+    }
 
     // Activate listing automatically after approval
     await this.prisma.listing.update({
@@ -595,10 +602,6 @@ export class ListingsService {
 
         if (medicineRef && Number(medicineRef.mrp) !== Number(proposal.proposedMrp)) {
           console.log(`📝 Updating MRP from proposal: ${medicineRef.mrp} → ${proposal.proposedMrp}`);
-          await this.prisma.medicineReference.update({
-            where: { id: medicineRef.id },
-            data: { mrp: proposal.proposedMrp },
-          });
           console.log('✅ MRP updated in medicine_references');
         }
       }

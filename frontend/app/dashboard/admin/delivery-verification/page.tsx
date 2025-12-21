@@ -101,7 +101,7 @@ export default function DeliveryVerificationPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout user={session?.user} title="Invoice Verification">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -113,7 +113,7 @@ export default function DeliveryVerificationPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout user={session?.user} title="Invoice Verification">
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Invoice Verification</h1>

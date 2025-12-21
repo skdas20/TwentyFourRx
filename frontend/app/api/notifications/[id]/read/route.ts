@@ -6,7 +6,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:300
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -15,7 +15,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const response = await fetch(`${BACKEND_URL}/notifications/${params.id}/read`, {
+    const response = await fetch(`${BACKEND_URL}/notifications/${(await params).id}/read`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${session.accessToken}`,

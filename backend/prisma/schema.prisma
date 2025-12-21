@@ -180,6 +180,7 @@ model Medicine {
   strength       String
   manufacturerId String             @map("manufacturer_id") @db.Uuid
   marketerId     String?            @map("marketer_id") @db.Uuid
+  imageUrl        String?            @map("image_url") // Medicine photo URL
   isActive       Boolean            @default(true) @map("is_active")
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -216,6 +217,7 @@ model Listing {
   status          ListingStatus @default(PENDING)
   reviewerNote    String?       @map("reviewer_note")
   documentUrl     String?       @map("document_url") // Credibility document (invoice/receipt)
+  productImageUrl String?       @map("product_image_url") // Watermarked medicine photo
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   approvedAt      DateTime?     @map("approved_at") @db.Timestamptz(6)
   activatedAt     DateTime?     @map("activated_at") @db.Timestamptz(6)
@@ -376,6 +378,7 @@ model MedicineProposal {
   basePrice          Decimal        @map("base_price") @db.Decimal(14, 2)
   stock              Int            @default(100)
   documentUrl        String?        @map("document_url")
+  productImageUrl String?       @map("product_image_url") // Watermarked medicine photo
   status             ProposalStatus @default(PENDING)
   reviewerNote       String?        @map("reviewer_note")
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -587,3 +590,9 @@ model SupportTicket {
   @@index([status])
   @@map("support_tickets")
 }
+
+// Updated Listing model - add this field to the existing Listing model
+// productImageUrl  String?       @map("product_image_url") // Medicine product image (watermarked)
+
+// Updated Medicine model - add this field to the existing Medicine model  
+// imageUrl         String?       @map("image_url") // Medicine product image URL

@@ -201,8 +201,8 @@ function NewListingContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMedicine || !proposedMrp || !basePrice || !stock) {
-      alert("Please fill in all fields");
+    if (!selectedMedicine || !proposedMrp || !basePrice || !stock || !productImage) {
+      alert("Please fill in all required fields including medicine photo");
       return;
     }
 
@@ -674,7 +674,7 @@ function NewListingContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Product Image (Optional)
+                  Medicine Photo <span class=	ext-red-500>*</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   Upload product/medicine image (JPG, PNG - Max 5MB)
@@ -682,6 +682,7 @@ function NewListingContent() {
                 <input
                   type="file"
                   accept=".jpg,.jpeg,.png"
+                  required
                   onChange={(e) => setProductImage(e.target.files?.[0] || null)}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -738,7 +739,7 @@ function NewListingContent() {
               </button>
               <button
                 type="submit"
-                disabled={submitting || !proposedMrp || (!ownsSelectedMedicine && !document) || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
+                disabled={submitting || !proposedMrp || !productImage || (!ownsSelectedMedicine && !document) || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
                 {submitting ? "Creating..." : (
