@@ -316,7 +316,7 @@ export default function SellerDashboard() {
                     <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-lg flex items-center justify-center">
                       <Plus className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
-                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">New Listing</span>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Sell</span>
                   </Link>
 
                   <Link href="/dashboard/seller/listings" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">

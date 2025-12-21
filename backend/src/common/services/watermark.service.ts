@@ -16,56 +16,59 @@ export class WatermarkService {
       const width = metadata.width || 800;
       const height = metadata.height || 600;
 
-      // Calculate watermark size (10% of image width, max 200px)
-      const watermarkWidth = Math.min(Math.floor(width * 0.10), 200);
-      const watermarkHeight = Math.floor(watermarkWidth * 0.4); // Aspect ratio for text
+      // Create repeating transparent watermark pattern across entire image
+      // Calculate size based on image dimensions (watermark should be ~15% of image width)
+      const watermarkSize = Math.floor(width * 0.15);
+      const fontSize = Math.floor(watermarkSize * 0.25);
 
-      // Create watermark as SVG text
+      // Calculate how many watermarks to tile (with spacing)
+      const spacing = watermarkSize * 1.5;
+      const cols = Math.ceil(width / spacing) + 1;
+      const rows = Math.ceil(height / spacing) + 1;
+
+      // Create transparent watermark pattern SVG
       const watermarkSvg = `
-        <svg width="${watermarkWidth}" height="${watermarkHeight}">
+        <svg width="${width}" height="${height}">
           <defs>
-            <style>
-              @import url("https://fonts.googleapis.com/css2?family=Inter:wght@700&display=swap");
-            </style>
+            <pattern id="watermark" x="0" y="0" width="${spacing}" height="${spacing}" patternUnits="userSpaceOnUse">
+              <text
+                x="${spacing / 2}"
+                y="${spacing / 2}"
+                font-family="Inter, Arial, sans-serif"
+                font-size="${fontSize}px"
+                font-weight="700"
+                fill="#3B82F6"
+                fill-opacity="0.15"
+                text-anchor="middle"
+                dominant-baseline="middle"
+                transform="rotate(-30 ${spacing / 2} ${spacing / 2})"
+              >
+                24Rx
+              </text>
+            </pattern>
           </defs>
-          <text 
-            x="50%" 
-            y="50%" 
-            font-family="Inter, Arial, sans-serif" 
-            font-size="${Math.floor(watermarkHeight * 0.6)}px" 
-            font-weight="700" 
-            fill="#3B82F6" 
-            fill-opacity="0.7" 
-            text-anchor="middle" 
-            dominant-baseline="middle"
-          >
-            24Rx
-          </text>
+          <rect width="${width}" height="${height}" fill="url(#watermark)" />
         </svg>
       `;
 
       // Convert SVG to PNG buffer
       const watermarkBuffer = Buffer.from(watermarkSvg);
 
-      // Position watermark at bottom-right corner with 20px padding
-      const watermarkX = width - watermarkWidth - 20;
-      const watermarkY = height - watermarkHeight - 20;
-
       // Composite the watermark onto the original image
       const watermarkedImage = await image
         .composite([
           {
             input: watermarkBuffer,
-            top: watermarkY,
-            left: watermarkX,
+            top: 0,
+            left: 0,
           },
         ])
         .toBuffer();
 
       console.log("✅ Watermark added successfully", {
         originalSize: `${width}x${height}`,
-        watermarkSize: `${watermarkWidth}x${watermarkHeight}`,
-        position: `(${watermarkX}, ${watermarkY})`,
+        pattern: `${cols}x${rows} repeating watermarks`,
+        opacity: "15%",
       });
 
       return watermarkedImage;

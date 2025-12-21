@@ -81,7 +81,7 @@ export default function MedicineDetailPage() {
       const listingsRes = await listingsApi.getListings({});
       const allListings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
 
-      // Filter medicines with similar form and strength (composition proxy)
+      // Filter medicines with similar form, composition, or manufacturer
       // Exclude the current medicine
       const related = allListings.filter((listing: any) => {
         if (!listing.medicine) return false;
@@ -93,9 +93,10 @@ export default function MedicineDetailPage() {
         // Match by similar name or manufacturer
         const sameName = listing.medicine.name?.toLowerCase().includes(medicine.name?.toLowerCase().split(' ')[0] || '');
         const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
+        const sameStrength = listing.medicine.strength === medicine.strength;
 
-        // Consider it related if it has same form and (similar name OR same manufacturer)
-        return sameForm && (sameName || sameManufacturer);
+        // Consider it related if it has (same form) OR (same manufacturer and similar strength) OR (similar name)
+        return sameForm || (sameManufacturer && sameStrength) || sameName;
       });
 
       // Group by medicine ID to avoid duplicates

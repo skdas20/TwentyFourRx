@@ -197,9 +197,17 @@ export default function MedicinesPage() {
                 href={`/medicines/${listing.medicineId || listing.medicine?.id}`}
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-105 transition-all group"
               >
-                {/* Icon */}
-                <div className="w-full h-32 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-blue-200 dark:group-hover:from-blue-900/30 dark:group-hover:to-blue-800/30 transition-all">
-                  <Pill className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+                {/* Medicine Image or Icon */}
+                <div className="w-full h-32 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg flex items-center justify-center mb-4 group-hover:from-blue-100 group-hover:to-blue-200 dark:group-hover:from-blue-900/30 dark:group-hover:to-blue-800/30 transition-all overflow-hidden">
+                  {listing.medicine?.imageUrl || listing.productImageUrl ? (
+                    <img
+                      src={listing.medicine?.imageUrl || listing.productImageUrl}
+                      alt={listing.medicine?.name || "Medicine"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Pill className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+                  )}
                 </div>
 
                 {/* Info */}
