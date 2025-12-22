@@ -236,7 +236,7 @@ export default function AdminSupportPage() {
             className={`px-4 py-2 rounded-lg transition ${
               filter === ''
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             All
@@ -246,7 +246,7 @@ export default function AdminSupportPage() {
             className={`px-4 py-2 rounded-lg transition ${
               filter === 'OPEN'
                 ? 'bg-yellow-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             Open
@@ -256,7 +256,7 @@ export default function AdminSupportPage() {
             className={`px-4 py-2 rounded-lg transition ${
               filter === 'IN_PROGRESS'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             In Progress
@@ -266,7 +266,7 @@ export default function AdminSupportPage() {
             className={`px-4 py-2 rounded-lg transition ${
               filter === 'RESOLVED'
                 ? 'bg-green-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
             }`}
           >
             Resolved
@@ -274,61 +274,61 @@ export default function AdminSupportPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
             {error}
           </div>
         )}
 
         {tickets.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
             <MessageCircle className="mx-auto text-gray-400 mb-4" size={48} />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
               No Support Tickets
             </h3>
-            <p className="text-gray-600">No tickets found with the selected filter.</p>
+            <p className="text-gray-600 dark:text-gray-400">No tickets found with the selected filter.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {tickets.map((ticket) => (
               <div
                 key={ticket.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     {getStatusIcon(ticket.status)}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                         {ticket.subject}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         From: {ticket.user.name} ({ticket.user.email})
                       </p>
                       {ticket.deliveryRequest && (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           Related to: {ticket.deliveryRequest.inventoryLot.medicine.name}
                         </p>
                       )}
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                     {ticket.status.replace('_', ' ')}
                   </span>
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Message:</p>
-                  <p className="text-gray-600 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Message:</p>
+                  <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
                     {ticket.message}
                   </p>
                 </div>
 
                 {ticket.adminResponse && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                    <p className="text-sm font-medium text-blue-900 mb-2">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-4">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
                       Your Response:
                     </p>
-                    <p className="text-blue-800 whitespace-pre-wrap">
+                    <p className="text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
                       {ticket.adminResponse}
                     </p>
                   </div>
@@ -344,7 +344,7 @@ export default function AdminSupportPage() {
                             onChange={(e) => setResponse(e.target.value)}
                             placeholder="Type your response..."
                             rows={3}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
                           <div className="flex flex-col gap-2">
                             <button
@@ -358,7 +358,7 @@ export default function AdminSupportPage() {
                                 setRespondingTo(null);
                                 setResponse('');
                               }}
-                              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                             >
                               Cancel
                             </button>
@@ -384,7 +384,7 @@ export default function AdminSupportPage() {
                   )}
                 </div>
 
-                <div className="mt-4 text-xs text-gray-500">
+                <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
                   Created: {new Date(ticket.createdAt).toLocaleString()}
                 </div>
               </div>

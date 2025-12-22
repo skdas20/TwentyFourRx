@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Clock, CheckCircle, AlertCircle, MessageCircle, Bell, Search, LogOut, Plus, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
