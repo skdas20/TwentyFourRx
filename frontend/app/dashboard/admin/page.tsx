@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper } from "lucide-react";
+import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper, MessageCircle } from "lucide-react";
 import { usersApi, listingsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
@@ -637,9 +637,9 @@ export default function AdminDashboard() {
 
                 <Link
                   href="/dashboard/admin/contributions"
-                  className="group p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 
+                  className="group p-6 bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20
                            hover:from-cyan-100 hover:to-cyan-200 dark:hover:from-cyan-900/30 dark:hover:to-cyan-800/30
-                           rounded-xl border border-cyan-200 dark:border-cyan-700 hover:border-cyan-300 dark:hover:border-cyan-600 
+                           rounded-xl border border-cyan-200 dark:border-cyan-700 hover:border-cyan-300 dark:hover:border-cyan-600
                            transition-all text-center hover:scale-105"
                 >
                   <div className="w-12 h-12 mx-auto mb-3 bg-cyan-100 dark:bg-cyan-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -647,6 +647,34 @@ export default function AdminDashboard() {
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Contributions</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Review medicines</p>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/support"
+                  className="group p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20
+                           hover:from-amber-100 hover:to-amber-200 dark:hover:from-amber-900/30 dark:hover:to-amber-800/30
+                           rounded-xl border border-amber-200 dark:border-amber-700 hover:border-amber-300 dark:hover:border-amber-600
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-amber-100 dark:bg-amber-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <MessageCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Support</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">User queries</p>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/medicines"
+                  className="group p-6 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20
+                           hover:from-indigo-100 hover:to-indigo-200 dark:hover:from-indigo-900/30 dark:hover:to-indigo-800/30
+                           rounded-xl border border-indigo-200 dark:border-indigo-700 hover:border-indigo-300 dark:hover:border-indigo-600
+                           transition-all text-center hover:scale-105"
+                >
+                  <div className="w-12 h-12 mx-auto mb-3 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Pill className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Medicines</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Manage medicines</p>
                 </Link>
               </div>
             </div>

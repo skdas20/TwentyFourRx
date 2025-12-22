@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
   Eye, Bell, ChevronDown, ChevronRight, Pill,
-  Activity, BarChart3, Wallet, FileText
+  Activity, BarChart3, Wallet, FileText, MessageCircle
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -352,6 +352,13 @@ export default function SellerDashboard() {
                       <Activity className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Explore</span>
+                  </Link>
+
+                  <Link href="/support" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-lg flex items-center justify-center">
+                      <MessageCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Support</span>
                   </Link>
                 </div>
               </div>
