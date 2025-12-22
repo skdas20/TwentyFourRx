@@ -254,6 +254,13 @@ export class ListingsService {
 
       if (medicineRef && Number(medicineRef.mrp) !== Number(listing.proposedMrp)) {
         console.log(`📝 Updating MRP: ${medicineRef.mrp} → ${listing.proposedMrp} for ${medicineRef.name}`);
+
+        // Actually update the MRP in medicine_references table
+        await this.prisma.medicineReference.update({
+          where: { id: medicineRef.id },
+          data: { mrp: listing.proposedMrp },
+        });
+
         console.log('✅ MRP updated in medicine_references');
       }
     }
