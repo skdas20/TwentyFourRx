@@ -469,18 +469,18 @@ export class ListingsService {
 
     // Group by medicineId and keep only the lowest price listing per medicine
     const lowestPriceListings = new Map<string, any>();
-    
+
     for (const listing of allListings) {
       const medicineId = listing.medicineId;
       const existing = lowestPriceListings.get(medicineId);
-      
+
       if (!existing || Number(listing.listPrice) < Number(existing.listPrice)) {
         lowestPriceListings.set(medicineId, listing);
       }
     }
 
-    // Convert map to array and limit results
-    return Array.from(lowestPriceListings.values()).slice(0, 10);
+    // Convert map to array - REMOVED the slice(0, 10) limit to show all medicines
+    return Array.from(lowestPriceListings.values());
   }
 
   async getListingById(id: string) {
