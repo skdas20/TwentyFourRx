@@ -173,18 +173,56 @@ export class ListingsService {
   }
 
   async getListingsBySeller(sellerId: string) {
-    return this.prisma.listing.findMany({
-      where: { sellerId },
-      include: {
-        medicine: {
-          include: {
-            manufacturer: true,
-            marketer: true,
+    // Get both regular listings and medicine proposals
+    const [listings, proposals] = await Promise.all([
+      this.prisma.listing.findMany({
+        where: { sellerId },
+        include: {
+          medicine: {
+            include: {
+              manufacturer: true,
+              marketer: true,
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.medicineProposal.findMany({
+        where: { sellerId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    // Transform proposals to match listing format for frontend
+    const proposalsAsListings = proposals.map((proposal) => ({
+      id: proposal.id,
+      medicineId: proposal.approvedMedicineId || null,
+      sellerId: proposal.sellerId,
+      basePrice: proposal.basePrice,
+      proposedMrp: proposal.proposedMrp,
+      stock: proposal.stock,
+      status: proposal.status, // PENDING, APPROVED, REJECTED
+      documentUrl: proposal.documentUrl,
+      productImageUrl: proposal.productImageUrl,
+      createdAt: proposal.createdAt,
+      isProposal: true, // Flag to identify proposals
+      medicine: {
+        name: proposal.name,
+        form: proposal.form,
+        strength: proposal.strength,
+        manufacturer: {
+          name: proposal.manufacturerName,
+        },
+        marketer: proposal.marketerName ? {
+          name: proposal.marketerName,
+        } : null,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    }));
+
+    // Combine and sort by creation date
+    return [...listings, ...proposalsAsListings].sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   async getPendingListings() {
@@ -308,7 +346,12 @@ export class ListingsService {
     });
 
     // Check if this new listing has a lower price than existing active listings
-    await this.notifyDeprioritizedSellers(listing.medicineId, listPrice, listingId);
+    // Don't let email notification failures block the approval
+    try {
+      await this.notifyDeprioritizedSellers(listing.medicineId, listPrice, listingId);
+    } catch (error) {
+      console.error('⚠️ Failed to send deprioritization notifications (non-critical):', error.message);
+    }
 
     return {
       message: 'Listing approved and activated successfully',
@@ -639,6 +682,15 @@ export class ListingsService {
         },
       });
 
+      // Copy product image to medicine if provided in proposal
+      if (proposal.productImageUrl) {
+        await this.prisma.medicine.update({
+          where: { id: medicine.id },
+          data: { imageUrl: proposal.productImageUrl },
+        });
+        console.log('📸 Product image copied to medicine from proposal:', proposal.productImageUrl);
+      }
+
       // Update proposal status
       await this.prisma.medicineProposal.update({
         where: { id: proposalId },
@@ -646,7 +698,12 @@ export class ListingsService {
       });
 
       // Check if this new listing has a lower price than existing active listings
-      await this.notifyDeprioritizedSellers(medicine.id, listPrice, listing.id);
+      // Don't let email notification failures block the approval
+      try {
+        await this.notifyDeprioritizedSellers(medicine.id, listPrice, listing.id);
+      } catch (error) {
+        console.error('⚠️ Failed to send deprioritization notifications (non-critical):', error.message);
+      }
 
       return {
         message: 'Medicine proposal approved and listing activated',

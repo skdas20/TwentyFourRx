@@ -17,16 +17,16 @@ export class WatermarkService {
       const height = metadata.height || 600;
 
       // Create repeating transparent watermark pattern across entire image
-      // Calculate size based on image dimensions (watermark should be ~15% of image width)
-      const watermarkSize = Math.floor(width * 0.15);
-      const fontSize = Math.floor(watermarkSize * 0.25);
+      // Calculate size based on image dimensions (watermark should be ~20% of image width)
+      const watermarkSize = Math.floor(width * 0.2);
+      const fontSize = Math.floor(watermarkSize * 0.18); // Adjusted for longer text
 
       // Calculate how many watermarks to tile (with spacing)
-      const spacing = watermarkSize * 1.5;
+      const spacing = watermarkSize * 1.8;
       const cols = Math.ceil(width / spacing) + 1;
       const rows = Math.ceil(height / spacing) + 1;
 
-      // Create transparent watermark pattern SVG
+      // Create transparent watermark pattern SVG with full brand name
       const watermarkSvg = `
         <svg width="${width}" height="${height}">
           <defs>
@@ -38,12 +38,12 @@ export class WatermarkService {
                 font-size="${fontSize}px"
                 font-weight="700"
                 fill="#3B82F6"
-                fill-opacity="0.15"
+                fill-opacity="0.25"
                 text-anchor="middle"
                 dominant-baseline="middle"
                 transform="rotate(-30 ${spacing / 2} ${spacing / 2})"
               >
-                24Rx
+                24Rx Exchange
               </text>
             </pattern>
           </defs>
@@ -68,7 +68,8 @@ export class WatermarkService {
       console.log("✅ Watermark added successfully", {
         originalSize: `${width}x${height}`,
         pattern: `${cols}x${rows} repeating watermarks`,
-        opacity: "15%",
+        opacity: "25%",
+        text: "24Rx Exchange",
       });
 
       return watermarkedImage;
