@@ -583,7 +583,7 @@ export default function MedicineDetailPage() {
                         onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
                         className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
                       >
-                        Create Listing to Sell
+                        Sell
                       </button>
                     </div>
                   ) : holdingsLoaded ? (
@@ -597,7 +597,7 @@ export default function MedicineDetailPage() {
                         onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
                         className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors mb-2"
                       >
-                        Create Listing with Proof
+                        Sell with Proof
                       </button>
                       <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
                         📄 Credibility document will be required

@@ -259,7 +259,7 @@ function NewListingContent() {
       
       console.log("Creating listing with batch:", batchNo, "expiry:", expiryDate, "document:", document?.name);
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
       const response = await fetch(`${apiUrl}/listings`, {
         method: 'POST',
         headers: {
@@ -267,15 +267,39 @@ function NewListingContent() {
         },
         body: formData,
       });
-      
-      const data = await response.json();
-      console.log("Listing created:", data);
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create listing');
+
+      const responseText = await response.text();
+      let data: any = null;
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Non-JSON response when creating listing:", responseText);
+          const cleanedMessage = responseText
+            .replace(/<[^>]*>?/gm, '')
+            .trim()
+            .slice(0, 200);
+
+          if (!response.ok) {
+            throw new Error(cleanedMessage || `Failed to create listing (status ${response.status})`);
+          }
+
+          throw new Error("Unexpected response from server. Please try again.");
+        }
       }
-      
-      alert(data.message || "Listing created successfully!");
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+          data?.error ||
+          `Failed to create listing (status ${response.status})`
+        );
+      }
+
+      console.log("Listing created:", data);
+
+      alert(data?.message || "Listing created successfully!");
       router.push("/dashboard/seller");
     } catch (error: any) {
       console.error("Failed to create listing:", error);
@@ -766,10 +790,10 @@ function NewListingContent() {
                 disabled={submitting || !proposedMrp || !productImage || (!ownsSelectedMedicine && !document) || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
-                {submitting ? "Creating..." : (
+                {submitting ? "Selling..." : (
                   <>
                     <Plus className="w-5 h-5" />
-                    Create Listing
+                    Sell
                   </>
                 )}
               </button>
