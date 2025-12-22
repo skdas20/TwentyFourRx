@@ -15,6 +15,7 @@ import { RespondToTicketDto } from './dto/respond-ticket.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('support')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,13 +23,13 @@ export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 
   @Post()
-  async createTicket(@Request() req, @Body() createTicketDto: CreateTicketDto) {
-    return this.supportService.createTicket(req.user.userId, createTicketDto);
+  async createTicket(@CurrentUser() user: any, @Body() createTicketDto: CreateTicketDto) {
+    return this.supportService.createTicket(user.sub, createTicketDto);
   }
 
   @Get('my')
-  async getMyTickets(@Request() req) {
-    return this.supportService.getMyTickets(req.user.userId);
+  async getMyTickets(@CurrentUser() user: any) {
+    return this.supportService.getMyTickets(user.sub);
   }
 
   @Get()
@@ -42,9 +43,9 @@ export class SupportController {
   }
 
   @Get(':id')
-  async getTicketById(@Param('id') ticketId: string, @Request() req) {
+  async getTicketById(@Param('id') ticketId: string, @CurrentUser() user: any) {
     // Admin can view any ticket, users can only view their own
-    const userId = req.user.role === 'ADMIN' ? undefined : req.user.userId;
+    const userId = user.roleCode === 'ADMIN' ? undefined : user.sub;
     return this.supportService.getTicketById(ticketId, userId);
   }
 
@@ -64,7 +65,7 @@ export class SupportController {
   }
 
   @Post(':id/reopen')
-  async reopenTicket(@Param('id') ticketId: string, @Request() req) {
-    return this.supportService.reopenTicket(ticketId, req.user.userId);
+  async reopenTicket(@Param('id') ticketId: string, @CurrentUser() user: any) {
+    return this.supportService.reopenTicket(ticketId, user.sub);
   }
 }
