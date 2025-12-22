@@ -63,11 +63,12 @@ enum ProposalStatus {
 }
 
 enum DeliveryRequestStatus {
-  PENDING
-  APPROVED
+  AWAITING_SELLER  // Seller needs to upload receipt and confirm
+  PENDING          // Admin needs to approve
+  APPROVED         // (Legacy - not used in new flow)
   REJECTED
-  DISPATCHED
-  DELIVERED
+  DISPATCHED       // OTP sent to buyer
+  DELIVERED        // Buyer confirmed with OTP
 }
 
 enum ContributionStatus {
