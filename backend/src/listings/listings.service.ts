@@ -40,14 +40,13 @@ export class ListingsService {
       throw new NotFoundException('Medicine reference not found');
     }
 
-    // Upload product image if provided and update medicine reference
+    // Upload product image if provided - FIXED: Store URL properly
+    let productImageUrl: string | undefined;
     if (productImage) {
       try {
         console.log('📤 Uploading product image:', productImage.originalname);
-        const productImageUrl = await this.gcsService.uploadImageWithWatermark(productImage, 'product-images');
+        productImageUrl = await this.gcsService.uploadImageWithWatermark(productImage, 'product-images');
         console.log('✅ Product image uploaded (watermarked):', productImageUrl);
-        
-        // Update medicine reference with image URL
       } catch (error) {
         console.error('❌ Failed to upload product image:', error);
         // Don't throw - continue with listing creation
@@ -75,7 +74,6 @@ export class ListingsService {
     // If medicine doesn't exist, create proposal for admin approval
     if (!medicine) {
       // Upload document if provided
-    let productImageUrl: string | undefined;
       let documentUrl: string | undefined;
       if (document) {
         try {
@@ -122,7 +120,6 @@ export class ListingsService {
     }
 
     // Upload document if provided
-    let productImageUrl: string | undefined;
     let documentUrl: string | undefined;
     if (document) {
       try {
