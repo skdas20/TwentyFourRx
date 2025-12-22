@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Search, Pill, Plus } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import { ArrowLeft, Edit, Trash2, Search, Pill, Plus, Bell, LogOut } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import Logo from '@/components/Logo';
 
 interface Medicine {
   id: string;
@@ -48,18 +49,32 @@ export default function MedicineManagementPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      const url = `${apiUrl}/medicines/admin/all`;
+
+      console.log('Fetching medicines from:', url);
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) throw new Error('Failed to fetch medicines');
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to fetch medicines: ${response.status} ${errorText}`);
+      }
+
       const data = await response.json();
+      console.log('Medicines loaded:', data.length);
       setMedicines(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load medicines:', error);
-      alert('Failed to load medicines');
+      alert(`Failed to load medicines: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -88,6 +103,13 @@ export default function MedicineManagementPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
+
   const filteredMedicines = medicines.filter((medicine) => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -101,45 +123,73 @@ export default function MedicineManagementPage() {
   if (!user) return null;
 
   return (
-    <DashboardLayout user={user}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/dashboard/admin"
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </Link>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Medicine Management</h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage all medicines in the system</p>
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <Logo size="sm" href="/" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Admin - Medicines</span>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 max-w-lg mx-8">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search medicines..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2
+                           focus:ring-[var(--brand-blue)] focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/dashboard/admin"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                title="Back to Dashboard"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <ThemeToggle />
+              <Link href="/notifications" className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Notifications">
+                <Bell className="w-5 h-5" />
+              </Link>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.roleCode}</p>
                 </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Search */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search medicines..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-          </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Medicine Management</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage all medicines in the system</p>
+        </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
@@ -266,8 +316,7 @@ export default function MedicineManagementPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </DashboardLayout>
+      </main>
+    </div>
   );
 }

@@ -1,16 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Clock,
   CheckCircle,
   MessageCircle,
   Send,
   CheckCheck,
+  Bell,
+  Search,
+  LogOut,
+  ArrowLeft,
 } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import ThemeToggle from '@/components/ThemeToggle';
+import Logo from '@/components/Logo';
 
 interface SupportTicket {
   id: string;
@@ -34,8 +39,8 @@ interface SupportTicket {
 }
 
 export default function AdminSupportPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,21 +49,32 @@ export default function AdminSupportPage() {
   const [response, setResponse] = useState('');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
       router.push('/auth/login');
-    } else if (status === 'authenticated' && session?.user?.role !== 'ADMIN') {
-      router.push('/dashboard');
+      return;
     }
-  }, [status, session, router]);
-
-  useEffect(() => {
+    const parsed = JSON.parse(userData);
+    if (parsed.roleCode !== 'ADMIN') {
+      router.push('/dashboard');
+      return;
+    }
+    setUser(parsed);
     fetchTickets();
-  }, [filter]);
+  }, [router, filter]);
 
   const fetchTickets = async () => {
     try {
-      const url = filter ? `/api/support?status=${filter}` : '/api/support';
-      const response = await fetch(url);
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+      const url = filter ? `${apiUrl}/support?status=${filter}` : `${apiUrl}/support`;
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch tickets');
@@ -73,12 +89,23 @@ export default function AdminSupportPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
+
   const handleRespond = async (ticketId: string) => {
     try {
-      const res = await fetch(`/api/support/${ticketId}/respond`, {
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      const res = await fetch(`${apiUrl}/support/${ticketId}/respond`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ adminResponse: response }),
       });
@@ -97,8 +124,15 @@ export default function AdminSupportPage() {
 
   const handleResolve = async (ticketId: string) => {
     try {
-      const res = await fetch(`/api/support/${ticketId}/resolve`, {
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      const res = await fetch(`${apiUrl}/support/${ticketId}/resolve`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!res.ok) {
@@ -124,26 +158,76 @@ export default function AdminSupportPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
-    return (
-      <DashboardLayout user={session?.user} title="Support Tickets">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading support tickets...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (!user) return null;
 
   return (
-    <DashboardLayout user={session?.user} title="Support Tickets">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Support Tickets</h1>
-          <p className="text-gray-600 mt-2">Manage and respond to user support requests</p>
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <Logo size="sm" href="/" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Admin - Support</span>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 max-w-lg mx-8">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search tickets..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2
+                           focus:ring-[var(--brand-blue)] focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              <Link href="/dashboard/admin">
+                <button className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Back to Dashboard">
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              </Link>
+              <ThemeToggle />
+              <Link href="/notifications" className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Notifications">
+                <Bell className="w-5 h-5" />
+              </Link>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.roleCode}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Support Tickets</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage and respond to user support requests</p>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div>
 
         {/* Filter */}
         <div className="mb-6 flex gap-4">
@@ -307,7 +391,9 @@ export default function AdminSupportPage() {
             ))}
           </div>
         )}
-      </div>
-    </DashboardLayout>
+        </div>
+        )}
+      </main>
+    </div>
   );
 }

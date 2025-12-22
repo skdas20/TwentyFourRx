@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import { Clock, CheckCircle, AlertCircle, MessageCircle, Bell, Search, LogOut, Plus, X } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import Logo from '@/components/Logo';
 
 interface SupportTicket {
   id: string;
@@ -25,27 +25,33 @@ interface SupportTicket {
 }
 
 export default function SupportPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newTicket, setNewTicket] = useState({ subject: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
       router.push('/auth/login');
+      return;
     }
-  }, [status, router]);
-
-  useEffect(() => {
+    const parsed = JSON.parse(userData);
+    setUser(parsed);
     fetchTickets();
-  }, []);
+  }, [router]);
 
   const fetchTickets = async () => {
     try {
-      const response = await fetch('/api/support/my', {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/support/my`, {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -59,6 +65,49 @@ export default function SupportPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
+
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTicket.subject.trim() || !newTicket.message.trim()) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      const response = await fetch(`${apiUrl}/support`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(newTicket),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit ticket');
+      }
+
+      alert('Support ticket submitted successfully!');
+      setNewTicket({ subject: '', message: '' });
+      setShowCreateForm(false);
+      fetchTickets();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,97 +137,217 @@ export default function SupportPage() {
     }
   };
 
-  if (status === 'loading' || loading) {
-    return (
-      <DashboardLayout user={session?.user} title="Support">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading support tickets...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (!user) return null;
 
   return (
-    <DashboardLayout user={session?.user} title="Support">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Support Tickets</h1>
-          <p className="text-gray-600 mt-2">View and track your support requests</p>
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <Logo size="sm" href="/" />
+              <span className="text-sm text-gray-500 dark:text-gray-400">Support</span>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 max-w-lg mx-8">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search tickets..."
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg
+                           text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2
+                           focus:ring-[var(--brand-blue)] focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <Link href="/notifications" className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Notifications">
+                <Bell className="w-5 h-5" />
+              </Link>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.roleCode}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">My Support Tickets</h1>
+            <p className="text-gray-600 dark:text-gray-400">View and track your support requests</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Create Ticket
+          </button>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
+        {/* Create Ticket Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Support Ticket</h2>
+                <button
+                  onClick={() => setShowCreateForm(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitTicket} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    value={newTicket.subject}
+                    onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                    placeholder="Brief description of your issue"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    value={newTicket.message}
+                    onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
+                    placeholder="Provide detailed information about your issue"
+                    rows={6}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Ticket'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
-        {tickets.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <MessageCircle className="mx-auto text-gray-400 mb-4" size={48} />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Support Tickets
-            </h3>
-            <p className="text-gray-600">
-              You haven't submitted any support tickets yet.
-            </p>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {tickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(ticket.status)}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {ticket.subject}
-                      </h3>
-                      {ticket.deliveryRequest && (
-                        <p className="text-sm text-gray-600">
-                          Related to: {ticket.deliveryRequest.inventoryLot.medicine.name}
+          <>
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
+                {error}
+              </div>
+            )}
+
+            {tickets.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
+                <MessageCircle className="mx-auto text-gray-400 mb-4" size={48} />
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  No Support Tickets
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  You haven't submitted any support tickets yet.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tickets.map((ticket) => (
+                  <div
+                    key={ticket.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(ticket.status)}
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            {ticket.subject}
+                          </h3>
+                          {ticket.deliveryRequest && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              Related to: {ticket.deliveryRequest.inventoryLot.medicine.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          ticket.status
+                        )}`}
+                      >
+                        {ticket.status.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Message:</p>
+                      <p className="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{ticket.message}</p>
+                    </div>
+
+                    {ticket.adminResponse && (
+                      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
+                          Admin Response:
                         </p>
-                      )}
+                        <p className="text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                          {ticket.adminResponse}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                      Created: {new Date(ticket.createdAt).toLocaleString()}
                     </div>
                   </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      ticket.status
-                    )}`}
-                  >
-                    {ticket.status.replace('_', ' ')}
-                  </span>
-                </div>
-
-                <div className="mb-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Your Message:</p>
-                  <p className="text-gray-600 whitespace-pre-wrap">{ticket.message}</p>
-                </div>
-
-                {ticket.adminResponse && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-blue-900 mb-2">
-                      Admin Response:
-                    </p>
-                    <p className="text-blue-800 whitespace-pre-wrap">
-                      {ticket.adminResponse}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-4 text-xs text-gray-500">
-                  Created: {new Date(ticket.createdAt).toLocaleString()}
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
-      </div>
-    </DashboardLayout>
+      </main>
+    </div>
   );
 }
