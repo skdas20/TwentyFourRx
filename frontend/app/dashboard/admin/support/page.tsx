@@ -69,6 +69,8 @@ export default function AdminSupportPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
       const url = filter ? `${apiUrl}/support?status=${filter}` : `${apiUrl}/support`;
 
+      console.log('Fetching tickets from:', url);
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -76,13 +78,19 @@ export default function AdminSupportPage() {
         },
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to fetch tickets');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to fetch tickets: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('Tickets data:', data);
       setTickets(data.tickets || data);
     } catch (err: any) {
+      console.error('Fetch tickets error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
