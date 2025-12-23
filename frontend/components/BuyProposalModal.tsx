@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Upload, AlertCircle, Mail, CheckCircle } from "lucide-react";
+import { X, Upload, AlertCircle, Mail, CheckCircle, Pill } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
 
 interface BuyProposalModalProps {
@@ -10,6 +10,8 @@ interface BuyProposalModalProps {
   listingId: string;
   medicineName: string;
   listPrice: number;
+  medicineImage?: string | null;
+  gstPercentage?: number;
 }
 
 export default function BuyProposalModal({
@@ -18,6 +20,8 @@ export default function BuyProposalModal({
   listingId,
   medicineName,
   listPrice,
+  medicineImage,
+  gstPercentage = 0,
 }: BuyProposalModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [quantity, setQuantity] = useState<number>(0);
@@ -49,7 +53,11 @@ export default function BuyProposalModal({
 
   if (!isOpen) return null;
 
-  const totalCost = quantity * listPrice;
+  const normalizedListPrice = Number(listPrice) || 0;
+  const effectiveGstPercentage = Number(gstPercentage) || 0;
+  const baseTotal = quantity * normalizedListPrice;
+  const gstAmount = (baseTotal * effectiveGstPercentage) / 100;
+  const totalCost = baseTotal + gstAmount;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,6 +81,20 @@ export default function BuyProposalModal({
   const handleProceedToCheckout = async () => {
     setError("");
 
+    const token = localStorage.getItem('accessToken');
+    const userData = localStorage.getItem('user');
+    const userRole = userData ? JSON.parse(userData).roleCode : null;
+
+    if (!token || !userRole) {
+      setError("Please login to continue your purchase.");
+      return;
+    }
+
+    if (!['TRADER', 'SELLER'].includes(userRole)) {
+      setError("Only trader or seller accounts can submit buy requests.");
+      return;
+    }
+
     // Validation
     if (quantity <= 0) {
       setError("Please enter a valid quantity");
@@ -87,7 +109,7 @@ export default function BuyProposalModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           listingId,
@@ -98,6 +120,12 @@ export default function BuyProposalModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          throw new Error('Session expired. Please login again.');
+        }
+        if (response.status === 403) {
+          throw new Error('Insufficient permissions. Only trader or seller accounts can place buy orders.');
+        }
         throw new Error(errorData.message || 'Failed to send invoice');
       }
 
@@ -150,20 +178,27 @@ export default function BuyProposalModal({
     }
   };
 
-
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              {step === 1 ? "Buy Medicine" : "Complete Payment"}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {medicineName}
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-100 dark:border-gray-600 overflow-hidden flex-shrink-0">
+              {medicineImage ? (
+                <img src={medicineImage} alt={medicineName} className="w-full h-full object-cover" />
+              ) : (
+                <Pill className="text-gray-400" size={24} />
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {step === 1 ? "Buy Medicine" : "Complete Payment"}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {medicineName}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -176,7 +211,6 @@ export default function BuyProposalModal({
         {/* Step 1: Order Details */}
         {step === 1 && (
           <div className="p-6 space-y-4">
-            {/* Error Message */}
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
@@ -184,7 +218,6 @@ export default function BuyProposalModal({
               </div>
             )}
 
-            {/* Quantity */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Quantity (units)
@@ -206,16 +239,25 @@ export default function BuyProposalModal({
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Unit Price:</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">₹{listPrice.toLocaleString()}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">₹{normalizedListPrice.toLocaleString()}</span>
                 </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Subtotal:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">₹{baseTotal.toLocaleString()}</span>
+                </div>
+                {effectiveGstPercentage > 0 && (
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">GST ({effectiveGstPercentage}%):</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">₹{gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700">
-                  <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Total Cost:</span>
-                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString()}</span>
+                  <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Total Cost (incl. GST):</span>
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             )}
 
-            {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Additional Notes (Optional)
@@ -230,7 +272,6 @@ export default function BuyProposalModal({
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -251,10 +292,8 @@ export default function BuyProposalModal({
           </div>
         )}
 
-        {/* Step 2: Payment Confirmation */}
         {step === 2 && (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {/* Error Message */}
             {error && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
@@ -262,7 +301,6 @@ export default function BuyProposalModal({
               </div>
             )}
 
-            {/* Invoice Sent Message */}
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
               <div className="flex items-start gap-3">
                 <Mail className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -287,16 +325,21 @@ export default function BuyProposalModal({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Unit Price:</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">₹{listPrice.toLocaleString()}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">₹{normalizedListPrice.toLocaleString()}</span>
                 </div>
+                {effectiveGstPercentage > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">GST ({effectiveGstPercentage}%):</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">₹{gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">Total:</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString()}</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Total (incl. GST):</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
 
-            {/* Instructions */}
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Next Steps:</h3>
               <ol className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-decimal list-inside">
@@ -306,7 +349,6 @@ export default function BuyProposalModal({
               </ol>
             </div>
 
-            {/* Receipt Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Upload Payment Receipt <span className="text-red-500">*</span>
@@ -322,7 +364,7 @@ export default function BuyProposalModal({
                 />
                 <label
                   htmlFor="receipt-upload"
-                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
                   {receiptFile ? (
                     <>
@@ -343,7 +385,6 @@ export default function BuyProposalModal({
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <button
                 type="button"

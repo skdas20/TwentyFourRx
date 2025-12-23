@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Truck, CheckCircle, XCircle, Package, User, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Truck, CheckCircle, XCircle, Package, User, Calendar, MapPin, FileText } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
@@ -269,6 +269,27 @@ export default function AdminDeliveryRequestsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Document/Invoice Info */}
+                  {selectedRequest.invoiceUrl && (
+                    <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Dispatch Proof</h3>
+                      <div className="text-sm">
+                        <p className="text-gray-600 dark:text-gray-400 mb-2">
+                          Seller has uploaded dispatch documents. Please verify before approving.
+                        </p>
+                        <a 
+                          href={selectedRequest.invoiceUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline"
+                        >
+                          <FileText className="w-4 h-4" />
+                          View Document
+                        </a>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Review Note */}
                   {selectedRequest.status === "PENDING" && (

@@ -2,16 +2,34 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
+import { PricesService } from '../prices/prices.service';
 
 @Injectable()
 export class ListingsService {
   constructor(
     private prisma: PrismaService,
     private gcsService: GcsService,
+    @Inject(forwardRef(() => PricesService))
+    private pricesService: PricesService,
   ) {}
+
+  private serializeListing(listing: any) {
+    return {
+      ...listing,
+      basePrice: Number(listing.basePrice ?? 0),
+      listPrice: Number(listing.listPrice ?? listing.basePrice ?? 0),
+      gstPercentage: Number(listing.gstPercentage ?? 0),
+      proposedMrp:
+        listing.proposedMrp === null || listing.proposedMrp === undefined
+          ? listing.proposedMrp
+          : Number(listing.proposedMrp),
+    };
+  }
 
   // Lazy load EmailService to avoid circular dependencies
   private getEmailService() {
@@ -97,6 +115,7 @@ export class ListingsService {
           proposedMrp: proposedMrp || medicineRef.mrp,
           basePrice,
           stock,
+          gstPercentage: gstPercentage || 0,
           documentUrl,
         productImageUrl,
           status: 'PENDING',
@@ -200,6 +219,7 @@ export class ListingsService {
       sellerId: proposal.sellerId,
       basePrice: proposal.basePrice,
       proposedMrp: proposal.proposedMrp,
+      gstPercentage: Number(proposal.gstPercentage) || 0, // Include GST percentage
       stock: proposal.stock,
       status: proposal.status, // PENDING, APPROVED, REJECTED
       documentUrl: proposal.documentUrl,
@@ -344,6 +364,13 @@ export class ListingsService {
         activatedAt: new Date(),
       },
     });
+
+    // Record price history for this medicine (for graph/trends)
+    try {
+      await this.pricesService.recordPriceOnListingActivation(listing.medicineId, listPrice);
+    } catch (error) {
+      console.error('⚠️ Failed to record price history (non-critical):', error.message);
+    }
 
     // Check if this new listing has a lower price than existing active listings
     // Don't let email notification failures block the approval
@@ -530,7 +557,9 @@ export class ListingsService {
     }
 
     // Convert map to array - REMOVED the slice(0, 10) limit to show all medicines
-    return Array.from(lowestPriceListings.values());
+    return Array.from(lowestPriceListings.values()).map((listing) =>
+      this.serializeListing(listing),
+    );
   }
 
   async getListingById(id: string) {
@@ -557,7 +586,7 @@ export class ListingsService {
       throw new NotFoundException('Listing not found');
     }
 
-    return listing;
+    return this.serializeListing(listing);
   }
 
   async getPendingProposals() {
@@ -666,6 +695,7 @@ export class ListingsService {
           basePrice: basePrice,
           listPrice: listPrice,
           adminMarkupPct: markupPct,
+          gstPercentage: Number(proposal.gstPercentage) || 0, // Use GST from proposal
           stock: proposal.stock || 100, // Use stock from proposal
           documentUrl: proposal.documentUrl, // Use document from proposal
           status: 'ACTIVE', // Directly activate
@@ -696,6 +726,13 @@ export class ListingsService {
         where: { id: proposalId },
         data: { status: 'APPROVED' },
       });
+
+      // Record price history for this medicine (for graph/trends)
+      try {
+        await this.pricesService.recordPriceOnListingActivation(medicine.id, listPrice);
+      } catch (error) {
+        console.error('⚠️ Failed to record price history (non-critical):', error.message);
+      }
 
       // Check if this new listing has a lower price than existing active listings
       // Don't let email notification failures block the approval

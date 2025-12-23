@@ -28,7 +28,6 @@ export default function MedicineManagementPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -295,12 +294,6 @@ export default function MedicineManagementPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setEditingMedicine(medicine)}
-                              className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
                             <button
                               onClick={() => handleDelete(medicine.id)}
                               className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"

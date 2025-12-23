@@ -146,32 +146,20 @@ export class MedicinesService {
     // Check if medicine exists
     const medicine = await this.prisma.medicine.findUnique({
       where: { id },
-      include: {
-        listings: {
-          select: { id: true },
-        },
-      },
     });
 
     if (!medicine) {
       throw new NotFoundException('Medicine not found');
     }
 
-    // Check if there are active listings
-    const activeListings = await this.prisma.listing.count({
+    // Delete all associated listings first (manual cascade)
+    await this.prisma.listing.deleteMany({
       where: {
         medicineId: id,
-        status: { in: ['ACTIVE', 'PENDING'] },
       },
     });
 
-    if (activeListings > 0) {
-      throw new BadRequestException(
-        `Cannot delete medicine with ${activeListings} active or pending listing(s). Please deactivate or delete listings first.`,
-      );
-    }
-
-    // Delete medicine (this will also delete associated listings due to cascade)
+    // Delete medicine
     await this.prisma.medicine.delete({
       where: { id },
     });

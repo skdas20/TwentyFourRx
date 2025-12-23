@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Package, Upload, CheckCircle, Clock, Truck } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import Link from 'next/link';
+import { Package, Upload, CheckCircle, Clock, Truck, Bell, Eye, XCircle, Pill, ArrowLeft } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import Logo from '@/components/Logo';
+import ProfileDropdown from '@/components/ProfileDropdown';
 
 interface DeliveryRequest {
   id: string;
@@ -28,8 +30,8 @@ interface DeliveryRequest {
 }
 
 export default function SellerDeliveriesPage() {
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [requests, setRequests] = useState<DeliveryRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,21 +39,32 @@ export default function SellerDeliveriesPage() {
   const [selectedFile, setSelectedFile] = useState<{ [key: string]: File | null }>({});
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    const userData = localStorage.getItem('user');
+    if (!userData) {
       router.push('/auth/login');
-    } else if (status === 'authenticated' && !['SELLER', 'TRADER'].includes(session?.user?.role || '')) {
-      router.push('/dashboard');
+      return;
     }
-  }, [status, session, router]);
-
-  useEffect(() => {
+    const parsed = JSON.parse(userData);
+    if (!['SELLER', 'TRADER'].includes(parsed.roleCode)) {
+      router.push('/dashboard');
+      return;
+    }
+    setUser(parsed);
     fetchMyRequests();
-  }, []);
+  }, [router]);
 
   const fetchMyRequests = async () => {
     try {
-      const response = await fetch('/api/delivery-requests/my');
-      
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      const response = await fetch(`${apiUrl}/delivery-requests/my`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
       if (!response.ok) {
         throw new Error('Failed to fetch delivery requests');
       }
@@ -65,6 +78,13 @@ export default function SellerDeliveriesPage() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    router.push('/auth/login');
+  };
+
   const handleFileChange = (requestId: string, file: File | null) => {
     setSelectedFile(prev => ({
       ...prev,
@@ -74,28 +94,34 @@ export default function SellerDeliveriesPage() {
 
   const handleDispatch = async (requestId: string) => {
     const file = selectedFile[requestId];
-    
+
     if (!file) {
-      alert('Please select an invoice file to upload');
+      alert('Please select a courier receipt/document to upload');
       return;
     }
 
     setUploadingId(requestId);
     try {
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
       const formData = new FormData();
       formData.append('invoice', file);
 
-      const response = await fetch(`/api/delivery-requests/${requestId}/dispatch`, {
+      const response = await fetch(`${apiUrl}/delivery-requests/${requestId}/dispatch`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to dispatch');
+        throw new Error(error.message || 'Failed to confirm dispatch');
       }
 
-      alert('Invoice uploaded successfully! Awaiting admin verification.');
+      alert('Dispatch confirmed! Request sent to admin for approval.');
       await fetchMyRequests();
       setSelectedFile(prev => ({
         ...prev,
@@ -111,171 +137,244 @@ export default function SellerDeliveriesPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return <Clock className="text-yellow-600" size={20} />;
+        return <Clock className="text-yellow-600" size={18} />;
       case 'APPROVED':
-        return <CheckCircle className="text-green-600" size={20} />;
+        return <CheckCircle className="text-green-600" size={18} />;
       case 'DISPATCHED':
-        return <Truck className="text-blue-600" size={20} />;
+        return <Truck className="text-blue-600" size={18} />;
       case 'DELIVERED':
-        return <CheckCircle className="text-green-600" size={20} />;
+        return <CheckCircle className="text-green-600" size={18} />;
       default:
-        return <Package className="text-gray-600" size={20} />;
+        return <Package className="text-gray-600" size={18} />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-50 text-yellow-700 border-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30';
       case 'APPROVED':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/30';
       case 'DISPATCHED':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30';
       case 'DELIVERED':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30';
       case 'REJECTED':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
     }
   };
 
-  if (status === 'loading' || loading) {
-    return (
-      <DashboardLayout user={session?.user} title="My Deliveries">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading delivery requests...</p>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  if (!user) return null;
 
   return (
-    <DashboardLayout user={session?.user} title="My Deliveries">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Header - Modern Style */}
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex justify-between items-center h-16 gap-2">
+            <div className="flex items-center gap-3 sm:gap-8 flex-shrink-0">
+              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <Logo size="sm" href="/" isLoggedIn={true} />
+              <nav className="hidden lg:flex items-center gap-1 border-l border-gray-200 dark:border-gray-800 ml-4 pl-4">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">Delivery Requests</span>
+              </nav>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              <ThemeToggle />
+              <ProfileDropdown user={user} />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Delivery Requests</h1>
-          <p className="text-gray-600 mt-2">Manage and dispatch your approved delivery requests</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">My Delivery Requests</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Manage and process physical delivery requests from buyers</p>
         </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-sm text-gray-500">Fetching requests...</p>
           </div>
-        )}
-
-        {requests.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Package className="mx-auto text-gray-400 mb-4" size={48} />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        ) : error ? (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-3">
+            <XCircle className="w-5 h-5" />
+            <p className="text-sm">{error}</p>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-800 p-16 text-center shadow-sm">
+            <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Package className="text-gray-300 dark:text-gray-600" size={40} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               No Delivery Requests
             </h3>
-            <p className="text-gray-600">
-              You don't have any delivery requests yet.
+            <p className="text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+              You don't have any active delivery requests to process at the moment.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {requests.map((request) => (
               <div
                 key={request.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(request.status)}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {request.inventoryLot.medicine.name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {request.inventoryLot.medicine.form} | {request.inventoryLot.medicine.strength}
-                      </p>
-                      <p className="text-sm text-gray-600">Quantity: {request.qty} units</p>
-                    </div>
+                {/* Status Bar */}
+                <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/50 dark:bg-gray-700/20">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(request.status)}`}>
+                      {request.status.replace('_', ' ')}
+                    </span>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                    {request.status}
-                  </span>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Buyer Details</h4>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <p><span className="font-medium">Name:</span> {request.requester.name}</p>
-                    <p><span className="font-medium">Email:</span> {request.requester.email}</p>
-                    <p><span className="font-medium">Phone:</span> {request.requester.phone}</p>
+                  <div className="text-[10px] text-gray-400 font-medium">
+                    Requested on {new Date(request.createdAt).toLocaleDateString()}
                   </div>
                 </div>
 
-                {request.status === 'APPROVED' && !request.invoiceUrl && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Upload Invoice (PDF, JPG, PNG)
-                      </label>
-                      <input
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
-                        className="block w-full text-sm text-gray-500
-                          file:mr-4 file:py-2 file:px-4
-                          file:rounded-lg file:border-0
-                          file:text-sm file:font-semibold
-                          file:bg-blue-50 file:text-blue-700
-                          hover:file:bg-blue-100
-                          cursor-pointer"
-                      />
+                <div className="p-6">
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    {/* Left: Medicine Info */}
+                    <div className="flex gap-4">
+                      <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-100/50 dark:border-blue-800/30">
+                        <Pill className="text-blue-600 dark:text-blue-400" size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                          {request.inventoryLot?.medicine?.name || 'Unknown Medicine'}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-2">
+                          <span>{request.inventoryLot?.medicine?.form || 'N/A'}</span>
+                          <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
+                          <span>{request.inventoryLot?.medicine?.strength || 'N/A'}</span>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          <Package size={12} />
+                          {request.qty} units
+                        </div>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleDispatch(request.id)}
-                      disabled={!selectedFile[request.id] || uploadingId === request.id}
-                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Upload size={20} />
-                      {uploadingId === request.id ? 'Uploading...' : 'Upload Invoice & Confirm Dispatch'}
-                    </button>
-                  </div>
-                )}
 
-                {request.invoiceUrl && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-900 mb-2">
-                      ✓ Invoice uploaded - Awaiting admin verification
-                    </p>
-                    <a
-                      href={request.invoiceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800 underline"
-                    >
-                      View Invoice
-                    </a>
+                    {/* Right: Buyer Details */}
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 min-w-[240px] border border-gray-100 dark:border-gray-700/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-6 h-6 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
+                          <Bell size={12} className="text-blue-600" />
+                        </div>
+                        <h4 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Buyer Info</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Name</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{request.requester?.name || 'N/A'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Email / Phone</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[200px]">{request.requester?.email || 'N/A'}</span>
+                          {request.requester?.phone && <span className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{request.requester.phone}</span>}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
 
-                {request.status === 'DISPATCHED' && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-900">
-                      ✓ Order dispatched on {new Date(request.dispatchedAt!).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-green-800 mt-1">
-                      OTP sent to buyer for delivery confirmation
-                    </p>
+                  {/* Actions Section */}
+                  <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50">
+                    {request.status === 'AWAITING_SELLER' && !request.invoiceUrl ? (
+                      <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-100 dark:border-blue-800/30">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Upload size={18} className="text-blue-600" />
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Upload Courier Receipt</h4>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+                          Please upload a clear copy of the courier receipt or dispatch proof to confirm this delivery.
+                        </p>
+                        
+                        <div className="flex flex-col sm:flex-row items-center gap-4">
+                          <div className="relative flex-1 w-full">
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
+                              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                            />
+                            <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {selectedFile[request.id]?.name || 'Click to select or drag & drop'}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDispatch(request.id)}
+                            disabled={!selectedFile[request.id] || uploadingId === request.id}
+                            className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                          >
+                            {uploadingId === request.id ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={18} />
+                                Confirm Dispatch
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ) : request.invoiceUrl ? (
+                      <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-100 dark:border-green-800/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
+                            <CheckCircle size={18} className="text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Documents Uploaded</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Awaiting final admin verification</p>
+                          </div>
+                        </div>
+                        <a
+                          href={request.invoiceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-white dark:bg-gray-800 text-xs font-bold text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-800/30 hover:bg-blue-50 transition-colors flex items-center gap-2"
+                        >
+                          <Eye size={14} />
+                          View Proof
+                        </a>
+                      </div>
+                    ) : request.status === 'DISPATCHED' ? (
+                      <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800/30 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
+                          <Truck size={18} className="text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">Order Dispatched</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Dispatched on {new Date(request.dispatchedAt!).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 font-medium italic">
+                        {request.status === 'PENDING' ? 'Waiting for admin to approve the delivery request...' : 'No actions required at this stage.'}
+                      </div>
+                    )}
                   </div>
-                )}
-
-                <div className="mt-4 text-xs text-gray-500">
-                  Created: {new Date(request.createdAt).toLocaleString()}
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-    </DashboardLayout>
+      </main>
+    </div>
   );
 }

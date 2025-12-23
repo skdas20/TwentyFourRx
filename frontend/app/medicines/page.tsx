@@ -44,19 +44,55 @@ export default function MedicinesPage() {
     router.push("/auth/login");
   };
 
-  const filteredMedicines = listings.filter((listing: any) => {
-    const medicine = listing.medicine;
-    if (!medicine) return false;
+  const filteredMedicines = (() => {
+    // First, group listings by medicine ID and find the lowest price for each
+    const medicineMap = new Map<string, any>();
     
-    const medicineName = medicine.name || "";
-    const manufacturer = medicine.manufacturer?.name || "";
-    const searchText = `${medicineName} ${manufacturer}`.toLowerCase();
-    const matchesSearch = searchText.includes(searchTerm.toLowerCase());
+    listings.forEach((listing: any) => {
+      const medicine = listing.medicine;
+      if (!medicine) return;
+      
+      const medicineId = listing.medicineId || medicine.id;
+      const listPrice = parseFloat(listing.listPrice || listing.basePrice || 0);
+      
+      if (!medicineMap.has(medicineId)) {
+        // First listing for this medicine
+        medicineMap.set(medicineId, {
+          ...listing,
+          lowestPrice: listPrice,
+          sellerCount: 1,
+        });
+      } else {
+        // Update if this listing has a lower price
+        const existing = medicineMap.get(medicineId);
+        existing.sellerCount += 1;
+        if (listPrice < existing.lowestPrice) {
+          // Keep the listing with lowest price but preserve seller count
+          const sellerCount = existing.sellerCount;
+          medicineMap.set(medicineId, {
+            ...listing,
+            lowestPrice: listPrice,
+            sellerCount,
+          });
+        }
+      }
+    });
     
-    const matchesForm = selectedForm === "ALL" || medicine.form === selectedForm;
-    
-    return matchesSearch && matchesForm;
-  });
+    // Convert to array and apply filters
+    return Array.from(medicineMap.values()).filter((listing: any) => {
+      const medicine = listing.medicine;
+      if (!medicine) return false;
+      
+      const medicineName = medicine.name || "";
+      const manufacturer = medicine.manufacturer?.name || "";
+      const searchText = `${medicineName} ${manufacturer}`.toLowerCase();
+      const matchesSearch = searchText.includes(searchTerm.toLowerCase());
+      
+      const matchesForm = selectedForm === "ALL" || medicine.form === selectedForm;
+      
+      return matchesSearch && matchesForm;
+    });
+  })();
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -234,11 +270,11 @@ export default function MedicinesPage() {
                 {/* Price */}
                 <div className="mb-4">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    {listing.listPrice ? 'List Price' : 'Base Price'}
+                    Lowest Price {listing.sellerCount > 1 && <span className="text-xs text-gray-500">({listing.sellerCount} sellers)</span>}
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      ₹{listing.listPrice || listing.basePrice}
+                      ₹{listing.lowestPrice?.toFixed(2) || listing.listPrice || listing.basePrice}
                       <sup className="text-xs ml-0.5">*</sup>
                     </span>
                     <span className="text-sm text-gray-500">per unit</span>

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class OrdersService {
@@ -26,7 +27,10 @@ export class OrdersService {
 
     // Calculate amount
     const unitPrice = listing.listPrice || listing.basePrice;
-    const amount = unitPrice.mul(qty);
+    const gstPct = new Decimal(listing.gstPercentage || 0);
+    const amount = unitPrice
+      .mul(qty)
+      .mul(new Decimal(1).add(gstPct.div(100)));
 
     // Create order
     const order = await this.prisma.order.create({

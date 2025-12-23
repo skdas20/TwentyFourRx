@@ -67,7 +67,16 @@ export default function AdminSupportPage() {
     try {
       const token = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-      const url = filter ? `${apiUrl}/support?status=${filter}` : `${apiUrl}/support`;
+
+      // Build URL with required pagination parameters
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '50',
+      });
+      if (filter) {
+        params.append('status', filter);
+      }
+      const url = `${apiUrl}/support?${params.toString()}`;
 
       console.log('Fetching tickets from:', url);
 

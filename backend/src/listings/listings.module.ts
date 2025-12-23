@@ -1,13 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ListingsController } from './listings.controller';
 import { ListingsService } from './listings.service';
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
 import { ConfigModule } from '@nestjs/config';
 import { WatermarkService } from '../common/services/watermark.service';
+import { PricesModule } from '../prices/prices.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, forwardRef(() => PricesModule)],
   controllers: [ListingsController],
   providers: [ListingsService, PrismaService, GcsService, WatermarkService],
   exports: [ListingsService],

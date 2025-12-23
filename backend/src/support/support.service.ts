@@ -54,12 +54,24 @@ export class SupportService {
       where: {
         userId,
       },
-      include: {
+      select: {
+        id: true,
+        subject: true,
+        message: true,
+        status: true,
+        adminResponse: true,
+        createdAt: true,
+        updatedAt: true,
         deliveryRequest: {
-          include: {
+          select: {
+            id: true,
             inventoryLot: {
-              include: {
-                medicine: true,
+              select: {
+                medicine: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
           },

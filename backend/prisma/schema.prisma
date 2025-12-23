@@ -378,6 +378,7 @@ model MedicineProposal {
   proposedMrp        Decimal?       @map("proposed_mrp") @db.Decimal(14, 2) // Proposed MRP for new medicine
   basePrice          Decimal        @map("base_price") @db.Decimal(14, 2)
   stock              Int            @default(100)
+  gstPercentage      Decimal        @default(0) @map("gst_percentage") @db.Decimal(5, 2) // GST percentage: 0 or 5
   documentUrl        String?        @map("document_url")
   productImageUrl String?       @map("product_image_url") // Watermarked medicine photo
   status             ProposalStatus @default(PENDING)

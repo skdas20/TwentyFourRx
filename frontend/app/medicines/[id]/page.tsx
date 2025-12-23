@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, Heart, Share2, BarChart3, Activity, ShoppingCart, ArrowLeft
+  Bell, Heart, Share2, ShoppingCart, ArrowLeft, Pill
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -40,7 +40,6 @@ export default function MedicineDetailPage() {
 
   // Related medicines
   const [relatedMedicines, setRelatedMedicines] = useState<any[]>([]);
-  const [loadingRelated, setLoadingRelated] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -75,27 +74,20 @@ export default function MedicineDetailPage() {
     if (!medicine) return;
 
     try {
-      setLoadingRelated(true);
-
       // Fetch all active listings
       const listingsRes = await listingsApi.getListings({});
       const allListings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
 
       // Filter medicines with similar form, composition, or manufacturer
-      // Exclude the current medicine
       const related = allListings.filter((listing: any) => {
         if (!listing.medicine) return false;
         if (listing.medicineId === medicineId) return false;
 
-        // Match by form (Tablet, Capsule, etc.)
         const sameForm = listing.medicine.form === medicine.form;
-
-        // Match by similar name or manufacturer
         const sameName = listing.medicine.name?.toLowerCase().includes(medicine.name?.toLowerCase().split(' ')[0] || '');
         const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
         const sameStrength = listing.medicine.strength === medicine.strength;
 
-        // Consider it related if it has (same form) OR (same manufacturer and similar strength) OR (similar name)
         return sameForm || (sameManufacturer && sameStrength) || sameName;
       });
 
@@ -106,12 +98,9 @@ export default function MedicineDetailPage() {
         return map;
       }, new Map());
       const uniqueMedicines = Array.from(medicineMap.values());
-      // Take only first 6 related medicines
       setRelatedMedicines(uniqueMedicines.slice(0, 6));
     } catch (error) {
       console.error("Failed to load related medicines:", error);
-    } finally {
-      setLoadingRelated(false);
     }
   };
 
@@ -134,7 +123,6 @@ export default function MedicineDetailPage() {
     setWatchlistLoading(true);
     try {
       if (isInWatchlist) {
-        // Need to get watchlist item ID first
         const watchlistRes = await watchlistApi.getWatchlist();
         const item = watchlistRes.data?.find((w: any) => w.medicineId === medicineId);
         if (item) {
@@ -161,11 +149,9 @@ export default function MedicineDetailPage() {
       try {
         await navigator.share({ title, url });
       } catch (error) {
-        // User cancelled or share failed
         console.log("Share cancelled");
       }
     } else {
-      // Fallback: copy to clipboard
       try {
         await navigator.clipboard.writeText(url);
         alert("Link copied to clipboard!");
@@ -179,42 +165,61 @@ export default function MedicineDetailPage() {
     try {
       setLoading(true);
       
-      // Load available listings for this medicine
       const listingsRes = await listingsApi.getListings({ medicineId });
       const listings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
       
-      // Track the listing price for use in price history
       let listingPrice = 0;
       
-      // Get medicine details from first listing
       if (listings.length > 0) {
         setMedicine(listings[0].medicine);
         
-        // Select the cheapest listing by default
         const cheapest = listings.sort((a: any, b: any) => 
           parseFloat(a.listPrice || a.basePrice) - parseFloat(b.listPrice || b.basePrice)
         )[0];
-        setSelectedListing(cheapest);
+
+        const normalizedListing = {
+          ...cheapest,
+          listPrice: Number(cheapest.listPrice || cheapest.basePrice || 0),
+          basePrice: Number(cheapest.basePrice || cheapest.listPrice || 0),
+          gstPercentage: Number(cheapest.gstPercentage || 0),
+        };
+
+        setSelectedListing(normalizedListing);
         
-        // Set current price from the cheapest listing
-        listingPrice = parseFloat(cheapest.listPrice || cheapest.basePrice || 0);
+        listingPrice = normalizedListing.listPrice;
         setCurrentPrice(listingPrice);
-      } else {
-        // No active listings found
-        console.log("No active listings found for medicine:", medicineId);
       }
       
-      // Load price history
       const days = timeframe === "1d" ? 1 : timeframe === "5d" ? 5 : 
                    timeframe === "1m" ? 30 : timeframe === "3m" ? 90 :
                    timeframe === "1y" ? 365 : 1825;
       
       const priceRes = await pricesApi.getPriceHistory(medicineId, days);
-      const history = priceRes.data || [];
+      const priceData = priceRes.data || {};
+      const rawHistory = Array.isArray(priceData)
+        ? priceData
+        : Array.isArray(priceData.history)
+          ? priceData.history
+          : [];
+
+      const normalizedHistory = rawHistory.map((entry: any) => ({
+        ...entry,
+        // Normalize the date field - backend returns 'date', we use 'day' for consistency
+        day: entry.day || entry.date,
+        minPrice: Number(entry.minPrice ?? entry.avgPrice ?? listingPrice),
+        maxPrice: Number(entry.maxPrice ?? entry.avgPrice ?? listingPrice),
+        avgPrice: Number(entry.avgPrice ?? entry.closePrice ?? entry.openPrice ?? listingPrice),
+        openPrice: Number(entry.openPrice ?? entry.avgPrice ?? entry.minPrice ?? listingPrice),
+        closePrice: Number(entry.closePrice ?? entry.avgPrice ?? entry.maxPrice ?? listingPrice),
+      }));
+
+      const latestAvgFromApi = typeof priceData.currentPrice?.avg === 'number' ? priceData.currentPrice.avg : null;
+      if (!listingPrice && latestAvgFromApi) {
+        listingPrice = latestAvgFromApi;
+        setCurrentPrice(latestAvgFromApi);
+      }
       
-      // If no price history, create flat line with listing price
-      if (history.length === 0) {
-        // Use the listing price we just calculated
+      if (normalizedHistory.length === 0) {
         if (listingPrice > 0) {
           const mockHistory = Array.from({ length: 30 }, (_, i) => ({
             day: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -229,21 +234,40 @@ export default function MedicineDetailPage() {
         setPriceChange(0);
         setPriceChangePercent(0);
       } else {
-        setPriceHistory(history);
-        const latest = history[history.length - 1];
-        const previous = history[history.length - 2] || latest;
+        setPriceHistory(normalizedHistory);
         
-        // Safely parse prices with fallback to listing price
-        const latestPrice = latest?.avgPrice ? parseFloat(latest.avgPrice) : listingPrice;
-        const previousPrice = previous?.avgPrice ? parseFloat(previous.avgPrice) : latestPrice;
+        // Calculate price change based on the FIRST and LAST data points in the period
+        // This matches how the dashboard/trending section calculates changes
+        const latest = normalizedHistory[normalizedHistory.length - 1];
+        const earliest = normalizedHistory[0]; // First point in the period, not previous day
         
-        // Only update current price if we got a valid price from history, otherwise keep listing price
-        if (latestPrice > 0) {
-          setCurrentPrice(latestPrice);
+        // Get the latest price from history for trend calculation
+        const latestHistoryPrice = latest?.avgPrice ? parseFloat(latest.avgPrice) : listingPrice;
+        const earliestPrice = earliest?.avgPrice ? parseFloat(earliest.avgPrice) : latestHistoryPrice;
+        
+        console.log('Price Trend Debug:', { listingPrice, latestHistoryPrice, earliestPrice, historyLength: normalizedHistory.length, timeframe });
+
+        // IMPORTANT: Always use the actual listing price as the displayed current price
+        // The listing price is what users will actually pay - it's the source of truth
+        // Price history is only used for calculating trends/changes
+        // Don't override listingPrice with history price - they may differ due to seeding
+        
+        // Calculate change over the entire selected period (earliest to latest in history)
+        if (normalizedHistory.length >= 2 && earliestPrice > 0) {
+             const change = latestHistoryPrice - earliestPrice;
+             setPriceChange(change);
+             setPriceChangePercent((change / earliestPrice) * 100);
+        } else {
+             // Fallback: compare with base listing price if history is short
+             if (listingPrice > 0 && latestHistoryPrice !== listingPrice) {
+                 const change = latestHistoryPrice - listingPrice;
+                 setPriceChange(change);
+                 setPriceChangePercent((change / listingPrice) * 100);
+             } else {
+                 setPriceChange(0);
+                 setPriceChangePercent(0);
+             }
         }
-        const change = latestPrice - previousPrice;
-        setPriceChange(change);
-        setPriceChangePercent(previousPrice > 0 ? (change / previousPrice) * 100 : 0);
       }
     } catch (error) {
       console.error("Failed to load medicine data:", error);
@@ -252,30 +276,78 @@ export default function MedicineDetailPage() {
     }
   };
 
-
-  // Candlestick Chart Component
   const CandlestickChart = ({ data }: { data: any[] }) => {
-    if (!Array.isArray(data) || data.length === 0) return null;
+    const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+    if (!Array.isArray(data) || data.length === 0) return (
+        <div className="h-64 flex items-center justify-center text-gray-400">
+            No price history available to chart.
+        </div>
+    );
 
     const width = 800;
     const height = 400;
     const padding = 40;
     
+    // Extract all relevant price points to find the absolute min and max for scaling
     const prices = data.flatMap(d => [
       parseFloat(d.minPrice),
       parseFloat(d.maxPrice),
       parseFloat(d.openPrice || d.avgPrice),
       parseFloat(d.closePrice || d.avgPrice)
-    ]);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const priceRange = maxPrice - minPrice || 1;
+    ]).filter(p => !isNaN(p)); // Filter out any NaNs
+
+    if (prices.length === 0) return null;
+
+    let minPrice = Math.min(...prices);
+    let maxPrice = Math.max(...prices);
+    
+    // Add some padding to the range so candles aren't stuck to the edges
+    let priceRange = maxPrice - minPrice;
+    if (priceRange === 0) {
+        // Handle flat line case
+        priceRange = maxPrice * 0.1; // 10% buffer
+        minPrice = maxPrice - priceRange / 2;
+        maxPrice = maxPrice + priceRange / 2;
+    } else {
+        // Add 5% padding top and bottom
+        const buffer = priceRange * 0.05;
+        minPrice -= buffer;
+        maxPrice += buffer;
+        priceRange = maxPrice - minPrice;
+    }
     
     const candleWidth = (width - 2 * padding) / data.length;
-    
+
+    const handleMouseMove = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const xPos = event.clientX - rect.left;
+      const usableWidth = rect.width - 2 * padding;
+      const relative = Math.max(0, Math.min(1, (xPos - padding) / usableWidth));
+      const index = Math.round(relative * (data.length - 1));
+      setHoverIndex(index);
+    };
+
+    const handleMouseLeave = () => setHoverIndex(null);
+
+    const normalize = (val: number) => padding + (1 - (val - minPrice) / priceRange) * (height - 2 * padding);
+
+    const hoverData = hoverIndex !== null ? data[hoverIndex] : null;
+    const hoverX = hoverIndex !== null ? padding + hoverIndex * candleWidth + candleWidth / 2 : null;
+    const hoverClose = hoverData ? parseFloat(hoverData.closePrice || hoverData.avgPrice) : null;
+    const hoverY = hoverClose !== null && !isNaN(hoverClose) ? normalize(hoverClose) : null;
+
     return (
-      <div className="relative">
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="bg-white dark:bg-gray-900">
+      <div className="relative w-full h-full aspect-[2/1]">
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${width} ${height}`}
+          className="bg-white dark:bg-gray-900"
+          preserveAspectRatio="none"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
           {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = padding + (1 - ratio) * (height - 2 * padding);
@@ -306,22 +378,32 @@ export default function MedicineDetailPage() {
           {/* Candlesticks */}
           {data.map((d, i) => {
             const open = parseFloat(d.openPrice || d.avgPrice);
+            // For a simple line chart representation if we don't have true open/close:
+            // We can assume previous avg as open and current avg as close for visual continuity
+            // Or just use avgPrice. Here we use what's passed.
             const close = parseFloat(d.closePrice || d.avgPrice);
             const high = parseFloat(d.maxPrice);
             const low = parseFloat(d.minPrice);
             
+            // Validation
+            if (isNaN(open) || isNaN(close) || isNaN(high) || isNaN(low)) return null;
+
             const isPriceUp = close >= open;
-            // Price up = red (bad for buyers), Price down = green (good for buyers)
-            const color = isPriceUp ? "#ef4444" : "#10b981";
+            const color = isPriceUp ? "#10b981" : "#ef4444"; // Green for up, Red for down
             
             const x = padding + i * candleWidth + candleWidth / 2;
-            const yHigh = padding + (1 - (high - minPrice) / priceRange) * (height - 2 * padding);
-            const yLow = padding + (1 - (low - minPrice) / priceRange) * (height - 2 * padding);
-            const yOpen = padding + (1 - (open - minPrice) / priceRange) * (height - 2 * padding);
-            const yClose = padding + (1 - (close - minPrice) / priceRange) * (height - 2 * padding);
+            
+            // Calculate Y coordinates. Note: SVG Y increases downwards.
+            // Value at top (maxPrice) should be at y = padding
+            // Value at bottom (minPrice) should be at y = height - padding
+            
+            const yHigh = normalize(high);
+            const yLow = normalize(low);
+            const yOpen = normalize(open);
+            const yClose = normalize(close);
             
             const bodyTop = Math.min(yOpen, yClose);
-            const bodyHeight = Math.abs(yOpen - yClose) || 1;
+            const bodyHeight = Math.max(Math.abs(yOpen - yClose), 1); // Ensure at least 1px height
             
             return (
               <g key={i}>
@@ -347,35 +429,45 @@ export default function MedicineDetailPage() {
               </g>
             );
           })}
-        </svg>
-        
-        {/* Volume bars */}
-        <svg width="100%" height="80" viewBox={`0 0 ${width} 80`} className="bg-white dark:bg-gray-900">
-          {data.map((d, i) => {
-            const open = parseFloat(d.openPrice || d.avgPrice);
-            const close = parseFloat(d.closePrice || d.avgPrice);
-            const isPriceUp = close >= open;
-            // Price up = red (bad for buyers), Price down = green (good for buyers)
-            const color = isPriceUp ? "#ef4444" : "#10b981";
-            
-            const volume = Math.random() * 100; // Mock volume
-            const maxVolume = 100;
-            const barHeight = (volume / maxVolume) * 60;
-            
-            const x = padding + i * candleWidth;
-            
-            return (
-              <rect
-                key={i}
-                x={x + candleWidth * 0.2}
-                y={80 - barHeight - 10}
-                width={candleWidth * 0.6}
-                height={barHeight}
-                fill={color}
-                opacity="0.5"
+
+          {hoverData && hoverIndex !== null && hoverX !== null && hoverY !== null && (
+            <g>
+              {/* Hover vertical line */}
+              <line
+                x1={hoverX}
+                y1={padding}
+                x2={hoverX}
+                y2={height - padding}
+                stroke="#3b82f6"
+                strokeWidth="1"
+                strokeDasharray="4 2"
               />
-            );
-          })}
+              {/* Hover point */}
+              <circle cx={hoverX} cy={hoverY} r={4} fill="#3b82f6" stroke="white" strokeWidth="2" />
+              {/* Tooltip */}
+              <rect
+                x={Math.min(hoverX + 10, width - 140)}
+                y={padding + 10}
+                width={130}
+                height={46}
+                rx={6}
+                fill="white"
+                stroke="#e5e7eb"
+                className="dark:fill-gray-800 dark:stroke-gray-700"
+              />
+              <text x={Math.min(hoverX + 16, width - 134)} y={padding + 28} fontSize="11" fill="#111827" className="dark:fill-white">
+                {(() => {
+                  const dateVal = hoverData.day || hoverData.date;
+                  if (!dateVal) return 'N/A';
+                  const d = new Date(dateVal);
+                  return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('en-IN');
+                })()}
+              </text>
+              <text x={Math.min(hoverX + 16, width - 134)} y={padding + 44} fontSize="11" fill="#3b82f6" fontWeight="600">
+                ₹{(hoverData.avgPrice ? parseFloat(hoverData.avgPrice) : hoverClose)?.toFixed(2)}
+              </text>
+            </g>
+          )}
         </svg>
       </div>
     );
@@ -391,21 +483,21 @@ export default function MedicineDetailPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
-      {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <div className="flex justify-between items-center h-16 gap-2">
             <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-              <Link href="/medicines" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+              <button 
+                onClick={() => router.back()} 
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Link>
+              </button>
               <Logo size="sm" href="/" isLoggedIn={!!user} />
             </div>
-
             <div className="hidden md:flex flex-1 max-w-md mx-4">
               <SearchBar variant="navbar" isLoggedIn={!!user} />
             </div>
-
             <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
               <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                 <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -414,284 +506,122 @@ export default function MedicineDetailPage() {
               {user && <ProfileDropdown user={user} />}
             </div>
           </div>
-
-          {/* Mobile Search Bar */}
           <div className="md:hidden pb-3 pt-1">
             <SearchBar variant="navbar" isLoggedIn={!!user} />
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Sidebar - Chart Tools */}
+          {/* Left Sidebar - Chart Tools - REMOVED */}
           <div className="hidden lg:block">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-800 sticky top-24">
-              <div className="space-y-2">
-                <button className="w-full p-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-2">
-                  <Activity className="w-4 h-4" />
-                  Indicators
-                </button>
-                <button className="w-full p-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Drawing tools
-                </button>
-
-              </div>
-            </div>
+            {/* Tools removed as requested */}
           </div>
 
-          {/* Center - Chart */}
           <div className="lg:col-span-2">
-            {/* Medicine Info */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-4">
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex flex-col md:flex-row items-start gap-6 mb-4">
+                <div className="w-32 h-32 md:w-40 md:h-40 bg-gray-50 dark:bg-gray-700/50 rounded-2xl flex items-center justify-center border border-gray-100 dark:border-gray-700 overflow-hidden flex-shrink-0">
+                  {medicine?.imageUrl ? (
+                    <img src={medicine.imageUrl} alt={medicine.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Pill className="w-16 h-16 text-gray-300 dark:text-gray-600" />
+                  )}
+                </div>
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    {medicine?.name || "Medicine Name"}
-                  </h1>
-                  <div className="flex items-baseline gap-3">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                      ₹{currentPrice.toFixed(2)}
-                      <sup className="text-sm ml-1">*</sup>
-                    </span>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{medicine?.name || "Medicine Name"}</h1>
+                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span>{medicine?.form || "N/A"}</span>
+                        <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
+                        <span>{medicine?.strength || "N/A"}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={handleToggleWatchlist} disabled={watchlistLoading} className={`p-2 transition-colors ${isInWatchlist ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"} ${watchlistLoading ? "opacity-50" : ""}`}>
+                        <Heart className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
+                      </button>
+                      <button onClick={handleShare} className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <Share2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-3 mt-4">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">₹{currentPrice.toFixed(2)}<sup className="text-sm ml-1">*</sup></span>
                     <span className={`text-lg font-semibold ${priceChange >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
                       {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    PSE (Pharmaceutical Stock Exchange) | <span className="text-xs">*Price excluding GST</span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={handleToggleWatchlist}
-                    disabled={watchlistLoading}
-                    className={`p-2 transition-colors ${
-                      isInWatchlist 
-                        ? "text-red-600 dark:text-red-400" 
-                        : "text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                    } ${watchlistLoading ? "opacity-50" : ""}`}
-                    title={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
-                  >
-                    <Heart className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
-                  </button>
-                  <button 
-                    onClick={handleShare}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    title="Share"
-                  >
-                    <Share2 className="w-5 h-5" />
-                  </button>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PSE | <span className="text-xs">*Price excluding GST</span></p>
                 </div>
               </div>
-
-              {/* Timeframe Selector */}
               <div className="flex items-center gap-2 mb-4">
                 {(["1d", "5d", "1m", "3m", "1y", "5y"] as const).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-                      timeframe === tf
-                        ? "bg-blue-600 text-white"
-                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {tf}
-                  </button>
+                  <button key={tf} onClick={() => setTimeframe(tf)} className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${timeframe === tf ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}>{tf}</button>
                 ))}
               </div>
-
-              {/* Chart */}
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <CandlestickChart data={priceHistory} />
-              </div>
-
-              {/* Chart Info */}
-              <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
-                {!Array.isArray(priceHistory) || priceHistory.length === 0 || priceHistory.every(d => d.minPrice === d.maxPrice) ? (
-                  <p>No trading activity yet. Showing base price.</p>
-                ) : (
-                  <p>Real-time price data from multiple traders</p>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Buy/Sell Panel */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 sticky top-24">
-              {/* Buy/Sell Tabs */}
               <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
-                <button
-                  onClick={() => setActiveTab("buy")}
-                  className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                    activeTab === "buy"
-                      ? "border-green-600 text-green-600 dark:text-green-400"
-                      : "border-transparent text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  BUY
-                </button>
-                <button
-                  onClick={() => setActiveTab("sell")}
-                  className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                    activeTab === "sell"
-                      ? "border-red-600 text-red-600 dark:text-red-400"
-                      : "border-transparent text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  SELL
-                </button>
+                <button onClick={() => setActiveTab("buy")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "buy" ? "border-green-600 text-green-600 dark:text-green-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>BUY</button>
+                <button onClick={() => setActiveTab("sell")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "sell" ? "border-red-600 text-red-600 dark:text-red-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>SELL</button>
               </div>
-
-              {/* Content based on active tab */}
               {activeTab === "buy" ? (
-                <>
-                  {/* Buy Proposal Button */}
-                  <div className="mb-4">
-                    <button
-                      onClick={() => setShowBuyProposalModal(true)}
-                      className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart className="w-5 h-5" />
-                      BUY
-                    </button>
-                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-                      Already bought? Upload receipt for admin approval
-                    </p>
-                  </div>
-                </>
+                <div className="mb-4">
+                  <button onClick={() => setShowBuyProposalModal(true)} className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                    <ShoppingCart className="w-5 h-5" /> BUY
+                  </button>
+                </div>
               ) : (
-                <>
-                  {/* SELL Tab Content */}
+                <div className="space-y-4">
                   {userHolding ? (
-                    // User owns this medicine
-                    <div className="mb-4">
-                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
-                        <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
-                        <p className="text-sm text-green-700 dark:text-green-300">
-                          Available in holdings: <span className="font-bold">{userHolding.totalQty} units</span>
-                        </p>
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                          Avg. cost: ₹{userHolding.avgCost?.toFixed(2) || '0.00'} per unit
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
-                        className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors"
-                      >
-                        Sell
-                      </button>
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
+                      <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
+                      <p className="text-sm text-green-700 dark:text-green-300">Available: <span className="font-bold">{userHolding.totalQty} units</span></p>
+                      <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
                     </div>
-                  ) : holdingsLoaded ? (
-                    // User doesn't own this medicine - allow creating listing with credibility proof
-                    <div className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                  ) : holdingsLoaded && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
                       <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
-                      <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                        You can still create a listing for this medicine by uploading a credibility document (invoice/receipt) to prove you have it.
-                      </p>
-                      <button
-                        onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)}
-                        className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors mb-2"
-                      >
-                        Sell with Proof
-                      </button>
-                      <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                        📄 Credibility document will be required
-                      </p>
-                    </div>
-                  ) : (
-                    // Loading holdings
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600"></div>
+                      <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell with Proof</button>
                     </div>
                   )}
-
-                  {user && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        View all your holdings:
-                      </p>
-                      <button
-                        onClick={() => router.push('/portfolio')}
-                        className="w-full py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-                      >
-                        View My Portfolio
-                      </button>
-                    </div>
-                  )}
-                </>
+                </div>
               )}
-
-
             </div>
           </div>
         </div>
 
-        {/* Related Medicines Section */}
         {relatedMedicines.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Related Medicines
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Medicines with similar composition and form
-            </p>
-
-            {loadingRelated ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {relatedMedicines.map((listing: any) => (
-                  <Link
-                    key={listing.id}
-                    href={`/medicines/${listing.medicineId}`}
-                    className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-105 transition-all"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      {listing.medicine?.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      {listing.medicine?.form} {listing.medicine?.strength && `- ${listing.medicine.strength}`}
-                    </p>
-                    {listing.medicine?.manufacturer && (
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
-                        by {listing.medicine.manufacturer.name}
-                      </p>
-                    )}
-
-                    {/* Price */}
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                        ₹{listing.listPrice || listing.basePrice}
-                        <sup className="text-xs ml-0.5">*</sup>
-                      </span>
-                      <span className="text-xs text-gray-500">per unit</span>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Related Medicines</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {relatedMedicines.map((listing: any) => (
+                <Link key={listing.id} href={`/medicines/${listing.medicineId}`} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all flex gap-4">
+                  <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-100 dark:border-gray-700 overflow-hidden flex-shrink-0">
+                    {listing.medicine?.imageUrl ? <img src={listing.medicine.imageUrl} alt={listing.medicine.name} className="w-full h-full object-cover" /> : <Pill className="text-gray-300 dark:text-gray-600" size={24} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">{listing.medicine?.name}</h3>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <span className="text-xl font-bold text-blue-600 dark:text-blue-400">₹{listing.listPrice || listing.basePrice}</span>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      *Excl. GST
-                    </div>
-
-                    {/* Stock */}
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        {listing.stock?.toLocaleString() || 0} units available
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </main>
 
-      {/* Buy Proposal Modal */}
       {selectedListing && (
         <BuyProposalModal
           isOpen={showBuyProposalModal}
@@ -699,6 +629,8 @@ export default function MedicineDetailPage() {
           listingId={selectedListing.id}
           medicineName={medicine?.name || "Medicine"}
           listPrice={Number(selectedListing.listPrice || selectedListing.basePrice || 0)}
+          medicineImage={medicine?.imageUrl}
+          gstPercentage={Number(selectedListing.gstPercentage || 0)}
         />
       )}
     </div>

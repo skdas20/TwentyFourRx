@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bell,
   Package,
@@ -226,6 +227,18 @@ export default function NotificationsPage() {
                       <Clock size={14} />
                       {new Date(notification.createdAt).toLocaleString()}
                     </div>
+                    {notification.subject.includes('Delivery Request Received') && (
+                      <div className="mt-3">
+                        <Link
+                          href="/dashboard/seller/deliveries"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Package size={14} />
+                          Upload Documents & Confirm
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

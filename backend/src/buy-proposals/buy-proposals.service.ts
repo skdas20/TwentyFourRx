@@ -12,6 +12,22 @@ export class BuyProposalsService {
     private emailService: EmailService,
   ) { }
 
+  private calculateTotalsWithGst(listing: any, qty: number) {
+    const unitPrice = new Decimal(listing.listPrice || listing.basePrice || 0);
+    const gstPct = new Decimal(listing.gstPercentage || 0);
+    const subtotal = unitPrice.mul(qty);
+    const gstAmount = subtotal.mul(gstPct).div(100);
+    const total = subtotal.add(gstAmount);
+
+    return {
+      unitPrice,
+      gstPercentage: gstPct.toNumber(),
+      subtotal,
+      gstAmount,
+      total,
+    };
+  }
+
   async sendInvoice(
     buyerId: string,
     listingId: string,
@@ -63,7 +79,8 @@ export class BuyProposalsService {
     });
 
     // Send invoice email to buyer
-    const totalCost = Number(listing.listPrice || listing.basePrice) * qty;
+    const totals = this.calculateTotalsWithGst(listing, qty);
+    const totalCost = totals.total.toNumber();
     const buyer = await this.prisma.user.findUnique({
       where: { id: buyerId },
       select: { email: true, name: true },
@@ -74,7 +91,15 @@ export class BuyProposalsService {
         await this.emailService.sendEmail(
           buyer.email,
           '🧾 Payment Invoice - 24Rx',
-          this.getInvoiceEmailTemplate(buyer.name, listing.medicine.name, qty, Number(listing.listPrice || listing.basePrice), totalCost)
+          this.getInvoiceEmailTemplate(
+            buyer.name,
+            listing.medicine.name,
+            qty,
+            totals.unitPrice.toNumber(),
+            totals.gstPercentage,
+            totals.gstAmount.toNumber(),
+            totalCost,
+          )
         );
       } catch (error) {
         console.error('Failed to send invoice email:', error);
@@ -88,7 +113,15 @@ export class BuyProposalsService {
     };
   }
 
-  private getInvoiceEmailTemplate(name: string, medicineName: string, qty: number, unitPrice: number, totalCost: number): string {
+  private getInvoiceEmailTemplate(
+    name: string,
+    medicineName: string,
+    qty: number,
+    unitPrice: number,
+    gstPercentage: number,
+    gstAmount: number,
+    totalCost: number,
+  ): string {
     return `
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
         <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 30px; text-align: center;">
@@ -103,8 +136,9 @@ export class BuyProposalsService {
             <p style="margin: 5px 0;"><strong>Medicine:</strong> ${medicineName}</p>
             <p style="margin: 5px 0;"><strong>Quantity:</strong> ${qty} units</p>
             <p style="margin: 5px 0;"><strong>Unit Price:</strong> ₹${unitPrice.toLocaleString()}</p>
+            <p style="margin: 5px 0;"><strong>GST (${gstPercentage}%):</strong> ₹${gstAmount.toLocaleString()}</p>
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #D1D5DB;">
-              <p style="margin: 0; font-size: 18px; font-weight: bold; color: #1E40AF;">Total Amount: ₹${totalCost.toLocaleString()}</p>
+              <p style="margin: 0; font-size: 18px; font-weight: bold; color: #1E40AF;">Total Amount (incl. GST): ₹${totalCost.toLocaleString()}</p>
             </div>
           </div>
           
@@ -243,6 +277,8 @@ export class BuyProposalsService {
 
     // Create order based on order type
     let order;
+    const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
+
     if (proposal.orderType === 'mtf') {
       // Create hold for MTF
       const hold = await this.prisma.hold.create({
@@ -250,7 +286,7 @@ export class BuyProposalsService {
           traderId: proposal.buyerId,
           listingId: proposal.listingId,
           qty: proposal.qty,
-          paidAmount: Number(proposal.listing.listPrice || proposal.listing.basePrice) * proposal.qty,
+          paidAmount: totals.total,
           holdStartAt: new Date(),
           autoDeliveryAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days
           status: 'ACTIVE',
@@ -278,8 +314,8 @@ export class BuyProposalsService {
           buyerId: proposal.buyerId,
           listingId: proposal.listingId,
           qty: proposal.qty,
-          unitPrice: proposal.listing.listPrice || proposal.listing.basePrice,
-          amount: Number(proposal.listing.listPrice || proposal.listing.basePrice) * proposal.qty,
+          unitPrice: totals.unitPrice,
+          amount: totals.total,
           type: 'BUY',
           status: 'CREATED',
         },
@@ -291,7 +327,7 @@ export class BuyProposalsService {
           userId: proposal.buyerId,
           medicineId: proposal.listing.medicineId,
           qty: proposal.qty,
-          unitCost: new Decimal(proposal.listing.listPrice || proposal.listing.basePrice),
+          unitCost: totals.unitPrice,
           sourceOrderId: order.id,
         },
       });

@@ -114,11 +114,17 @@ export class DeliveryRequestsService {
         };
     }
 
-    // Get delivery requests for a user
+    // Get delivery requests for a user (as requester or seller)
     async getMyRequests(userId: string) {
         return this.prisma.deliveryRequest.findMany({
-            where: { requesterId: userId },
+            where: {
+                OR: [
+                    { requesterId: userId },
+                    { inventoryLot: { userId: userId } }
+                ]
+            },
             include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
                 inventoryLot: {
                     include: {
                         medicine: {

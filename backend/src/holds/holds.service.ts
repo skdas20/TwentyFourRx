@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../config/prisma.service';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class HoldsService {
@@ -38,7 +39,10 @@ export class HoldsService {
 
     // Calculate price
     const listPrice = listing.listPrice || listing.basePrice;
-    const paidAmount = listPrice.toNumber() * qty;
+    const gstPct = new Decimal(listing.gstPercentage || 0);
+    const paidAmount = listPrice
+      .mul(qty)
+      .mul(new Decimal(1).add(gstPct.div(100)));
 
     // Calculate auto-delivery date (10 days from now)
     const autoDeliveryAt = new Date();

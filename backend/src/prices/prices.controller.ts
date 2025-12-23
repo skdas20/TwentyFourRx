@@ -1,6 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { PricesService } from './prices.service';
 import { Public } from '../common/decorators/public.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('prices')
 export class PricesController {
@@ -43,5 +46,13 @@ export class PricesController {
       return { error: 'Composition is required' };
     }
     return this.pricesService.compareCompositionPrices(composition);
+  }
+
+  // ADMIN: Manually trigger price snapshot recording
+  @Post('snapshot')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async triggerPriceSnapshot() {
+    return this.pricesService.manualPriceSnapshot();
   }
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
   Eye, Bell, ChevronDown, ChevronRight, Pill,
-  Activity, BarChart3, Wallet, FileText, MessageCircle
+  Activity, BarChart3, Wallet, FileText, MessageCircle, Truck
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -60,66 +60,98 @@ export default function SellerDashboard() {
         sum + (parseFloat(l.basePrice || 0) * parseInt(l.stock || 0)), 0
       );
 
-      // Get top trending medicines from API
+      // Get top trending medicines from price movements with activity fallback
       let topMedicines: any[] = [];
       try {
-        const trendingRes = await dashboardApiNew.getTrendingMedicines(4).catch(() => ({ data: [] }));
-        topMedicines = (trendingRes.data || []).map((med: any) => ({
-          id: med.medicineId || med.id,
-          medicineId: med.medicineId || med.id,
-          name: med.name,
-          price: parseFloat(med.currentPrice || 0),
-          change: 0,
-          changePercent: 0,
-        }));
-      } catch (error) {
-        console.error("Failed to load trending medicines:", error);
-        topMedicines = [];
-      }
+        const [priceTrendingRes, activityTrendingRes] = await Promise.all([
+          pricesApi.getTrending(30).catch(() => ({ data: { trending: [] } })),
+          dashboardApiNew.getTrendingMedicines(4).catch(() => ({ data: [] })),
+        ]);
 
-      // Get platform-wide most bought medicines (fallback to trending if no purchases yet)
-      let mostBought: any[] = [];
-      try {
-        const mostBoughtRes = await dashboardApiNew.getPlatformMostBought(4).catch(() => ({ data: [] }));
-        const mostBoughtData = mostBoughtRes.data || [];
-        
-        // If no purchases yet, use trending medicines as fallback
-        if (mostBoughtData.length === 0 && topMedicines.length > 0) {
-          mostBought = topMedicines.map((med: any) => ({
+        const priceTrendingRaw = priceTrendingRes.data?.trending || [];
+        const priceChangeMap = new Map(
+          priceTrendingRaw.map((item: any) => [item.medicine?.id, {
+            change: Number(item.change ?? 0),
+            changePercent: Number(item.changePercent ?? 0),
+            latestPrice: Number(item.newPrice ?? item.medicine?.currentPrice ?? 0),
+          }])
+        );
+
+        const priceTrending = priceTrendingRaw.slice(0, 4).map((item: any) => ({
+          id: item.medicine?.id,
+          medicineId: item.medicine?.id,
+          name: item.medicine?.name || "Medicine",
+          price: Number(item.newPrice ?? item.medicine?.currentPrice ?? 0),
+          change: Number(item.change ?? 0),
+          changePercent: Number(item.changePercent ?? 0),
+        }));
+
+        if (priceTrending.length > 0) {
+          topMedicines = priceTrending;
+        } else {
+          topMedicines = (activityTrendingRes.data || []).map((med: any) => ({
+            id: med.medicineId || med.id,
+            medicineId: med.medicineId || med.id,
+            name: med.name,
+            price: parseFloat(med.currentPrice || 0),
+            change: 0,
+            changePercent: 0,
+          }));
+        }
+
+        // Get platform-wide most bought medicines (fallback to trending if no purchases yet)
+        let mostBought: any[] = [];
+        try {
+          const mostBoughtRes = await dashboardApiNew.getPlatformMostBought(4).catch(() => ({ data: [] }));
+          const mostBoughtData = mostBoughtRes.data || [];
+          
+          // If no purchases yet, use trending medicines as fallback
+          if (mostBoughtData.length === 0 && topMedicines.length > 0) {
+            mostBought = topMedicines.map((med: any) => ({
+              id: med.id,
+              medicineId: med.medicineId || med.id,
+              name: med.name || "Medicine",
+              form: "",
+              price: parseFloat(med.price || 0),
+              change: med.change,
+              changePercent: med.changePercent,
+              image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+            }));
+          } else {
+            mostBought = mostBoughtData.map((med: any) => {
+              const fromTrend = priceChangeMap.get(med.id) || priceChangeMap.get(med.medicineId);
+              return {
+                id: med.id,
+                medicineId: med.id,
+                name: med.name || "Medicine",
+                form: med.form || "",
+                price: parseFloat(med.currentPrice || med.price || fromTrend?.latestPrice || 0),
+                change: fromTrend?.change ?? 0,
+                changePercent: fromTrend?.changePercent ?? 0,
+                image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
+              };
+            });
+          }
+        } catch (error) {
+          console.error("Failed to load most bought:", error);
+          // Fallback to trending medicines if API fails
+          mostBought = topMedicines.slice(0, 4).map((med: any) => ({
             id: med.id,
             medicineId: med.medicineId || med.id,
             name: med.name || "Medicine",
             form: "",
             price: parseFloat(med.price || 0),
-            change: 0,
-            changePercent: "0.00",
-            image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
-          }));
-        } else {
-          mostBought = mostBoughtData.map((med: any) => ({
-            id: med.id,
-            medicineId: med.id,
-            name: med.name || "Medicine",
-            form: med.form || "",
-            price: parseFloat(med.currentPrice || 0),
-            change: 0,
-            changePercent: "0.00",
+            change: med.change,
+            changePercent: med.changePercent,
             image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
           }));
         }
+
+        dashboardData.mostBought = mostBought;
+
       } catch (error) {
-        console.error("Failed to load most bought:", error);
-        // Fallback to trending medicines if API fails
-        mostBought = topMedicines.slice(0, 4).map((med: any) => ({
-          id: med.id,
-          medicineId: med.medicineId || med.id,
-          name: med.name || "Medicine",
-          form: "",
-          price: parseFloat(med.price || 0),
-          change: 0,
-          changePercent: "0.00",
-          image: `https://via.placeholder.com/80x80/3B82F6/FFFFFF?text=${med.name?.charAt(0) || 'M'}`,
-        }));
+        console.error("Failed to load trending medicines:", error);
+        topMedicines = [];
       }
 
       // Group watchlists
@@ -162,7 +194,7 @@ export default function SellerDashboard() {
           returnsPercentage,
         },
         topMedicines,
-        mostBought,
+        mostBought: dashboardData.mostBought || [],
         recentListings: listings.slice(0, 5),
       });
 
@@ -172,6 +204,12 @@ export default function SellerDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getTrendVisuals = (change: number) => {
+    if (change > 0) return { arrow: '▲', color: 'text-red-600 dark:text-red-400', sign: '+' };
+    if (change < 0) return { arrow: '▼', color: 'text-green-600 dark:text-green-400', sign: '' };
+    return { arrow: '―', color: 'text-gray-500 dark:text-gray-400', sign: '' };
   };
 
   const handleLogout = () => {
@@ -256,12 +294,15 @@ export default function SellerDashboard() {
                     >
                       <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1 truncate">{med.name}</div>
                       <div className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">₹{med.price.toFixed(2)}</div>
-                      <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
-                        med.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {med.change >= 0 ? '▲' : '▼'}
-                        {Math.abs(med.changePercent).toFixed(1)}%
-                      </div>
+                      {(() => {
+                        const { arrow, color, sign } = getTrendVisuals(med.change);
+                        return (
+                          <div className={`text-[10px] font-medium flex items-center gap-0.5 ${color}`}>
+                            {arrow}
+                            {`${sign}${med.changePercent.toFixed(1)}%`}
+                          </div>
+                        );
+                      })()}
                     </Link>
                   ))}
                 </div>
@@ -295,12 +336,16 @@ export default function SellerDashboard() {
                         <div className="text-sm font-semibold text-gray-900 dark:text-white">
                           ₹{med.price.toFixed(2)}
                         </div>
-                        <div className={`text-[10px] font-medium flex items-center gap-0.5 ${
-                          parseFloat(med.changePercent) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          {parseFloat(med.changePercent) >= 0 ? '▲' : '▼'}
-                          {Math.abs(parseFloat(med.changePercent)).toFixed(1)}%
-                        </div>
+                        {(() => {
+                          const pct = Number(med.changePercent || 0);
+                          const { arrow, color, sign } = getTrendVisuals(pct);
+                          return (
+                            <div className={`text-[10px] font-medium flex items-center gap-0.5 ${color}`}>
+                              {arrow}
+                              {`${sign}${pct.toFixed(1)}%`}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </Link>
                   ))}
@@ -324,6 +369,13 @@ export default function SellerDashboard() {
                       <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">My Listings</span>
+                  </Link>
+
+                  <Link href="/dashboard/seller/deliveries" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 dark:from-indigo-900/30 dark:to-indigo-800/30 rounded-lg flex items-center justify-center">
+                      <Truck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Deliveries</span>
                   </Link>
 
                   <Link href="/portfolio" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
