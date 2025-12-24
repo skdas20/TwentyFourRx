@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { TrendingUp, Pill, ArrowRight, Sparkles, ShoppingBag } from "lucide-react";
+import { TrendingUp, TrendingDown, Pill, ArrowRight, Sparkles, ShoppingBag } from "lucide-react";
 import axios from "axios";
 
 interface Medicine {
@@ -13,6 +13,8 @@ interface Medicine {
   strength?: string;
   manufacturer?: string;
   currentPrice?: number;
+  change?: number;
+  changePercent?: number;
   totalQty?: number;
   activityScore?: number;
 }
@@ -71,9 +73,17 @@ export default function TrendingMedicines() {
       {/* Price */}
       {medicine.currentPrice && medicine.currentPrice > 0 && (
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold text-gray-900 dark:text-white">
-            ₹{medicine.currentPrice.toFixed(2)}
-          </span>
+          <div>
+            <span className="text-lg font-bold text-gray-900 dark:text-white block">
+              ₹{medicine.currentPrice.toFixed(2)}
+            </span>
+            {medicine.changePercent !== undefined && (
+              <span className={`text-xs font-medium flex items-center gap-1 ${medicine.changePercent > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                {medicine.changePercent > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {Math.abs(medicine.changePercent).toFixed(2)}%
+              </span>
+            )}
+          </div>
           <span className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             View <ArrowRight className="w-3 h-3" />
           </span>

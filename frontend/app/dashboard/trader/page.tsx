@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
-  Eye, Bell, ChevronDown, ChevronRight, Pill,
+  Eye, ChevronDown, ChevronRight, Pill,
   Activity, BarChart3, Wallet, FileText, MessageCircle
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import NotificationBell from "@/components/NotificationBell";
 import { listingsApi, dashboardApiNew, watchlistApi, pricesApi, inventoryApi } from "@/lib/api";
 
 export default function TraderDashboard() {
@@ -119,7 +120,7 @@ export default function TraderDashboard() {
             }));
           } else {
             mostBought = mostBoughtData.map((med: any) => {
-              const fromTrend = priceChangeMap.get(med.id) || priceChangeMap.get(med.medicineId);
+              const fromTrend: any = priceChangeMap.get(med.id) || priceChangeMap.get(med.medicineId);
               return {
                 id: med.id,
                 medicineId: med.id,
@@ -248,10 +249,7 @@ export default function TraderDashboard() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-              <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative">
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <NotificationBell />
 
               <ThemeToggle />
 

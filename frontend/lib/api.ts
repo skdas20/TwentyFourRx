@@ -185,10 +185,12 @@ export const inventoryApi = {
 
 // Notifications API
 export const notificationsApi = {
-  getNotifications: () => api.get('/notifications'),
-  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
-  markAllAsRead: () => api.post('/notifications/mark-all-read'),
+  getNotifications: (params?: { limit?: number; includeRead?: boolean }) => 
+    api.get('/notifications', { params }),
   getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/read-all'),
+  deleteNotification: (id: string) => api.delete(`/notifications/${id}`),
 }
 
 // Buy Proposals API

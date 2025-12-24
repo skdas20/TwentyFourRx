@@ -3,15 +3,20 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Clock, CheckCircle, XCircle, Download, ArrowLeft } from "lucide-react";
+import { FileText, Clock, CheckCircle, XCircle, Download, ArrowLeft, PlayCircle } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
+import BuyProposalModal from "@/components/BuyProposalModal";
 
 export default function MyProposalsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for resuming drafts
+  const [selectedDraft, setSelectedDraft] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -36,13 +41,35 @@ export default function MyProposalsPage() {
     }
   };
 
+  const handleResumeDraft = (proposal: any) => {
+    setSelectedDraft(proposal);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedDraft(null);
+    // Refresh list to remove draft if it was submitted
+    loadProposals();
+  };
+
+  const drafts = proposals.filter(p => p.status === 'AWAITING_PAYMENT');
+  const history = proposals.filter(p => p.status !== 'AWAITING_PAYMENT');
+
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "AWAITING_PAYMENT":
+        return (
+          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Payment Pending
+          </span>
+        );
       case "PENDING":
         return (
           <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            Pending
+            Approval Pending
           </span>
         );
       case "APPROVED":
@@ -94,11 +121,58 @@ export default function MyProposalsPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {proposals.length === 0 ? (
+        {/* Drafts Section */}
+        {drafts.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <PlayCircle className="w-5 h-5 text-blue-600" />
+              Payment Drafts (Action Required)
+            </h2>
+            <div className="grid gap-4">
+              {drafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-200 dark:border-blue-800"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                          {draft.listing?.medicine?.name || "Unknown Medicine"}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {draft.qty} units • ₹{Number(draft.listing?.listPrice || 0).toLocaleString()}/unit
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                       <span className="text-sm text-gray-500 dark:text-gray-400">
+                        Created {new Date(draft.createdAt).toLocaleDateString()}
+                      </span>
+                      <button
+                        onClick={() => handleResumeDraft(draft)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        Complete Payment
+                        <ArrowLeft className="w-4 h-4 rotate-180" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Submission History</h2>
+
+        {history.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              No Proposals Yet
+              No History Yet
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               You haven't submitted any buy proposals yet
@@ -112,7 +186,7 @@ export default function MyProposalsPage() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {proposals.map((proposal) => (
+            {history.map((proposal) => (
               <div
                 key={proposal.id}
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
@@ -122,7 +196,7 @@ export default function MyProposalsPage() {
                     <FileText className="w-5 h-5 text-blue-600" />
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {proposal.medicine?.name || "Unknown Medicine"}
+                        {proposal.listing?.medicine?.name || "Unknown Medicine"}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         Submitted {new Date(proposal.createdAt).toLocaleDateString()}
@@ -194,6 +268,20 @@ export default function MyProposalsPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Resume Modal */}
+        {selectedDraft && (
+          <BuyProposalModal
+            isOpen={isModalOpen}
+            onClose={handleModalClose}
+            listingId={selectedDraft.listingId}
+            medicineName={selectedDraft.listing?.medicine?.name}
+            listPrice={selectedDraft.listing?.listPrice}
+            medicineImage={selectedDraft.listing?.medicine?.imageUrl}
+            gstPercentage={selectedDraft.listing?.gstPercentage}
+            initialProposal={selectedDraft}
+          />
         )}
       </main>
     </div>

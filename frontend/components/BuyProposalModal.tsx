@@ -12,6 +12,7 @@ interface BuyProposalModalProps {
   listPrice: number;
   medicineImage?: string | null;
   gstPercentage?: number;
+  initialProposal?: any; // For resuming drafts
 }
 
 export default function BuyProposalModal({
@@ -22,6 +23,7 @@ export default function BuyProposalModal({
   listPrice,
   medicineImage,
   gstPercentage = 0,
+  initialProposal,
 }: BuyProposalModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [quantity, setQuantity] = useState<number>(0);
@@ -40,16 +42,26 @@ export default function BuyProposalModal({
         const user = JSON.parse(userData);
         setUserEmail(user.email || "");
       }
+
+      // Initialize if resuming a draft
+      if (initialProposal) {
+        setStep(2);
+        setProposalId(initialProposal.id);
+        setQuantity(initialProposal.qty);
+        setNotes(initialProposal.notes || "");
+      }
     } else {
       // Reset form when modal closes
-      setStep(1);
-      setQuantity(0);
-      setReceiptFile(null);
-      setNotes("");
-      setError("");
-      setProposalId("");
+      if (!initialProposal) {
+        setStep(1);
+        setQuantity(0);
+        setReceiptFile(null);
+        setNotes("");
+        setError("");
+        setProposalId("");
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialProposal]);
 
   if (!isOpen) return null;
 

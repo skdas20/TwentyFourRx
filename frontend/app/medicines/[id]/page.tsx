@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, Heart, Share2, ShoppingCart, ArrowLeft, Pill
+  Heart, Share2, ShoppingCart, ArrowLeft, Pill
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import BuyProposalModal from "@/components/BuyProposalModal";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import NotificationBell from "@/components/NotificationBell";
 import { pricesApi, listingsApi, watchlistApi, inventoryApi } from "@/lib/api";
 
 export default function MedicineDetailPage() {
@@ -249,20 +250,19 @@ export default function MedicineDetailPage() {
 
         // IMPORTANT: Always use the actual listing price as the displayed current price
         // The listing price is what users will actually pay - it's the source of truth
-        // Price history is only used for calculating trends/changes
-        // Don't override listingPrice with history price - they may differ due to seeding
         
         // Calculate change over the entire selected period (earliest to latest in history)
         if (normalizedHistory.length >= 2 && earliestPrice > 0) {
-             const change = latestHistoryPrice - earliestPrice;
+             // Use listingPrice (current active price) instead of latestHistoryPrice for accuracy
+             const change = listingPrice - earliestPrice;
              setPriceChange(change);
              setPriceChangePercent((change / earliestPrice) * 100);
         } else {
              // Fallback: compare with base listing price if history is short
              if (listingPrice > 0 && latestHistoryPrice !== listingPrice) {
-                 const change = latestHistoryPrice - listingPrice;
+                 const change = listingPrice - latestHistoryPrice; // Compare against history if distinct
                  setPriceChange(change);
-                 setPriceChangePercent((change / listingPrice) * 100);
+                 setPriceChangePercent((change / latestHistoryPrice) * 100);
              } else {
                  setPriceChange(0);
                  setPriceChangePercent(0);
@@ -375,60 +375,39 @@ export default function MedicineDetailPage() {
             );
           })}
           
-          {/* Candlesticks */}
-          {data.map((d, i) => {
-            const open = parseFloat(d.openPrice || d.avgPrice);
-            // For a simple line chart representation if we don't have true open/close:
-            // We can assume previous avg as open and current avg as close for visual continuity
-            // Or just use avgPrice. Here we use what's passed.
-            const close = parseFloat(d.closePrice || d.avgPrice);
-            const high = parseFloat(d.maxPrice);
-            const low = parseFloat(d.minPrice);
-            
-            // Validation
-            if (isNaN(open) || isNaN(close) || isNaN(high) || isNaN(low)) return null;
+          {/* Continuous Graph Line */}
+          <path
+            d={data.map((d, i) => {
+              const close = parseFloat(d.closePrice || d.avgPrice);
+              const x = padding + i * candleWidth + candleWidth / 2;
+              const y = normalize(close);
+              return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+            }).join(' ')}
+            fill="none"
+            stroke="#10b981" 
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="drop-shadow-md"
+          />
 
-            const isPriceUp = close >= open;
-            const color = isPriceUp ? "#10b981" : "#ef4444"; // Green for up, Red for down
-            
-            const x = padding + i * candleWidth + candleWidth / 2;
-            
-            // Calculate Y coordinates. Note: SVG Y increases downwards.
-            // Value at top (maxPrice) should be at y = padding
-            // Value at bottom (minPrice) should be at y = height - padding
-            
-            const yHigh = normalize(high);
-            const yLow = normalize(low);
-            const yOpen = normalize(open);
-            const yClose = normalize(close);
-            
-            const bodyTop = Math.min(yOpen, yClose);
-            const bodyHeight = Math.max(Math.abs(yOpen - yClose), 1); // Ensure at least 1px height
-            
-            return (
-              <g key={i}>
-                {/* Wick */}
-                <line
-                  x1={x}
-                  y1={yHigh}
-                  x2={x}
-                  y2={yLow}
-                  stroke={color}
-                  strokeWidth="1"
-                />
-                {/* Body */}
-                <rect
-                  x={x - candleWidth * 0.3}
-                  y={bodyTop}
-                  width={candleWidth * 0.6}
-                  height={bodyHeight}
-                  fill={color}
-                  stroke={color}
-                  strokeWidth="1"
-                />
-              </g>
-            );
-          })}
+          {/* Area under the line (Gradient) */}
+          <defs>
+            <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            d={`${data.map((d, i) => {
+              const close = parseFloat(d.closePrice || d.avgPrice);
+              const x = padding + i * candleWidth + candleWidth / 2;
+              const y = normalize(close);
+              return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+            }).join(' ')} L ${padding + (data.length - 1) * candleWidth + candleWidth / 2} ${height - padding} L ${padding + candleWidth / 2} ${height - padding} Z`}
+            fill="url(#lineGradient)"
+            stroke="none"
+          />
 
           {hoverData && hoverIndex !== null && hoverX !== null && hoverY !== null && (
             <g>
@@ -499,9 +478,7 @@ export default function MedicineDetailPage() {
               <SearchBar variant="navbar" isLoggedIn={!!user} />
             </div>
             <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-              <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
+              {user && <NotificationBell />}
               <ThemeToggle />
               {user && <ProfileDropdown user={user} />}
             </div>
@@ -550,7 +527,7 @@ export default function MedicineDetailPage() {
                   </div>
                   <div className="flex items-baseline gap-3 mt-4">
                     <span className="text-3xl font-bold text-gray-900 dark:text-white">₹{currentPrice.toFixed(2)}<sup className="text-sm ml-1">*</sup></span>
-                    <span className={`text-lg font-semibold ${priceChange >= 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
+                    <span className={`text-lg font-semibold ${priceChange > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}>
                       {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                     </span>
                   </div>

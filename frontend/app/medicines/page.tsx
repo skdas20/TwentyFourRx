@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pill, Search, Filter, Package, Users, Bell } from "lucide-react";
+import { Pill, Search, Filter, Package, Users, TrendingUp, TrendingDown } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import NotificationBell from "@/components/NotificationBell";
 import { listingsApi } from "@/lib/api";
 
 export default function MedicinesPage() {
@@ -61,18 +62,22 @@ export default function MedicinesPage() {
           ...listing,
           lowestPrice: listPrice,
           sellerCount: 1,
+          change: listing.change,
+          changePercent: listing.changePercent,
         });
       } else {
         // Update if this listing has a lower price
         const existing = medicineMap.get(medicineId);
         existing.sellerCount += 1;
         if (listPrice < existing.lowestPrice) {
-          // Keep the listing with lowest price but preserve seller count
+          // Keep the listing with lowest price but preserve seller count and trends
           const sellerCount = existing.sellerCount;
           medicineMap.set(medicineId, {
             ...listing,
             lowestPrice: listPrice,
             sellerCount,
+            change: listing.change,
+            changePercent: listing.changePercent,
           });
         }
       }
@@ -134,12 +139,7 @@ export default function MedicinesPage() {
                 </>
               )}
 
-              {user && (
-                <button className="p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative">
-                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-              )}
+              {user && <NotificationBell />}
 
               <ThemeToggle />
 
@@ -272,11 +272,17 @@ export default function MedicinesPage() {
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                     Lowest Price {listing.sellerCount > 1 && <span className="text-xs text-gray-500">({listing.sellerCount} sellers)</span>}
                   </div>
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center flex-wrap gap-2">
                     <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                       ₹{listing.lowestPrice?.toFixed(2) || listing.listPrice || listing.basePrice}
                       <sup className="text-xs ml-0.5">*</sup>
                     </span>
+                    {listing.changePercent !== undefined && listing.changePercent !== 0 && (
+                      <span className={`text-sm font-medium flex items-center gap-0.5 ${listing.changePercent > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                        {listing.changePercent > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {Math.abs(listing.changePercent).toFixed(1)}%
+                      </span>
+                    )}
                     <span className="text-sm text-gray-500">per unit</span>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
