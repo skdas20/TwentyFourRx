@@ -531,7 +531,7 @@ export class DashboardService {
           form: listing.medicine.form,
           strength: listing.medicine.strength,
           manufacturer: listing.medicine.manufacturer?.name || 'Unknown',
-          currentPrice: Number(listing.listPrice || listing.basePrice || 0),
+          medicineId: listing.medicine.id, // Store for later price lookup
           totalQty: order._sum.qty || 0,
           totalAmount: Number(order._sum.amount || 0),
           orderCount: order._count,
@@ -539,9 +539,65 @@ export class DashboardService {
       }
     }
 
-    return Array.from(medicineMap.values())
+    const result = Array.from(medicineMap.values())
       .sort((a, b) => b.totalQty - a.totalQty)
       .slice(0, limit);
+
+    // Get current lowest prices from active listings (with stock > 0)
+    // This ensures consistency with the explore page and detail page
+    const medicineIds = result.map((m) => m.id);
+    
+    const currentListings = await this.prisma.listing.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        status: 'ACTIVE',
+        stock: { gt: 0 },
+      },
+      orderBy: { listPrice: 'asc' },
+    });
+
+    // Build a map of medicine ID to lowest current price
+    const lowestPriceMap = new Map<string, number>();
+    for (const listing of currentListings) {
+      if (!lowestPriceMap.has(listing.medicineId)) {
+        lowestPriceMap.set(listing.medicineId, Number(listing.listPrice || listing.basePrice || 0));
+      }
+    }
+
+    // Update result with current prices
+    result.forEach((med) => {
+      med.currentPrice = lowestPriceMap.get(med.id) || 0;
+    });
+
+    // Fetch price history for trends
+    // Reuse thirtyDaysAgo from above
+    const history = await this.prisma.priceHistory.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        day: { gte: thirtyDaysAgo },
+      },
+      orderBy: { day: 'asc' },
+    });
+
+    return result.map((med) => {
+      const medHistory = history.filter((h) => h.medicineId === med.id);
+      let change = 0;
+      let changePercent = 0;
+
+      if (medHistory.length > 0 && med.currentPrice) {
+        const oldestPrice = Number(medHistory[0].avgPrice);
+        if (oldestPrice > 0) {
+          change = med.currentPrice - oldestPrice;
+          changePercent = (change / oldestPrice) * 100;
+        }
+      }
+
+      return {
+        ...med,
+        change,
+        changePercent,
+      };
+    });
   }
 
   /**
@@ -554,7 +610,10 @@ export class DashboardService {
       where: {
         isActive: true,
         listings: {
-          some: { status: 'ACTIVE' },
+          some: { 
+            status: 'ACTIVE',
+            stock: { gt: 0 },  // Only consider listings with stock
+          },
         },
       },
       include: {
@@ -565,7 +624,10 @@ export class DashboardService {
           },
         },
         listings: {
-          where: { status: 'ACTIVE' },
+          where: { 
+            status: 'ACTIVE',
+            stock: { gt: 0 },  // Only get listings with stock for price calculation
+          },
           orderBy: { listPrice: 'asc' },
           take: 1,
           include: {
@@ -605,6 +667,40 @@ export class DashboardService {
       .sort((a, b) => b.activityScore - a.activityScore)
       .slice(0, limit);
 
-    return sorted;
+    // Fetch price history for top medicines to calculate trends
+    // Use 30 days to match the listings page calculation
+    const medicineIds = sorted.map((m) => m.medicineId);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const history = await this.prisma.priceHistory.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        day: { gte: thirtyDaysAgo },
+      },
+      orderBy: { day: 'asc' },
+    });
+
+    // Attach trend data - use same calculation as getActiveListings for consistency
+    return sorted.map((med) => {
+      const medHistory = history.filter((h) => h.medicineId === med.medicineId);
+      let change = 0;
+      let changePercent = 0;
+
+      if (medHistory.length > 0 && med.currentPrice) {
+        // Compare current listing price with oldest price in 30-day history
+        // This matches the calculation in listings.service.ts getActiveListings()
+        const oldestPrice = Number(medHistory[0].avgPrice);
+        if (oldestPrice > 0) {
+          change = med.currentPrice - oldestPrice;
+          changePercent = (change / oldestPrice) * 100;
+        }
+      }
+
+      return {
+        ...med,
+        change,
+        changePercent,
+      };
+    });
   }
 }

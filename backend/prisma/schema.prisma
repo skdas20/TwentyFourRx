@@ -57,6 +57,7 @@ enum Channel {
 }
 
 enum ProposalStatus {
+  AWAITING_PAYMENT
   PENDING
   APPROVED
   REJECTED

@@ -417,13 +417,33 @@ export class ListingsService {
         },
       });
 
-      // Send email notification to each affected seller
+      // Send both in-app notification and email to each affected seller
       const emailService = this.getEmailService();
 
       for (const listing of higherPriceListings) {
         const medicineName = `${listing.medicine.name} ${listing.medicine.strength || ''} ${listing.medicine.form}`;
         const manufacturerName = listing.medicine.manufacturer?.name || 'Unknown';
+        const yourPrice = Number(listing.listPrice);
+
+        // Create in-app notification
+        await this.prisma.notification.create({
+          data: {
+            userId: listing.seller.id,
+            channel: 'INAPP',
+            subject: 'Listing Deprioritized - Lower Price Available',
+            body: `Your listing for ${medicineName} at ₹${yourPrice.toLocaleString()} has been deprioritized. A new listing at ₹${newListPrice.toLocaleString()} is now showing first.`,
+            meta: {
+              type: 'LISTING_DEPRIORITIZED',
+              medicineName,
+              yourPrice,
+              newLowerPrice: newListPrice,
+              listingId: listing.id,
+            },
+            sentAt: new Date(),
+          },
+        });
         
+        // Send email notification
         await emailService.sendEmail(
           listing.seller.email,
           'Your Listing Has Been Deprioritized - Lower Price Available',
@@ -439,7 +459,7 @@ export class ListingsService {
                 <h3 style="margin-top: 0; color: #92400e;">Listing Details:</h3>
                 <p style="margin: 5px 0;"><strong>Medicine:</strong> ${medicineName}</p>
                 <p style="margin: 5px 0;"><strong>Manufacturer:</strong> ${manufacturerName}</p>
-                <p style="margin: 5px 0;"><strong>Your Price:</strong> ₹${Number(listing.listPrice).toLocaleString()}</p>
+                <p style="margin: 5px 0;"><strong>Your Price:</strong> ₹${yourPrice.toLocaleString()}</p>
                 <p style="margin: 5px 0;"><strong>New Lower Price:</strong> ₹${newListPrice.toLocaleString()}</p>
               </div>
               
@@ -556,10 +576,42 @@ export class ListingsService {
       }
     }
 
-    // Convert map to array - REMOVED the slice(0, 10) limit to show all medicines
-    return Array.from(lowestPriceListings.values()).map((listing) =>
-      this.serializeListing(listing),
-    );
+    const uniqueMedicineIds = Array.from(lowestPriceListings.keys());
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Fetch history for trend calculation
+    const history = await this.prisma.priceHistory.findMany({
+      where: {
+        medicineId: { in: uniqueMedicineIds },
+        day: { gte: thirtyDaysAgo },
+      },
+      orderBy: { day: 'asc' },
+    });
+
+    // Convert map to array and attach trend data
+    return Array.from(lowestPriceListings.values()).map((listing) => {
+      const serialized = this.serializeListing(listing);
+      const medHistory = history.filter((h) => h.medicineId === listing.medicineId);
+      
+      let change = 0;
+      let changePercent = 0;
+
+      if (medHistory.length > 0) {
+        const oldestPrice = Number(medHistory[0].avgPrice);
+        const currentPrice = Number(listing.listPrice || listing.basePrice);
+        
+        if (oldestPrice > 0) {
+          change = currentPrice - oldestPrice;
+          changePercent = (change / oldestPrice) * 100;
+        }
+      }
+
+      return {
+        ...serialized,
+        change,
+        changePercent,
+      };
+    });
   }
 
   async getListingById(id: string) {
