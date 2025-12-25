@@ -5,10 +5,11 @@ import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
 import { EmailService } from '../common/services/email.service';
 import { WatermarkService } from '../common/services/watermark.service';
+import { PdfService } from '../common/services/pdf.service';
 
 @Module({
   controllers: [BuyProposalsController],
-  providers: [BuyProposalsService, PrismaService, GcsService, EmailService, WatermarkService],
+  providers: [BuyProposalsService, PrismaService, GcsService, EmailService, WatermarkService, PdfService],
   exports: [BuyProposalsService],
 })
 export class BuyProposalsModule { }

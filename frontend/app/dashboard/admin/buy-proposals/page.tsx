@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, CheckCircle, XCircle, Clock, Eye, Download, ArrowLeft } from "lucide-react";
+import { FileText, CheckCircle, XCircle, Clock, Eye, Download, ArrowLeft, Upload } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -14,6 +14,7 @@ export default function BuyProposalsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
   const [reviewerNote, setReviewerNote] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -46,14 +47,25 @@ export default function BuyProposalsPage() {
   };
 
   const handleApprove = async (id: string) => {
+    if (!invoiceFile) {
+      alert("Please upload an invoice document before approving");
+      return;
+    }
     if (!confirm("Are you sure you want to approve this proposal?")) return;
-    
+
     try {
       setProcessing(true);
-      await buyProposalsApi.approveProposal(id, reviewerNote || undefined);
-      alert("Proposal approved successfully!");
+      const formData = new FormData();
+      if (reviewerNote) {
+        formData.append('reviewerNote', reviewerNote);
+      }
+      formData.append('invoice', invoiceFile);
+
+      await buyProposalsApi.approveProposal(id, formData);
+      alert("Proposal approved successfully! Invoice sent to buyer.");
       setSelectedProposal(null);
       setReviewerNote("");
+      setInvoiceFile(null);
       loadProposals();
     } catch (error: any) {
       console.error("Failed to approve:", error);
@@ -76,6 +88,7 @@ export default function BuyProposalsPage() {
       alert("Proposal rejected successfully!");
       setSelectedProposal(null);
       setReviewerNote("");
+      setInvoiceFile(null);
       loadProposals();
     } catch (error: any) {
       console.error("Failed to reject:", error);
@@ -293,6 +306,61 @@ export default function BuyProposalsPage() {
                   placeholder="Add your review notes..."
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Upload Invoice Document <span className="text-red-500">*</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(Required for approval - PDF/Image)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Validate file size (max 10MB)
+                        if (file.size > 10 * 1024 * 1024) {
+                          alert("File size must be less than 10MB");
+                          return;
+                        }
+                        // Validate file type
+                        const validTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+                        if (!validTypes.includes(file.type)) {
+                          alert("Only JPG, PNG, and PDF files are allowed");
+                          return;
+                        }
+                        setInvoiceFile(file);
+                      }
+                    }}
+                    className="hidden"
+                    id="invoice-upload"
+                  />
+                  <label
+                    htmlFor="invoice-upload"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    {invoiceFile ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          {invoiceFile.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-5 h-5 text-gray-400" />
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          Click to upload invoice (JPG, PNG, PDF - Max 10MB)
+                        </span>
+                      </>
+                    )}
+                  </label>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  This invoice document will be sent to the buyer via email after approval.
+                </p>
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
@@ -300,6 +368,7 @@ export default function BuyProposalsPage() {
                 onClick={() => {
                   setSelectedProposal(null);
                   setReviewerNote("");
+                  setInvoiceFile(null);
                 }}
                 className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                 disabled={processing}
@@ -316,7 +385,7 @@ export default function BuyProposalsPage() {
               </button>
               <button
                 onClick={() => handleApprove(selectedProposal.id)}
-                disabled={processing}
+                disabled={processing || !invoiceFile}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />

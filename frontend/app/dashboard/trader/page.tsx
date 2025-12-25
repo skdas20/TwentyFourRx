@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   TrendingUp, TrendingDown, Plus, Package, ShoppingCart,
   Eye, ChevronDown, ChevronRight, Pill,
-  Activity, BarChart3, Wallet, FileText, MessageCircle
+  Activity, BarChart3, Wallet, FileText, MessageCircle, Truck
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -368,6 +368,20 @@ export default function TraderDashboard() {
                       <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">My Listings</span>
+                  </Link>
+
+                  <Link href="/dashboard/seller/deliveries" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 dark:from-indigo-900/30 dark:to-indigo-800/30 rounded-lg flex items-center justify-center">
+                      <Truck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Deliveries</span>
+                  </Link>
+
+                  <Link href="/dashboard/my-proposals" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 dark:from-rose-900/30 dark:to-rose-800/30 rounded-lg flex items-center justify-center">
+                      <ShoppingCart className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300">Buy Proposals</span>
                   </Link>
 
                   <Link href="/portfolio" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">

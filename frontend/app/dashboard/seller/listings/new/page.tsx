@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Search, Plus } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { medicineReferencesApi, inventoryApi } from "@/lib/api";
 
@@ -500,28 +500,6 @@ function NewListingContent() {
                   </div>
                 )}
               </div>
-              
-              {/* Warning if user doesn't own the medicine */}
-              {!ownsSelectedMedicine && holdingsLoaded && (
-                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">You don't own this medicine</p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        You can only create listings for medicines you have in your portfolio. 
-                        Please buy this medicine first or select a medicine from your holdings.
-                      </p>
-                      <Link 
-                        href="/portfolio" 
-                        className="inline-block mt-2 text-xs font-medium text-amber-700 dark:text-amber-300 underline hover:no-underline"
-                      >
-                        View My Holdings →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="space-y-4 mb-6">

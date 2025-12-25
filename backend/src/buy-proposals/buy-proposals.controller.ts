@@ -107,11 +107,13 @@ export class BuyProposalsController {
   @Patch(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('invoice'))
   async approveProposal(
     @Param('id') id: string,
     @Body() dto: ReviewProposalDto,
+    @UploadedFile() invoice?: Express.Multer.File,
   ) {
-    return this.buyProposalsService.approveProposal(id, dto.reviewerNote);
+    return this.buyProposalsService.approveProposal(id, dto.reviewerNote, invoice);
   }
 
   @Patch(':id/reject')

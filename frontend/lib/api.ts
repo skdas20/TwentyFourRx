@@ -205,8 +205,16 @@ export const buyProposalsApi = {
     }),
   getMyProposals: () => api.get('/buy-proposals/my'),
   getPendingProposals: () => api.get('/buy-proposals/pending'),
-  approveProposal: (id: string, reviewerNote?: string) =>
-    api.patch(`/buy-proposals/${id}/approve`, { reviewerNote }),
+  approveProposal: (id: string, data: FormData | { reviewerNote?: string }) => {
+    // Check if data is FormData (new flow with invoice upload) or plain object (old flow)
+    if (data instanceof FormData) {
+      return api.patch(`/buy-proposals/${id}/approve`, data, {
+        headers: { 'Content-Type': undefined }, // Let browser set multipart boundary
+      });
+    } else {
+      return api.patch(`/buy-proposals/${id}/approve`, data);
+    }
+  },
   rejectProposal: (id: string, reviewerNote: string) =>
     api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
 }
