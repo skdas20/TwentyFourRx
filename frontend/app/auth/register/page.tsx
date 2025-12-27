@@ -15,7 +15,7 @@ const documentTypes = [
   { code: 'FACTORY_LICENSE', label: 'Factory License/ Panchayath/ Corporation Certificate', required: false, section: 'basic' },
   { code: 'FSSAI_CERTIFICATE', label: 'FSSAI Certificate', required: false, section: 'basic' },
   { code: 'CANCELLED_CHEQUE', label: 'Cancelled Cheque', required: true, section: 'basic' },
-  { code: 'INDEMNITY_CERTIFICATE', label: 'Indemnity Certificate', required: true, section: 'basic' },
+  { code: 'INDEMNITY_CERTIFICATE', label: 'Indemnity Certificate', required: true, section: 'basic', downloadUrl: '/forms/Indemnity-Certificate.pdf' },
   { code: 'COMPANY_PROFILE', label: 'Company Profile', required: false, section: 'basic' },
   { code: 'DRUG_LICENSE_1', label: '20B Drug License', required: true, section: 'basic' },
   { code: 'DRUG_LICENSE_2', label: '21B', required: false, section: 'basic' },
@@ -32,9 +32,9 @@ const documentTypes = [
   { code: 'NSIC_CERTIFICATE', label: 'NSIC/KVIC/UAM Certificate', required: false, section: 'auth' },
 
   // Screenshot 3 - Legal & Compliance Documents
-  { code: 'NON_CONVICTION_CERTIFICATE', label: 'Non-Conviction Certificate', required: true, section: 'legal' },
+  { code: 'NON_CONVICTION_CERTIFICATE', label: 'Non-Conviction Certificate', required: true, section: 'legal', downloadUrl: '/forms/Non-Conviction-Certificate.pdf' },
   { code: 'SUPPLY_ORDER', label: 'Supply Order', required: false, section: 'legal' },
-  { code: 'DECLARATION_FORM', label: 'Declaration Form', required: true, section: 'legal' },
+  { code: 'DECLARATION_FORM', label: 'Declaration Form', required: true, section: 'legal', downloadUrl: '/forms/Declaration-Form.pdf' },
 ]
 
 export default function RegisterPage() {
@@ -500,6 +500,20 @@ function DocumentUploadField({
             {doc.required && <span className="text-red-500 ml-1">*</span>}
           </span>
         </div>
+
+        {/* Download Form Button - Show if downloadUrl exists */}
+        {doc.downloadUrl && (
+          <a
+            href={doc.downloadUrl}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-3 flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Download Blank Form
+          </a>
+        )}
 
         {!file ? (
           <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg hover:border-[var(--brand-blue)] transition cursor-pointer">
