@@ -40,7 +40,7 @@ export default function MedicinesPage() {
       setListings(listingsData);
 
       // Get unique medicine IDs
-      const medicineIds = Array.from(new Set(listingsData.map((l: any) => l.medicineId || l.medicine?.id).filter(Boolean)));
+      const medicineIds = Array.from(new Set(listingsData.map((l: any) => l.medicineId || l.medicine?.id).filter(Boolean))) as string[];
 
       // Load price history for each medicine (last 7 days for mini charts)
       const historyMap = new Map();
