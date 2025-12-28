@@ -48,7 +48,7 @@ export default function TrendingMedicines() {
 
   const MedicineCard = ({ medicine, index }: { medicine: Medicine; index: number }) => (
     <Link
-      href="/auth/login"
+      href={`/medicines/${medicine.medicineId || medicine.id}`}
       className="group relative bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700 hover:shadow-xl hover:shadow-blue-500/10 transition-all duration-300 transform hover:-translate-y-1"
     >
       {/* Rank Badge */}

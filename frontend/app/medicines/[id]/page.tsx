@@ -582,23 +582,37 @@ export default function MedicineDetailPage() {
               </div>
               {activeTab === "buy" ? (
                 <div className="mb-4">
-                  <button onClick={() => setShowBuyProposalModal(true)} className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
-                    <ShoppingCart className="w-5 h-5" /> BUY
-                  </button>
+                  {user ? (
+                    <button onClick={() => setShowBuyProposalModal(true)} className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                      <ShoppingCart className="w-5 h-5" /> BUY
+                    </button>
+                  ) : (
+                    <button onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                      <ShoppingCart className="w-5 h-5" /> Login to Buy
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {userHolding ? (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
-                      <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
-                      <p className="text-sm text-green-700 dark:text-green-300">Available: <span className="font-bold">{userHolding.totalQty} units</span></p>
-                      <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
-                    </div>
-                  ) : holdingsLoaded && (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
-                      <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
-                      <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell with Proof</button>
-                    </div>
+                  {user ? (
+                    <>
+                      {userHolding ? (
+                        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
+                          <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
+                          <p className="text-sm text-green-700 dark:text-green-300">Available: <span className="font-bold">{userHolding.totalQty} units</span></p>
+                          <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
+                        </div>
+                      ) : holdingsLoaded && (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+                          <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
+                          <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell with Proof</button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <button onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all">
+                      Login to Sell
+                    </button>
                   )}
                 </div>
               )}
