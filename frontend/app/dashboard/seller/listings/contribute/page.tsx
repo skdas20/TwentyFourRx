@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Upload, X, ImageIcon } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import AutocompleteInput from "@/components/AutocompleteInput";
 
 export default function ContributeMedicinePage() {
   const router = useRouter();
@@ -160,14 +161,14 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Medicine Name <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
+              <AutocompleteInput
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setName}
+                field="name"
                 placeholder="e.g., Paracetamol 500mg Tablet"
+                required
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -176,13 +177,13 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Generic Name
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={genericName}
-                onChange={(e) => setGenericName(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setGenericName}
+                field="genericName"
                 placeholder="e.g., Acetaminophen"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -191,27 +192,15 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Form <span className="text-red-500">*</span>
               </label>
-              <select
-                required
+              <AutocompleteInput
                 value={form}
-                onChange={(e) => setForm(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
+                onChange={setForm}
+                field="form"
+                placeholder="e.g., Tablet, Capsule, Syrup"
+                required
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                          text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select form</option>
-                <option value="Tablet">Tablet</option>
-                <option value="Capsule">Capsule</option>
-                <option value="Syrup">Syrup</option>
-                <option value="Injection">Injection</option>
-                <option value="Cream">Cream</option>
-                <option value="Ointment">Ointment</option>
-                <option value="Drops">Drops</option>
-                <option value="Powder">Powder</option>
-                <option value="Gel">Gel</option>
-                <option value="Lotion">Lotion</option>
-                <option value="Spray">Spray</option>
-                <option value="Other">Other</option>
-              </select>
+              />
             </div>
 
             {/* Composition */}
@@ -219,14 +208,14 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Composition <span className="text-red-500">*</span>
               </label>
-              <textarea
-                required
+              <AutocompleteInput
                 value={composition}
-                onChange={(e) => setComposition(e.target.value)}
-                rows={2}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                onChange={setComposition}
+                field="composition"
                 placeholder="e.g., Paracetamol (500mg)"
+                required
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -235,14 +224,14 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Strength <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
+              <AutocompleteInput
                 value={strength}
-                onChange={(e) => setStrength(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setStrength}
+                field="strength"
                 placeholder="e.g., 500mg"
+                required
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -251,13 +240,13 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pack Size
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={packSize}
-                onChange={(e) => setPackSize(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setPackSize}
+                field="packSize"
                 placeholder="e.g., 10 tablets"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -266,14 +255,14 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Manufacturer <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
+              <AutocompleteInput
                 value={manufacturer}
-                onChange={(e) => setManufacturer(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setManufacturer}
+                field="manufacturer"
                 placeholder="e.g., Sun Pharma"
+                required
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -282,13 +271,13 @@ export default function ContributeMedicinePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Marketer
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={marketer}
-                onChange={(e) => setMarketer(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
-                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={setMarketer}
+                field="marketer"
                 placeholder="e.g., Sun Pharma"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 

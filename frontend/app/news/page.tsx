@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Newspaper, Calendar, ArrowLeft, ExternalLink } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { newsApi } from "@/lib/api";
 
@@ -42,15 +43,13 @@ export default function NewsPage() {
           <div className="flex justify-between items-center h-16 gap-2">
             {/* Left Side - Back Button + Logo */}
             <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-              <Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+              <Link
+                href={user ? `/dashboard/${user.roleCode.toLowerCase()}` : "/"}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Link>
-              <Link href="/" className="flex items-center">
-                <h1 className="text-xl sm:text-2xl font-bold">
-                  <span className="text-gray-900 dark:text-white">24R</span>
-                  <span className="text-blue-600 dark:text-blue-400">x</span>
-                </h1>
-              </Link>
+              <Logo size="sm" href="/" isLoggedIn={!!user} />
             </div>
 
             {/* Center - Fixed Navigation */}

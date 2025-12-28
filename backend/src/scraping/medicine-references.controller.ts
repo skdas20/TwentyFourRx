@@ -16,6 +16,7 @@ import { PrismaService } from '../config/prisma.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { GcsService } from '../common/services/gcs.service';
 
 @Controller('medicine-references')
@@ -26,6 +27,7 @@ export class MedicineReferencesController {
   ) {}
 
   @Get('search')
+  @Public()
   async search(@Query('q') query: string) {
     if (!query || query.length < 2) {
       return [];
@@ -58,6 +60,47 @@ export class MedicineReferencesController {
       packSize: ref.packSize,
       mrp: ref.mrp ? parseFloat(ref.mrp.toString()) : null,
     }));
+  }
+
+  @Get('suggestions')
+  @Public()
+  async getSuggestions(
+    @Query('field') field: string,
+    @Query('q') query: string,
+  ) {
+    const validFields = ['name', 'composition', 'strength', 'manufacturer', 'form', 'genericName', 'packSize', 'marketer'];
+    if (!validFields.includes(field)) {
+      throw new BadRequestException(`Invalid field. Must be one of: ${validFields.join(', ')}`);
+    }
+
+    // Build where clause - if query is empty/short, show top 10 values
+    const whereClause: any = {};
+
+    if (query && query.length > 0) {
+      whereClause[field] = { contains: query, mode: 'insensitive' };
+    }
+
+    // Get distinct values for the specified field
+    const results = await this.prisma.medicineReference.findMany({
+      where: whereClause,
+      select: {
+        [field]: true,
+      },
+      distinct: [field as any],
+      take: 20,
+      orderBy: {
+        [field]: 'asc',
+      },
+    });
+
+    // Extract unique values and filter out nulls
+    const suggestions = Array.from(
+      new Set(
+        results.map((r) => r[field]).filter((v) => v != null && v !== '')
+      )
+    ).sort();
+
+    return suggestions;
   }
 
   @Post('contribute')

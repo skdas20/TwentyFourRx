@@ -178,11 +178,15 @@ model Marketer {
 model Medicine {
   id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String
+  genericName    String?            @map("generic_name")
+  composition    String?
   form           String
   strength       String
+  packSize       String?            @map("pack_size")
+  mrp            Decimal?           @db.Decimal(14, 2)
   manufacturerId String             @map("manufacturer_id") @db.Uuid
   marketerId     String?            @map("marketer_id") @db.Uuid
-  imageUrl        String?            @map("image_url") // Medicine photo URL
+  imageUrl       String?            @map("image_url") // Medicine photo URL
   isActive       Boolean            @default(true) @map("is_active")
   createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
@@ -201,6 +205,8 @@ model Medicine {
   @@index([manufacturerId])
   @@index([marketerId])
   @@index([isActive])
+  @@index([genericName])
+  @@index([composition])
   @@map("medicines")
 }
 
@@ -262,6 +268,7 @@ model Order {
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   paidAt      DateTime?   @map("paid_at") @db.Timestamptz(6)
   deliveredAt DateTime?   @map("delivered_at") @db.Timestamptz(6)
+  invoiceUrl  String?     @map("invoice_url")
 
   buyer            User           @relation(fields: [buyerId], references: [id])
   listing          Listing        @relation(fields: [listingId], references: [id])
@@ -554,6 +561,8 @@ model DeliveryRequest {
   status          DeliveryRequestStatus @default(PENDING)
   reviewerNote    String?               @map("reviewer_note")
   invoiceUrl      String?               @map("invoice_url")
+  trackingNumber  String?               @map("tracking_number")
+  deliveryPartner String?               @map("delivery_partner")
   deliveryOtp     String?               @map("delivery_otp") @db.VarChar(6)
   otpExpiresAt    DateTime?             @map("otp_expires_at") @db.Timestamptz(6)
   otpVerifiedAt   DateTime?             @map("otp_verified_at") @db.Timestamptz(6)

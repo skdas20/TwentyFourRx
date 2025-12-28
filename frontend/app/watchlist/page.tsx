@@ -49,7 +49,7 @@ export default function WatchlistPage() {
       setLoading(true);
       const res = await watchlistApi.getWatchlist();
       const items = res.data || [];
-      
+
       // Group by watchlist name (default to "My Watchlist")
       const grouped = items.reduce((acc: any, item: any) => {
         const listName = item.name || "My Watchlist";
@@ -61,11 +61,11 @@ export default function WatchlistPage() {
           medicineId: item.medicineId,
           name: item.medicine?.name || "Unknown",
           form: item.medicine?.form || "N/A",
-          price: 0, // Will be updated from price API
-          change: 0,
-          changePercent: 0,
+          price: item.medicine?.currentPrice || 0,
+          change: item.medicine?.priceChange || 0,
+          changePercent: parseFloat(item.medicine?.priceChangePercent) || 0,
           chartData: [0],
-          manufacturer: "N/A",
+          manufacturer: item.medicine?.manufacturer || "N/A",
         });
         return acc;
       }, {});
@@ -158,19 +158,25 @@ export default function WatchlistPage() {
   });
 
   const MiniChart = ({ data }: { data: number[] }) => {
+    // Don't render if insufficient data
+    if (!data || data.length < 2) {
+      return <div className="w-20 h-8"></div>;
+    }
+
     const max = Math.max(...data);
     const min = Math.min(...data);
     const range = max - min;
     const width = 80;
     const height = 30;
-    
+
+    // If all values are the same, show a flat line
     const points = data.map((value, index) => {
       const x = (index / (data.length - 1)) * width;
-      const y = height - ((value - min) / range) * height;
+      const y = range === 0 ? height / 2 : height - ((value - min) / range) * height;
       return `${x},${y}`;
     }).join(" ");
 
-    const isPositive = data[data.length - 1] > data[0];
+    const isPositive = data[data.length - 1] >= data[0];
 
     return (
       <svg width={width} height={height} className="inline-block">

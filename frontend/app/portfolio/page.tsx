@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2, DollarSign } from "lucide-react";
+import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2, DollarSign, Download } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import Logo from "@/components/Logo";
@@ -86,18 +86,29 @@ export default function PortfolioPage() {
     }
   };
   
+  // Get invoice URL for a holding (from any lot that has one)
+  const getInvoiceUrl = (holding: any) => {
+    if (!holding.lots || holding.lots.length === 0) {
+      return null;
+    }
+
+    // Find first lot with an invoice URL
+    const lotWithInvoice = holding.lots.find((lot: any) => lot.invoiceUrl);
+    return lotWithInvoice?.invoiceUrl || null;
+  };
+
   // Get status for a holding based on its lots
   const getHoldingStatus = (holding: any) => {
     if (!holding.lots || holding.lots.length === 0) {
       return { status: 'PENDING', label: 'Pending Approval', color: 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20' };
     }
-    
+
     // Check if any lot has a delivery request
     const lotIds = holding.lots.map((lot: any) => lot.id);
-    const deliveryRequest = deliveryRequests.find((req: any) => 
+    const deliveryRequest = deliveryRequests.find((req: any) =>
       lotIds.includes(req.inventoryLotId)
     );
-    
+
     if (deliveryRequest) {
       switch (deliveryRequest.status) {
         case 'PENDING':
@@ -114,7 +125,7 @@ export default function PortfolioPage() {
           return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
       }
     }
-    
+
     return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
   };
 
@@ -416,7 +427,7 @@ export default function PortfolioPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <button
                               onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${holding.medicineId}`)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
@@ -454,6 +465,22 @@ export default function PortfolioPage() {
                                 Delivery
                               </button>
                             )}
+
+                            {(() => {
+                              const invoiceUrl = getInvoiceUrl(holding);
+                              return invoiceUrl ? (
+                                <a
+                                  href={invoiceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                                  title="Download invoice"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Invoice
+                                </a>
+                              ) : null;
+                            })()}
                           </div>
                         </td>
                       </tr>

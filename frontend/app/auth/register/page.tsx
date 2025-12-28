@@ -18,9 +18,8 @@ const documentTypes = [
   { code: 'INDEMNITY_CERTIFICATE', label: 'Indemnity Certificate', required: true, section: 'basic', downloadUrl: '/forms/Indemnity-Certificate.pdf' },
   { code: 'COMPANY_PROFILE', label: 'Company Profile', required: false, section: 'basic' },
   { code: 'DRUG_LICENSE_1', label: '20B Drug License', required: true, section: 'basic' },
-  { code: 'DRUG_LICENSE_2', label: '21B', required: false, section: 'basic' },
-  { code: 'DRUG_LICENSE_3', label: 'Intimation Letter', required: false, section: 'basic' },
-  { code: 'DRUG_LICENSE_4', label: 'Drug License 4', required: false, section: 'basic' },
+  { code: 'DRUG_LICENSE_2', label: '21B Drug Licence', required: true, section: 'basic' },
+  { code: 'DRUG_LICENSE_3', label: 'Intimation Letter', required: true, section: 'basic' },
 
   // Screenshot 2 - Authorization & Quality Documents
   { code: 'MANUFACTURER_AUTH_LETTER', label: 'Manufacturer Authorization Letter', required: false, section: 'auth' },

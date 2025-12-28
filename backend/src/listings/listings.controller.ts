@@ -73,6 +73,27 @@ export class RejectListingDto {
   reviewerNote: string;
 }
 
+export class UpdateListingDto {
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @IsPositive()
+  @IsOptional()
+  basePrice?: number;
+
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  stock?: number;
+
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  gstPercentage?: number;
+}
+
 @Controller('listings')
 export class ListingsController {
   constructor(private listingsService: ListingsService) {}
@@ -187,6 +208,26 @@ export class ListingsController {
   @Roles('ADMIN')
   async rejectListing(@Param('id') id: string, @Body() dto: RejectListingDto) {
     return this.listingsService.rejectListing(id, dto.reviewerNote);
+  }
+
+  // SELLER/TRADER: Update own listing
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'TRADER')
+  async updateListing(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() dto: UpdateListingDto,
+  ) {
+    return this.listingsService.updateListing(id, user.sub, dto);
+  }
+
+  // SELLER/TRADER: Delete own listing
+  @Patch(':id/delete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'TRADER')
+  async deleteListing(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.listingsService.deleteListing(id, user.sub);
   }
 
   // PUBLIC: Get active listings (for buyers/traders)

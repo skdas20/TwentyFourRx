@@ -4,6 +4,7 @@ import { GcsService } from '../common/services/gcs.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { EmailService } from '../common/services/email.service';
 import { PdfService } from '../common/services/pdf.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { getPurchaseOrderEmailTemplate, getTaxInvoiceEmailTemplate } from '../common/email-templates';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class BuyProposalsService {
     private gcsService: GcsService,
     private emailService: EmailService,
     private pdfService: PdfService,
+    private notificationsService: NotificationsService,
   ) { }
 
   private calculateTotalsWithGst(listing: any, qty: number) {
@@ -277,10 +279,18 @@ export class BuyProposalsService {
         listing: {
           include: {
             medicine: true,
+            seller: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
           },
         },
         buyer: {
           select: {
+            id: true,
             email: true,
             name: true,
           },
@@ -329,6 +339,17 @@ export class BuyProposalsService {
         hold,
       };
     } else {
+      // Upload invoice to GCS first if provided (so we can save URL in order)
+      let invoiceUrl: string | undefined;
+      if (invoice) {
+        try {
+          invoiceUrl = await this.gcsService.uploadFile(invoice, 'invoices');
+        } catch (uploadError) {
+          console.error('Failed to upload invoice to GCS:', uploadError);
+          // Continue without invoice if upload fails
+        }
+      }
+
       // Create regular order for delivery/intraday
       order = await this.prisma.order.create({
         data: {
@@ -340,6 +361,7 @@ export class BuyProposalsService {
           type: 'BUY',
           status: 'PAID',
           paidAt: new Date(),
+          invoiceUrl: invoiceUrl,
         },
       });
 
@@ -365,25 +387,19 @@ export class BuyProposalsService {
         },
       });
 
-      // Send Tax Invoice Email
+      // Send Tax Invoice Email to Buyer
       if (proposal.buyer && proposal.buyer.email) {
         try {
           let invoiceAttachment: any = null;
 
-          // If admin uploaded an invoice, upload it to GCS and attach it to email
-          if (invoice) {
-            try {
-              const invoiceUrl = await this.gcsService.uploadFile(invoice, 'invoices');
-              const fileExtension = invoice.originalname.split('.').pop();
-              invoiceAttachment = {
-                filename: `Invoice_${order.id.substring(0, 8)}.${fileExtension}`,
-                path: invoiceUrl, // Nodemailer will fetch from URL
-                contentType: invoice.mimetype,
-              };
-            } catch (uploadError) {
-              console.error('Failed to upload invoice to GCS:', uploadError);
-              // Continue without attachment if upload fails
-            }
+          // If admin uploaded an invoice, attach it to email
+          if (invoiceUrl && invoice) {
+            const fileExtension = invoice.originalname.split('.').pop();
+            invoiceAttachment = {
+              filename: `Invoice_${order.id.substring(0, 8)}.${fileExtension}`,
+              path: invoiceUrl, // Nodemailer will fetch from URL
+              contentType: invoice.mimetype,
+            };
           }
 
           await this.emailService.sendEmail(
@@ -402,7 +418,107 @@ export class BuyProposalsService {
             invoiceAttachment ? [invoiceAttachment] : undefined
           );
         } catch (error) {
-          console.error('Failed to send tax invoice email:', error);
+          console.error('Failed to send tax invoice email to buyer:', error);
+        }
+      }
+
+      // Send Tax Invoice Email to Seller
+      if (proposal.listing.seller && proposal.listing.seller.email) {
+        try {
+          let invoiceAttachment: any = null;
+
+          // If admin uploaded an invoice, attach it to email
+          if (invoiceUrl && invoice) {
+            const fileExtension = invoice.originalname.split('.').pop();
+            invoiceAttachment = {
+              filename: `Invoice_${order.id.substring(0, 8)}.${fileExtension}`,
+              path: invoiceUrl, // Nodemailer will fetch from URL
+              contentType: invoice.mimetype,
+            };
+          }
+
+          // Create email template for seller
+          const sellerEmailBody = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">Sale Confirmed - Tax Invoice</h2>
+
+              <p>Dear ${proposal.listing.seller.name},</p>
+
+              <p>Great news! Your medicine has been sold and payment has been received.</p>
+
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0; color: #1f2937;">Sale Details</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Medicine:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">${proposal.listing.medicine.name}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Quantity:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">${proposal.qty} units</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Unit Price:</td>
+                    <td style="padding: 8px 0; font-weight: bold;">₹${totals.unitPrice.toNumber().toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">GST (${totals.gstPercentage}%):</td>
+                    <td style="padding: 8px 0; font-weight: bold;">₹${totals.gstAmount.toNumber().toFixed(2)}</td>
+                  </tr>
+                  <tr style="border-top: 2px solid #d1d5db;">
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 16px;">Total Amount:</td>
+                    <td style="padding: 8px 0; font-weight: bold; color: #10b981; font-size: 18px;">₹${totals.total.toNumber().toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280;">Order ID:</td>
+                    <td style="padding: 8px 0; font-family: monospace;">${order.id.substring(0, 8)}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="background-color: #dbeafe; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                <p style="margin: 0; color: #1e40af;"><strong>Next Steps:</strong></p>
+                <p style="margin: 5px 0 0 0; color: #1e40af;">The buyer will request delivery soon. You'll receive a notification to dispatch the order.</p>
+              </div>
+
+              <p>The tax invoice is attached to this email for your records.</p>
+
+              <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                Best regards,<br>
+                24Rx Team
+              </p>
+            </div>
+          `;
+
+          await this.emailService.sendEmail(
+            proposal.listing.seller.email,
+            '💰 Sale Confirmed - Tax Invoice',
+            sellerEmailBody,
+            invoiceAttachment ? [invoiceAttachment] : undefined
+          );
+        } catch (error) {
+          console.error('Failed to send tax invoice email to seller:', error);
+        }
+      }
+
+      // Create Notification for Seller
+      if (proposal.listing.seller && proposal.listing.seller.id) {
+        try {
+          await this.notificationsService.createNotification({
+            userId: proposal.listing.seller.id,
+            subject: '💰 Sale Confirmed',
+            body: `Your ${proposal.listing.medicine.name} (${proposal.qty} units) has been sold for ₹${totals.total.toNumber().toFixed(2)}. The buyer will request delivery soon.`,
+            meta: {
+              type: 'SALE_CONFIRMED',
+              orderId: order.id,
+              medicineId: proposal.listing.medicineId,
+              medicineName: proposal.listing.medicine.name,
+              quantity: proposal.qty,
+              amount: totals.total.toNumber(),
+            },
+          });
+        } catch (error) {
+          console.error('Failed to create notification for seller:', error);
         }
       }
 

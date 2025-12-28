@@ -300,7 +300,7 @@ export class DeliveryRequestsService {
 
     // Mark as dispatched (admin or seller)
     // Seller confirms delivery with receipt upload (SELLER)
-    async markDispatched(requestId: string, sellerId: string, invoiceFile?: Express.Multer.File) {
+    async markDispatched(requestId: string, sellerId: string, invoiceFile?: Express.Multer.File, trackingNumber?: string, deliveryPartner?: string) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
@@ -339,6 +339,8 @@ export class DeliveryRequestsService {
             where: { id: requestId },
             data: {
                 invoiceUrl: invoiceUrl,
+                trackingNumber: trackingNumber,
+                deliveryPartner: deliveryPartner,
                 status: 'PENDING', // Now pending admin approval
             },
             include: {

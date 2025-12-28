@@ -37,6 +37,8 @@ export default function SellerDeliveriesPage() {
   const [error, setError] = useState('');
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<{ [key: string]: File | null }>({});
+  const [trackingNumber, setTrackingNumber] = useState<{ [key: string]: string }>({});
+  const [deliveryPartner, setDeliveryPartner] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -94,9 +96,21 @@ export default function SellerDeliveriesPage() {
 
   const handleDispatch = async (requestId: string) => {
     const file = selectedFile[requestId];
+    const tracking = trackingNumber[requestId];
+    const partner = deliveryPartner[requestId];
 
     if (!file) {
-      alert('Please select a courier receipt/document to upload');
+      alert('Please select a courier invoice/document to upload');
+      return;
+    }
+
+    if (!tracking || !tracking.trim()) {
+      alert('Please enter the tracking number');
+      return;
+    }
+
+    if (!partner || !partner.trim()) {
+      alert('Please enter the delivery partner name');
       return;
     }
 
@@ -107,6 +121,8 @@ export default function SellerDeliveriesPage() {
 
       const formData = new FormData();
       formData.append('invoice', file);
+      formData.append('trackingNumber', tracking.trim());
+      formData.append('deliveryPartner', partner.trim());
 
       const response = await fetch(`${apiUrl}/delivery-requests/${requestId}/dispatch`, {
         method: 'POST',
@@ -126,6 +142,14 @@ export default function SellerDeliveriesPage() {
       setSelectedFile(prev => ({
         ...prev,
         [requestId]: null,
+      }));
+      setTrackingNumber(prev => ({
+        ...prev,
+        [requestId]: '',
+      }));
+      setDeliveryPartner(prev => ({
+        ...prev,
+        [requestId]: '',
       }));
     } catch (err: any) {
       alert(err.message);
@@ -291,30 +315,66 @@ export default function SellerDeliveriesPage() {
                       <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-100 dark:border-blue-800/30">
                         <div className="flex items-center gap-2 mb-4">
                           <Upload size={18} className="text-blue-600" />
-                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Upload Courier Receipt</h4>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Dispatch Details</h4>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
-                          Please upload a clear copy of the courier receipt or dispatch proof to confirm this delivery.
+                          Please provide tracking information and upload the courier invoice to confirm this delivery.
                         </p>
-                        
-                        <div className="flex flex-col sm:flex-row items-center gap-4">
-                          <div className="relative flex-1 w-full">
+
+                        <div className="space-y-4">
+                          {/* Tracking Number */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Tracking Number <span className="text-red-500">*</span>
+                            </label>
                             <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
-                              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                              type="text"
+                              value={trackingNumber[request.id] || ''}
+                              onChange={(e) => setTrackingNumber(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              placeholder="Enter tracking number"
+                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {selectedFile[request.id]?.name || 'Click to select or drag & drop'}
-                              </span>
+                          </div>
+
+                          {/* Delivery Partner */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Delivery Partner <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={deliveryPartner[request.id] || ''}
+                              onChange={(e) => setDeliveryPartner(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              placeholder="e.g., Blue Dart, DTDC, FedEx"
+                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          {/* Courier Invoice Upload */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Courier Invoice <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                              />
+                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {selectedFile[request.id]?.name || 'Click to select or drag & drop'}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Submit Button */}
                           <button
                             onClick={() => handleDispatch(request.id)}
-                            disabled={!selectedFile[request.id] || uploadingId === request.id}
-                            className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                            disabled={!selectedFile[request.id] || !trackingNumber[request.id] || !deliveryPartner[request.id] || uploadingId === request.id}
+                            className="w-full px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                           >
                             {uploadingId === request.id ? (
                               <>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Clock, CheckCircle, AlertCircle, MessageCircle, Bell, Search, LogOut, Plus, X } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, MessageCircle, Bell, Search, LogOut, Plus, X, ArrowLeft } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 
@@ -146,10 +146,16 @@ export default function SupportPage() {
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
+            {/* Back Button + Logo */}
             <div className="flex items-center gap-2">
-              <Logo size="sm" href="/" />
-              <span className="text-sm text-gray-500 dark:text-gray-400">Support</span>
+              <Link
+                href={user ? `/dashboard/${user.roleCode.toLowerCase()}` : "/"}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Link>
+              <Logo size="sm" href="/" isLoggedIn={!!user} />
+              <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">Support</span>
             </div>
 
             {/* Search */}

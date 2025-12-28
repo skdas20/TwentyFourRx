@@ -47,6 +47,16 @@ class VerifyInvoiceDto {
     note?: string;
 }
 
+class MarkDispatchedDto {
+    @IsString()
+    @IsNotEmpty()
+    trackingNumber: string;
+
+    @IsString()
+    @IsNotEmpty()
+    deliveryPartner: string;
+}
+
 @Controller('delivery-requests')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DeliveryRequestsController {
@@ -108,8 +118,9 @@ export class DeliveryRequestsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
         @UploadedFile() file: Express.Multer.File,
+        @Body() dto: MarkDispatchedDto,
     ) {
-        return this.service.markDispatched(id, user.sub, file);
+        return this.service.markDispatched(id, user.sub, file, dto.trackingNumber, dto.deliveryPartner);
     }
 
     // ADMIN: Get pending invoice verifications

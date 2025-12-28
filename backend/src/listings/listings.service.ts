@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
 import { PricesService } from '../prices/prices.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ListingsService {
@@ -592,14 +593,14 @@ export class ListingsService {
     return Array.from(lowestPriceListings.values()).map((listing) => {
       const serialized = this.serializeListing(listing);
       const medHistory = history.filter((h) => h.medicineId === listing.medicineId);
-      
+
       let change = 0;
       let changePercent = 0;
 
       if (medHistory.length > 0) {
         const oldestPrice = Number(medHistory[0].avgPrice);
         const currentPrice = Number(listing.listPrice || listing.basePrice);
-        
+
         if (oldestPrice > 0) {
           change = currentPrice - oldestPrice;
           changePercent = (change / oldestPrice) * 100;
@@ -835,5 +836,79 @@ export class ListingsService {
     });
 
     return { message: 'Medicine proposal rejected', proposal: updated };
+  }
+
+  // Update listing (seller/trader only)
+  async updateListing(listingId: string, sellerId: string, updateData: { basePrice?: number; stock?: number; gstPercentage?: number }) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== sellerId) {
+      throw new BadRequestException('You can only update your own listings');
+    }
+
+    // Calculate new list price if base price or GST changes
+    let listPrice = listing.listPrice;
+    if (updateData.basePrice !== undefined || updateData.gstPercentage !== undefined) {
+      const basePrice = updateData.basePrice ?? Number(listing.basePrice);
+      const gstPct = updateData.gstPercentage ?? Number(listing.gstPercentage);
+      const adminMarkup = Number(listing.adminMarkupPct ?? 0);
+
+      const gstAmount = basePrice * (gstPct / 100);
+      const priceWithGst = basePrice + gstAmount;
+      const adminMarkupAmount = priceWithGst * (adminMarkup / 100);
+      listPrice = new Decimal(priceWithGst + adminMarkupAmount);
+    }
+
+    const updated = await this.prisma.listing.update({
+      where: { id: listingId },
+      data: {
+        basePrice: updateData.basePrice,
+        stock: updateData.stock,
+        gstPercentage: updateData.gstPercentage,
+        listPrice,
+      },
+      include: {
+        medicine: {
+          include: {
+            manufacturer: true,
+            marketer: true,
+          },
+        },
+      },
+    });
+
+    return { message: 'Listing updated successfully', listing: this.serializeListing(updated) };
+  }
+
+  // Delete listing (soft delete - mark as inactive)
+  async deleteListing(listingId: string, sellerId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== sellerId) {
+      throw new BadRequestException('You can only delete your own listings');
+    }
+
+    // Soft delete - set stock to 0 and status to INACTIVE
+    await this.prisma.listing.update({
+      where: { id: listingId },
+      data: {
+        status: 'INACTIVE',
+        stock: 0,
+      },
+    });
+
+    return { message: 'Listing deleted successfully' };
   }
 }

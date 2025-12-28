@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Heart, Share2, ShoppingCart, ArrowLeft, Pill
+  Bookmark, Share2, ShoppingCart, ArrowLeft, Pill
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
@@ -79,17 +79,46 @@ export default function MedicineDetailPage() {
       const listingsRes = await listingsApi.getListings({});
       const allListings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
 
-      // Filter medicines with similar form, composition, or manufacturer
+      // Filter medicines with similar composition (active ingredients)
       const related = allListings.filter((listing: any) => {
         if (!listing.medicine) return false;
         if (listing.medicineId === medicineId) return false;
 
-        const sameForm = listing.medicine.form === medicine.form;
-        const sameName = listing.medicine.name?.toLowerCase().includes(medicine.name?.toLowerCase().split(' ')[0] || '');
-        const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
-        const sameStrength = listing.medicine.strength === medicine.strength;
+        // Primary match: Same composition
+        if (medicine.composition && listing.medicine.composition) {
+          const currentComp = medicine.composition.toLowerCase().trim();
+          const listingComp = listing.medicine.composition.toLowerCase().trim();
 
-        return sameForm || (sameManufacturer && sameStrength) || sameName;
+          // Exact composition match
+          if (currentComp === listingComp) return true;
+
+          // Partial composition match (for combination drugs)
+          const currentIngredients = currentComp.split(/[+,/&]/).map(s => s.trim());
+          const listingIngredients = listingComp.split(/[+,/&]/).map(s => s.trim());
+
+          // Check if at least one ingredient matches
+          const hasCommonIngredient = currentIngredients.some(ing =>
+            listingIngredients.some(lIng =>
+              ing.includes(lIng) || lIng.includes(ing)
+            )
+          );
+
+          if (hasCommonIngredient) return true;
+        }
+
+        // Secondary match: Same generic name
+        if (medicine.genericName && listing.medicine.genericName) {
+          if (medicine.genericName.toLowerCase() === listing.medicine.genericName.toLowerCase()) {
+            return true;
+          }
+        }
+
+        // Fallback: Same form + strength + manufacturer (for medicines without composition)
+        const sameForm = listing.medicine.form === medicine.form;
+        const sameStrength = listing.medicine.strength === medicine.strength;
+        const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
+
+        return sameForm && sameStrength && sameManufacturer;
       });
 
       // Group by medicine ID to avoid duplicates
@@ -517,8 +546,8 @@ export default function MedicineDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={handleToggleWatchlist} disabled={watchlistLoading} className={`p-2 transition-colors ${isInWatchlist ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"} ${watchlistLoading ? "opacity-50" : ""}`}>
-                        <Heart className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
+                      <button onClick={handleToggleWatchlist} disabled={watchlistLoading} className={`p-2 transition-colors ${isInWatchlist ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"} ${watchlistLoading ? "opacity-50" : ""}`}>
+                        <Bookmark className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
                       </button>
                       <button onClick={handleShare} className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                         <Share2 className="w-5 h-5" />

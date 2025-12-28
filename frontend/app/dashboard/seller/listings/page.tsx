@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Package, Plus, CheckCircle, Clock, XCircle, Pill } from "lucide-react";
+import { ArrowLeft, Package, Plus, CheckCircle, Clock, XCircle, Pill, Edit, Trash2, X } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
 
@@ -13,6 +13,15 @@ export default function MyListingsPage() {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
+  const [editingListing, setEditingListing] = useState<any>(null);
+  const [deletingListing, setDeletingListing] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    basePrice: "",
+    stock: "",
+    gstPercentage: "",
+  });
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -40,13 +49,87 @@ export default function MyListingsPage() {
     }
   };
 
+  const handleEditClick = (listing: any) => {
+    setEditingListing(listing);
+    setEditForm({
+      basePrice: listing.basePrice || "",
+      stock: listing.stock || "",
+      gstPercentage: listing.gstPercentage || "0",
+    });
+  };
+
+  const handleUpdateListing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingListing) return;
+
+    setUpdating(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
+      const response = await fetch(`${apiUrl}/listings/${editingListing.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          basePrice: parseFloat(editForm.basePrice),
+          stock: parseInt(editForm.stock),
+          gstPercentage: parseFloat(editForm.gstPercentage),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update listing");
+      }
+
+      alert("Listing updated successfully!");
+      setEditingListing(null);
+      await loadListings();
+    } catch (error: any) {
+      alert(error.message || "Failed to update listing");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteListing = async () => {
+    if (!deletingListing) return;
+
+    setDeleting(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+
+      const response = await fetch(`${apiUrl}/listings/${deletingListing.id}/delete`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete listing");
+      }
+
+      alert("Listing deleted successfully!");
+      setDeletingListing(null);
+      await loadListings();
+    } catch (error: any) {
+      alert(error.message || "Failed to delete listing");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredListings = listings.filter((listing) => {
-    if (filter === "ALL") return true;
+    if (filter === "ALL") return listing.status !== "INACTIVE";
     return listing.status === filter;
   });
 
   const stats = {
-    total: listings.length,
+    total: listings.filter((l) => l.status !== "INACTIVE").length,
     pending: listings.filter((l) => l.status === "PENDING").length,
     active: listings.filter((l) => l.status === "ACTIVE").length,
     rejected: listings.filter((l) => l.status === "REJECTED").length,
@@ -232,11 +315,146 @@ export default function MyListingsPage() {
                     {new Date(listing.createdAt).toLocaleDateString()}
                   </span>
                 </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => handleEditClick(listing)}
+                    className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeletingListing(listing)}
+                    className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Edit Modal */}
+      {editingListing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Edit Listing</h2>
+              <button
+                onClick={() => setEditingListing(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateListing} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Base Price (₹)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.basePrice}
+                  onChange={(e) => setEditForm({ ...editForm, basePrice: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Stock (Units)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.stock}
+                  onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  GST Percentage (%)
+                </label>
+                <select
+                  value={editForm.gstPercentage}
+                  onChange={(e) => setEditForm({ ...editForm, gstPercentage: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="0">0%</option>
+                  <option value="5">5%</option>
+                  <option value="12">12%</option>
+                  <option value="18">18%</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingListing(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updating}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updating ? "Updating..." : "Update"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingListing && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Confirm Delete</h2>
+              <button
+                onClick={() => setDeletingListing(null)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete this listing for <strong>{deletingListing.medicine?.name}</strong>? This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingListing(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteListing}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -26,6 +26,12 @@ export class InventoryService {
             },
           },
         },
+        sourceOrder: {
+          select: {
+            id: true,
+            invoiceUrl: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -60,6 +66,8 @@ export class InventoryService {
         qty: lot.qty,
         unitCost: Number(lot.unitCost),
         createdAt: lot.createdAt,
+        orderId: lot.sourceOrder?.id,
+        invoiceUrl: lot.sourceOrder?.invoiceUrl,
       });
     }
 

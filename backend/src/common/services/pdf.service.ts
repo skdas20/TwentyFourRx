@@ -150,19 +150,13 @@ export class PdfService {
       .text('GSTIN: 20GAKPK4400G1Z7', leftMargin + 10, yPosition + 120)
       .text('E-Mail: 24rxmedicalsupply@gmail.com', leftMargin + 10, yPosition + 132);
 
-    // Top Right Section - QUOTATION/Proforma Invoice
+    // Top Right Section - Proforma Invoice
     const quotationX = rightSectionX + 20;
     doc
-      .fontSize(14)
+      .fontSize(12)
       .font('Helvetica-Bold')
       .fillColor('#000000')
-      .text('QUOTATION', quotationX, yPosition + 5);
-
-    doc
-      .fontSize(9)
-      .font('Helvetica-Oblique')
-      .fillColor('#000000')
-      .text('Proforma Invoice', quotationX + 5, yPosition + 23);
+      .text('Proforma Invoice', quotationX, yPosition + 10);
 
     // Party Name and Details
     doc

@@ -99,11 +99,15 @@ export class WatchlistService {
       let priceChange: number | null = null;
       let priceChangePercent: string | null = null;
 
-      if (priceHistory.length >= 2) {
-        const latestAvg = Number(priceHistory[0].avgPrice);
-        const previousAvg = Number(priceHistory[1].avgPrice);
-        priceChange = latestAvg - previousAvg;
-        priceChangePercent = ((priceChange / previousAvg) * 100).toFixed(2);
+      if (priceHistory.length > 0 && currentPrice) {
+        // Compare current price vs oldest price in history (same as listings)
+        const oldestAvg = Number(priceHistory[priceHistory.length - 1].avgPrice);
+        const current = Number(currentPrice);
+
+        if (oldestAvg > 0) {
+          priceChange = current - oldestAvg;
+          priceChangePercent = ((priceChange / oldestAvg) * 100).toFixed(2);
+        }
       }
 
       return {
