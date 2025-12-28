@@ -3,7 +3,6 @@ import HeroNew from '@/components/landing/HeroNew';
 import Features from '@/components/landing/Features';
 import TrendingMedicines from '@/components/landing/TrendingMedicines';
 import HowItWorks from '@/components/landing/HowItWorks';
-import PlatformStats from '@/components/landing/PlatformStats';
 import Team from '@/components/landing/Team';
 import CTA from '@/components/landing/CTA';
 import Footer from '@/components/landing/Footer';
@@ -16,7 +15,6 @@ export default function Home() {
       <Features />
       <TrendingMedicines />
       <HowItWorks />
-      <PlatformStats />
       <Team />
       <CTA />
       <Footer />
