@@ -50,11 +50,44 @@ export class ListingsService {
     expiryDate?: string,
     gstPercentage?: number,
   ) {
-    // Get medicine reference
-    const medicineRef = await this.prisma.medicineReference.findUnique({
+    // Try to get medicine reference first
+    let medicineRef = await this.prisma.medicineReference.findUnique({
       where: { id: medicineReferenceId },
     });
 
+    // If not found in references, check if it's an existing medicine ID
+    if (!medicineRef) {
+      const existingMedicine = await this.prisma.medicine.findUnique({
+        where: { id: medicineReferenceId },
+        include: { manufacturer: true, marketer: true },
+      });
+
+      if (existingMedicine) {
+        // Create a temporary reference object from the existing medicine
+        medicineRef = {
+          id: existingMedicine.id,
+          name: existingMedicine.name,
+          genericName: existingMedicine.genericName,
+          composition: existingMedicine.composition || existingMedicine.name,
+          form: existingMedicine.form,
+          strength: existingMedicine.strength,
+          manufacturer: existingMedicine.manufacturer.name,
+          marketer: existingMedicine.marketer?.name || null,
+          packSize: existingMedicine.packSize,
+          mrp: existingMedicine.mrp,
+          imageUrl: existingMedicine.imageUrl,
+          source: 'existing_medicine' as any,
+          sourceId: null,
+          lastScrapedAt: new Date(),
+          isActive: true,
+          createdAt: new Date(),
+        };
+      } else {
+        throw new NotFoundException('Medicine not found in references or medicines table');
+      }
+    }
+
+    // At this point, medicineRef is guaranteed to exist
     if (!medicineRef) {
       throw new NotFoundException('Medicine reference not found');
     }
