@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Pill, ArrowRight, Sparkles, ShoppingBag } from "lucide-react";
+import { TrendingUp, TrendingDown, Pill, ArrowRight, Sparkles } from "lucide-react";
 import axios from "axios";
 
 interface Medicine {
@@ -21,7 +21,6 @@ interface Medicine {
 
 export default function TrendingMedicines() {
   const [trending, setTrending] = useState<Medicine[]>([]);
-  const [mostBought, setMostBought] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,14 +30,9 @@ export default function TrendingMedicines() {
   const loadData = async () => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-      
-      const [trendingRes, mostBoughtRes] = await Promise.all([
-        axios.get(`${API_URL}/dashboard/trending?limit=8`).catch(() => ({ data: [] })),
-        axios.get(`${API_URL}/dashboard/most-bought?limit=8`).catch(() => ({ data: [] })),
-      ]);
 
+      const trendingRes = await axios.get(`${API_URL}/dashboard/trending?limit=8`).catch(() => ({ data: [] }));
       setTrending(trendingRes.data || []);
-      setMostBought(mostBoughtRes.data || []);
     } catch (error) {
       console.error("Failed to load medicines:", error);
     } finally {
@@ -109,7 +103,7 @@ export default function TrendingMedicines() {
       <div className="max-w-7xl mx-auto px-6">
         {/* Top Trending Section */}
         {trending.length > 0 && (
-          <div className="mb-20">
+          <div>
             {/* Section Header */}
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-4">
@@ -126,7 +120,7 @@ export default function TrendingMedicines() {
                 </div>
               </div>
               <Link
-                href="/auth/login"
+                href="/medicines"
                 className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-full text-sm font-medium hover:shadow-lg hover:shadow-orange-500/30 transition-all"
               >
                 <Sparkles className="w-4 h-4" />
@@ -144,58 +138,11 @@ export default function TrendingMedicines() {
             {/* Mobile CTA */}
             <div className="md:hidden mt-6 text-center">
               <Link
-                href="/auth/login"
+                href="/medicines"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-full text-sm font-medium"
               >
                 <Sparkles className="w-4 h-4" />
                 Explore All Trending
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Most Bought Section - Only show if there are actual purchases */}
-        {mostBought.length > 0 && (
-          <div>
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30">
-                  <ShoppingBag className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-                    Most Bought on 24Rx
-                  </h2>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Popular medicines among traders
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/auth/login"
-                className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-sm font-medium hover:shadow-lg hover:shadow-green-500/30 transition-all"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                View All
-              </Link>
-            </div>
-
-            {/* Most Bought Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {mostBought.slice(0, 8).map((medicine, index) => (
-                <MedicineCard key={medicine.id || index} medicine={medicine} index={index} />
-              ))}
-            </div>
-
-            {/* Mobile CTA */}
-            <div className="md:hidden mt-6 text-center">
-              <Link
-                href="/auth/login"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-sm font-medium"
-              >
-                <ShoppingBag className="w-4 h-4" />
-                View All Popular
               </Link>
             </div>
           </div>
