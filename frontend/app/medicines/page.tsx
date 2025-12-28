@@ -394,8 +394,12 @@ export default function MedicinesPage() {
                   <div className="hidden lg:grid grid-cols-12 gap-4 items-center p-4">
                     {/* Medicine Info */}
                     <div className="col-span-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 flex items-center justify-center flex-shrink-0">
-                        <Pill className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {listing.medicine?.imageUrl ? (
+                          <img src={listing.medicine.imageUrl} alt={listing.medicine.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Pill className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        )}
                       </div>
                       <div className="min-w-0">
                         <Link
@@ -483,8 +487,12 @@ export default function MedicinesPage() {
                   <div className="lg:hidden block p-4">
                     <div className="flex items-start gap-3">
                       <Link href={`/medicines/${medicineId}`}>
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 flex items-center justify-center flex-shrink-0 cursor-pointer">
-                          <Pill className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 flex items-center justify-center flex-shrink-0 cursor-pointer overflow-hidden">
+                          {listing.medicine?.imageUrl ? (
+                            <img src={listing.medicine.imageUrl} alt={listing.medicine.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Pill className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                          )}
                         </div>
                       </Link>
 

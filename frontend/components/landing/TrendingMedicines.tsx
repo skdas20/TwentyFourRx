@@ -17,6 +17,7 @@ interface Medicine {
   changePercent?: number;
   totalQty?: number;
   activityScore?: number;
+  imageUrl?: string;
 }
 
 export default function TrendingMedicines() {
@@ -51,8 +52,12 @@ export default function TrendingMedicines() {
       </div>
 
       {/* Medicine Icon */}
-      <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-        <Pill className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+      <div className="w-14 h-14 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform overflow-hidden">
+        {medicine.imageUrl ? (
+          <img src={medicine.imageUrl} alt={medicine.name} className="w-full h-full object-cover" />
+        ) : (
+          <Pill className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+        )}
       </div>
 
       {/* Medicine Info */}
