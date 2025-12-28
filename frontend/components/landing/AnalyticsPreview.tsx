@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
@@ -63,11 +64,11 @@ export default function AnalyticsPreview() {
             animate={isInView ? "visible" : "hidden"}
           >
             {medicines.map((med, index) => (
-              <motion.div
-                key={index}
-                variants={itemVariants}
-                className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 hover:border-[var(--brand-blue)]/50 transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-              >
+              <Link href="/medicines" key={index}>
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 hover:border-[var(--brand-blue)]/50 transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                >
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold text-[var(--ink)] mb-1">{med.name}</h3>
@@ -126,6 +127,7 @@ export default function AnalyticsPreview() {
                   </div>
                 </div>
               </motion.div>
+              </Link>
             ))}
           </motion.div>
 
@@ -135,10 +137,10 @@ export default function AnalyticsPreview() {
             animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.6, delay: 0.6 }}
           >
-            <button className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:opacity-90 hover:scale-105 transition-all shadow-lg">
+            <Link href="/medicines" className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:opacity-90 hover:scale-105 transition-all shadow-lg">
               <BarChart3 className="w-5 h-5" />
               View Full Analytics
-            </button>
+            </Link>
           </motion.div>
         </div>
       </div>
