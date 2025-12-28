@@ -93,8 +93,8 @@ export default function MedicineDetailPage() {
           if (currentComp === listingComp) return true;
 
           // Partial composition match (for combination drugs)
-          const currentIngredients = currentComp.split(/[+,/&]/).map(s => s.trim());
-          const listingIngredients = listingComp.split(/[+,/&]/).map(s => s.trim());
+          const currentIngredients = currentComp.split(/[+,/&]/).map((s: string) => s.trim());
+          const listingIngredients = listingComp.split(/[+,/&]/).map((s: string) => s.trim());
 
           // Check if at least one ingredient matches
           const hasCommonIngredient = currentIngredients.some(ing =>
