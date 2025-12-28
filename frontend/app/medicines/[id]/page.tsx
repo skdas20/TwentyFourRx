@@ -48,8 +48,13 @@ export default function MedicineDetailPage() {
       setUser(JSON.parse(userData));
     }
     loadMedicineData();
-    checkWatchlistStatus();
-    checkUserHoldings();
+    // Only check watchlist and holdings if user is logged in
+    if (userData) {
+      checkWatchlistStatus();
+      checkUserHoldings();
+    } else {
+      setHoldingsLoaded(true); // Mark as loaded even if not logged in
+    }
   }, [medicineId, timeframe]);
 
   useEffect(() => {
@@ -59,6 +64,10 @@ export default function MedicineDetailPage() {
   }, [medicine]);
 
   const checkUserHoldings = async () => {
+    if (!user) {
+      setHoldingsLoaded(true);
+      return;
+    }
     try {
       const res = await inventoryApi.getUserInventory();
       const inventory = Array.isArray(res.data?.inventory) ? res.data.inventory : [];
