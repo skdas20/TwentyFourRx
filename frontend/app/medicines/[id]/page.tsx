@@ -97,8 +97,8 @@ export default function MedicineDetailPage() {
           const listingIngredients = listingComp.split(/[+,/&]/).map((s: string) => s.trim());
 
           // Check if at least one ingredient matches
-          const hasCommonIngredient = currentIngredients.some(ing =>
-            listingIngredients.some(lIng =>
+          const hasCommonIngredient = currentIngredients.some((ing: string) =>
+            listingIngredients.some((lIng: string) =>
               ing.includes(lIng) || lIng.includes(ing)
             )
           );
