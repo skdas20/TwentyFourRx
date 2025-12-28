@@ -72,7 +72,7 @@ export default function MedicinesPage() {
   const loadWatchlist = async () => {
     try {
       const response = await watchlistApi.getWatchlist();
-      const medicineIds = new Set(response.data.map((item: any) => item.medicineId));
+      const medicineIds = new Set(response.data.map((item: any) => item.medicineId)) as Set<string>;
       setWatchlistItems(medicineIds);
     } catch (error) {
       console.error("Failed to load watchlist:", error);
