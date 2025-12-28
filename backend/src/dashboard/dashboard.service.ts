@@ -546,27 +546,41 @@ export class DashboardService {
     // Get current lowest prices from active listings (with stock > 0)
     // This ensures consistency with the explore page and detail page
     const medicineIds = result.map((m) => m.id);
-    
+
     const currentListings = await this.prisma.listing.findMany({
       where: {
         medicineId: { in: medicineIds },
         status: 'ACTIVE',
         stock: { gt: 0 },
       },
+      include: {
+        medicine: {
+          select: {
+            id: true,
+            imageUrl: true,
+          },
+        },
+      },
       orderBy: { listPrice: 'asc' },
     });
 
-    // Build a map of medicine ID to lowest current price
-    const lowestPriceMap = new Map<string, number>();
+    // Build a map of medicine ID to lowest current price and imageUrl
+    const lowestPriceMap = new Map<string, { price: number; imageUrl: string | null }>();
     for (const listing of currentListings) {
       if (!lowestPriceMap.has(listing.medicineId)) {
-        lowestPriceMap.set(listing.medicineId, Number(listing.listPrice || listing.basePrice || 0));
+        const price = Number(listing.listPrice || listing.basePrice || 0);
+        lowestPriceMap.set(listing.medicineId, {
+          price,
+          imageUrl: listing.medicine?.imageUrl || null
+        });
       }
     }
 
-    // Update result with current prices
+    // Update result with current prices and imageUrl
     result.forEach((med) => {
-      med.currentPrice = lowestPriceMap.get(med.id) || 0;
+      const data = lowestPriceMap.get(med.id);
+      med.currentPrice = data?.price || 0;
+      med.imageUrl = data?.imageUrl || null;
     });
 
     // Fetch price history for trends
@@ -610,7 +624,7 @@ export class DashboardService {
       where: {
         isActive: true,
         listings: {
-          some: { 
+          some: {
             status: 'ACTIVE',
             stock: { gt: 0 },  // Only consider listings with stock
           },
@@ -623,31 +637,66 @@ export class DashboardService {
             createdAt: { gte: sevenDaysAgo },
           },
         },
-        listings: {
-          where: { 
-            status: 'ACTIVE',
-            stock: { gt: 0 },  // Only get listings with stock for price calculation
-          },
-          orderBy: { listPrice: 'asc' },
-          take: 1,
-          include: {
-            orders: {
-              where: {
-                createdAt: { gte: sevenDaysAgo },
-              },
-            },
-          },
-        },
       },
       take: limit * 2, // Fetch more than needed for sorting
     });
+
+    // Get medicine IDs for fetching orders
+    const medicineIds = trending.map((m) => m.id);
+
+    // Fetch all active listings for these medicines
+    const allListings = await this.prisma.listing.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        status: 'ACTIVE',
+        stock: { gt: 0 },
+      },
+      include: {
+        medicine: {
+          select: {
+            id: true,
+            imageUrl: true,
+          },
+        },
+        orders: {
+          where: {
+            createdAt: { gte: sevenDaysAgo },
+          },
+        },
+      },
+      orderBy: { listPrice: 'asc' },
+    });
+
+    // Build maps for lowest price listing and order counts per medicine
+    const lowestPriceMap = new Map<string, any>();
+    const orderCountMap = new Map<string, number>();
+
+    for (const listing of allListings) {
+      const medicineId = listing.medicineId;
+      const price = Number(listing.listPrice || listing.basePrice || 0);
+
+      // Track lowest price listing
+      if (!lowestPriceMap.has(medicineId)) {
+        lowestPriceMap.set(medicineId, { price, listing });
+      } else {
+        const existing = lowestPriceMap.get(medicineId);
+        if (price < existing.price && price > 0) {
+          lowestPriceMap.set(medicineId, { price, listing });
+        }
+      }
+
+      // Count orders
+      const orderCount = listing.orders.length;
+      orderCountMap.set(medicineId, (orderCountMap.get(medicineId) || 0) + orderCount);
+    }
 
     // Sort by activity (watchlists + orders)
     const sorted = trending
       .map((medicine) => {
         const watchlistCount = medicine.watchlists.length;
-        const orderCount = medicine.listings[0]?.orders.length || 0;
+        const orderCount = orderCountMap.get(medicine.id) || 0;
         const activityScore = watchlistCount * 2 + orderCount; // Weight watchlists higher
+        const lowestPriceData = lowestPriceMap.get(medicine.id);
 
         return {
           medicineId: medicine.id,
@@ -655,26 +704,26 @@ export class DashboardService {
           form: medicine.form,
           strength: medicine.strength,
           manufacturer: medicine.manufacturer.name,
-          currentPrice: medicine.listings[0]?.listPrice
-            ? Number(medicine.listings[0].listPrice)
-            : null,
-          stock: medicine.listings[0]?.stock || 0,
+          currentPrice: lowestPriceData?.price || null,
+          stock: lowestPriceData?.listing?.stock || 0,
+          imageUrl: lowestPriceData?.listing?.medicine?.imageUrl || null,
           watchlistCount,
           orderCount,
           activityScore,
         };
       })
+      .filter((med) => med.currentPrice !== null && med.currentPrice > 0) // Only include medicines with valid prices
       .sort((a, b) => b.activityScore - a.activityScore)
       .slice(0, limit);
 
     // Fetch price history for top medicines to calculate trends
     // Use 30 days to match the listings page calculation
-    const medicineIds = sorted.map((m) => m.medicineId);
+    const topMedicineIds = sorted.map((m) => m.medicineId);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    
+
     const history = await this.prisma.priceHistory.findMany({
       where: {
-        medicineId: { in: medicineIds },
+        medicineId: { in: topMedicineIds },
         day: { gte: thirtyDaysAgo },
       },
       orderBy: { day: 'asc' },
