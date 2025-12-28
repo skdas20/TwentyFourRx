@@ -34,7 +34,7 @@ export class WatermarkService {
               <text
                 x="${spacing / 2}"
                 y="${spacing / 2}"
-                font-family="Inter, Arial, sans-serif"
+                font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
                 font-size="${fontSize}px"
                 font-weight="700"
                 fill="#3B82F6"
