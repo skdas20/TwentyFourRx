@@ -180,7 +180,7 @@ export class MedicineReferencesController {
     // Create the medicine contribution (pending admin approval)
     const contribution = await this.prisma.medicineContribution.create({
       data: {
-        contributorId: req.user.id,
+        contributorId: req.user.sub,
         name: body.name,
         genericName: body.genericName || null,
         composition: body.composition,
@@ -322,7 +322,7 @@ export class MedicineReferencesController {
       data: {
         status: 'APPROVED',
         reviewedAt: new Date(),
-        reviewedBy: req.user.id,
+        reviewedBy: req.user.sub,
         reviewerNote: body.reviewerNote || null,
       },
     });
@@ -365,7 +365,7 @@ export class MedicineReferencesController {
       data: {
         status: 'REJECTED',
         reviewedAt: new Date(),
-        reviewedBy: req.user.id,
+        reviewedBy: req.user.sub,
         reviewerNote: body.reviewerNote || 'Contribution rejected by admin',
       },
     });
