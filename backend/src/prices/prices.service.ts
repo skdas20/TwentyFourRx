@@ -148,11 +148,35 @@ export class PricesService {
       orderBy: { day: 'desc' },
     });
 
-    // Calculate price changes
-    const priceChanges: Record<string, { 
-      medicine: any; 
-      oldPrice: number; 
-      newPrice: number; 
+    // Get unique medicine IDs
+    const medicineIds = [...new Set(recentHistory.map(ph => ph.medicineId))];
+
+    // Get current lowest prices from active listings (same as dashboard.service.ts)
+    const currentListings = await this.prisma.listing.findMany({
+      where: {
+        medicineId: { in: medicineIds },
+        status: 'ACTIVE',
+        stock: { gt: 0 },
+      },
+      orderBy: { listPrice: 'asc' },
+    });
+
+    // Build map of medicine ID to lowest current price
+    const currentPriceMap = new Map<string, number>();
+    for (const listing of currentListings) {
+      if (!currentPriceMap.has(listing.medicineId)) {
+        const price = Number(listing.listPrice || listing.basePrice || 0);
+        if (price > 0) {
+          currentPriceMap.set(listing.medicineId, price);
+        }
+      }
+    }
+
+    // Calculate price changes using actual listing prices
+    const priceChanges: Record<string, {
+      medicine: any;
+      oldPrice: number;
+      newPrice: number;
       latestDay: number;
       earliestDay: number;
       change: number;
@@ -162,13 +186,13 @@ export class PricesService {
     recentHistory.forEach((ph) => {
       const medicineId = ph.medicineId;
       const currentDate = ph.day.getTime();
-      const currentPrice = ph.avgPrice.toNumber();
+      const historyPrice = ph.avgPrice.toNumber();
 
       if (!priceChanges[medicineId]) {
         priceChanges[medicineId] = {
           medicine: ph.medicine,
-          oldPrice: currentPrice,
-          newPrice: currentPrice,
+          oldPrice: historyPrice,
+          newPrice: currentPriceMap.get(medicineId) || historyPrice, // Use actual listing price
           latestDay: currentDate,
           earliestDay: currentDate,
           change: 0,
@@ -177,20 +201,21 @@ export class PricesService {
       } else {
         const record = priceChanges[medicineId];
 
-        if (currentDate > record.latestDay) {
-          record.latestDay = currentDate;
-          record.newPrice = currentPrice;
+        // Update newPrice with actual listing price (not history avg)
+        if (currentPriceMap.has(medicineId)) {
+          record.newPrice = currentPriceMap.get(medicineId)!;
         }
 
         if (currentDate < record.earliestDay) {
           record.earliestDay = currentDate;
-          record.oldPrice = currentPrice;
+          record.oldPrice = historyPrice;
         }
       }
     });
 
     // Calculate changes
     const trending = Object.values(priceChanges)
+      .filter((pc) => currentPriceMap.has(pc.medicine.id)) // Only include medicines with active listings
       .map((pc) => {
         pc.change = pc.newPrice - pc.oldPrice;
         pc.changePercent = pc.oldPrice > 0 ? (pc.change / pc.oldPrice) * 100 : 0;
