@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Search, Package, FileText, TrendingUp, BarChart3, Users, X, ShoppingCart } from "lucide-react";
+import { Search, Package, FileText, TrendingUp, BarChart3, Users, X, ShoppingCart, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { notificationsApi, listingsApi, medicineReferencesApi } from "@/lib/api";
 
 interface SearchResult {
   id: string;
@@ -29,6 +30,34 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
   const searchRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Requirement Modal State
+  const [showReqModal, setShowReqModal] = useState(false);
+  const [reqData, setReqData] = useState({ medicineName: "", quantity: "", message: "" });
+  const [reqSubmitting, setReqSubmitting] = useState(false);
+
+  const handlePostRequirement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reqData.medicineName || !reqData.quantity) return;
+
+    try {
+      setReqSubmitting(true);
+      await notificationsApi.postRequirement({
+        medicineName: reqData.medicineName,
+        quantity: parseInt(reqData.quantity),
+        message: reqData.message
+      });
+      alert("Requirement posted successfully! Sellers will be notified.");
+      setShowReqModal(false);
+      setReqData({ medicineName: "", quantity: "", message: "" });
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to post requirement:", error);
+      alert("Failed to post requirement. Please try again.");
+    } finally {
+      setReqSubmitting(false);
+    }
+  };
+
   // Static feature/page results
   const staticResults: SearchResult[] = [
     { id: "feat-1", type: "feature", title: "Browse All Medicines", description: "Explore our complete medicine catalog", url: "/medicines", icon: <Package className="w-4 h-4" />, clickable: isLoggedIn },
@@ -45,50 +74,55 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
 
       const timer = setTimeout(async () => {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-          
-          // Search medicines via API
-          const medicineResponse = await fetch(`${apiUrl}/medicine-references/search?q=${encodeURIComponent(query)}`);
-          const medicineData = await medicineResponse.json();
+          // Parallel search: Active Listings (Trade) and Medicine Database (Reference)
+          const [listingsRes, referencesRes] = await Promise.all([
+            listingsApi.getListings({ search: query }).catch(() => ({ data: [] })),
+            medicineReferencesApi.search(query).catch(() => ({ data: [] }))
+          ]);
 
-          const medicineResults: SearchResult[] = (medicineData.data || []).slice(0, 5).map((med: any) => ({
-            id: med.id,
-            type: "medicine" as const,
-            title: `${med.name} ${med.strength || ''}`,
-            description: `${med.form} - ${med.manufacturer}`,
-            price: med.lowestPrice || med.price || med.mrp, // Show lowest listing price first
-            url: `/medicines/${med.id}`,
-            icon: <Package className="w-4 h-4" />,
-            clickable: isLoggedIn, // Only clickable if user is logged in
-          }));
+          const listingsData = listingsRes.data || [];
+          const referenceData = referencesRes.data?.data || [];
 
-          // Search listings via API
-          const listingsResponse = await fetch(`${apiUrl}/listings?search=${encodeURIComponent(query)}`);
-          const listingsData = await listingsResponse.json();
-
-          const listingResults: SearchResult[] = (Array.isArray(listingsData) ? listingsData : []).slice(0, 3).map((listing: any) => ({
+          // 1. Process Listings (Available for Buy/Sell)
+          const listingResults: SearchResult[] = listingsData.slice(0, 5).map((listing: any) => ({
             id: listing.id,
             type: "listing" as const,
-            title: `${listing.medicine?.name || 'Medicine'} ${listing.medicine?.strength || ''}`,
-            description: `${listing.stock} units available - ${listing.medicine?.manufacturer?.name || 'Unknown'}`,
+            title: listing.medicine?.name || "Medicine",
+            description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units`,
             price: listing.listPrice || listing.basePrice,
             url: `/medicines/${listing.medicineId}`,
             icon: <ShoppingCart className="w-4 h-4" />,
             clickable: isLoggedIn,
           }));
 
-          // Filter static results
+          // 2. Process References (Information only, unless matched with listing)
+          // Filter out references that are already in listings to avoid duplicates
+          const listedMedicineIds = new Set(listingsData.map((l: any) => l.medicineId));
+          
+          const referenceResults: SearchResult[] = referenceData
+            .filter((ref: any) => !listedMedicineIds.has(ref.id))
+            .slice(0, 3)
+            .map((med: any) => ({
+              id: med.id,
+              type: "medicine" as const,
+              title: `${med.name} ${med.strength || ''}`,
+              description: `${med.form} • ${med.manufacturer}`,
+              price: med.mrp,
+              url: `/medicines/${med.id}`, // Detail page handles "no listing" case
+              icon: <Package className="w-4 h-4" />,
+              clickable: isLoggedIn,
+            }));
+
+          // 3. Static Features (Navigation)
           const featureResults = staticResults.filter(
             (item) =>
               item.title.toLowerCase().includes(query.toLowerCase()) ||
               item.description?.toLowerCase().includes(query.toLowerCase())
           );
 
-          // Combine results (medicines first, then listings, then features)
-          setResults([...medicineResults, ...listingResults, ...featureResults]);
+          setResults([...listingResults, ...referenceResults, ...featureResults]);
         } catch (error) {
           console.error("Search error:", error);
-          // Fallback to static results only
           const featureResults = staticResults.filter(
             (item) =>
               item.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -241,8 +275,22 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
           ) : (
             <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
               <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No results found for "{query}"</p>
-              <p className="text-xs mt-1">Try searching for medicines, features, or news</p>
+              <p className="text-sm mb-4">No results found for "{query}"</p>
+              
+              {isLoggedIn ? (
+                <button
+                  onClick={() => {
+                    setReqData(prev => ({ ...prev, medicineName: query }));
+                    setShowReqModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Post Your Requirement
+                </button>
+              ) : (
+                <p className="text-xs mt-1">Try searching for medicines, features, or news</p>
+              )}
             </div>
           )}
 
@@ -275,6 +323,91 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Requirement Posting Modal */}
+      {showReqModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Post Requirement</h3>
+              <button 
+                onClick={() => setShowReqModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handlePostRequirement} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Medicine Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={reqData.medicineName}
+                  onChange={(e) => setReqData({ ...reqData, medicineName: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="e.g. Dolo 650"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={reqData.quantity}
+                  onChange={(e) => setReqData({ ...reqData, quantity: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="e.g. 100"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Message (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={reqData.message}
+                  onChange={(e) => setReqData({ ...reqData, message: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  placeholder="Any specific requirements..."
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReqModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={reqSubmitting}
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {reqSubmitting ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      <MessageCircle className="w-4 h-4" />
+                      Post Requirement
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

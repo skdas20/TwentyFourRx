@@ -78,7 +78,7 @@ export const medicineReferencesApi = {
 
 // Listings API
 export const listingsApi = {
-  getListings: (params?: { medicineId?: string; status?: string }) =>
+  getListings: (params?: { medicineId?: string; status?: string; search?: string }) =>
     api.get('/listings', { params }),
   getMyListings: () => api.get('/listings/my'),
   getPendingListings: () => api.get('/listings/pending'),
@@ -191,6 +191,8 @@ export const notificationsApi = {
   markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.post('/notifications/read-all'),
   deleteNotification: (id: string) => api.delete(`/notifications/${id}`),
+  postRequirement: (data: { medicineName: string; quantity: number; message: string }) =>
+    api.post('/notifications/requirements', data),
 }
 
 // Buy Proposals API

@@ -408,4 +408,67 @@ export class NotificationsService {
       sendEmail,
     );
   }
+
+  /**
+   * Notify all sellers and admin about a new requirement
+   */
+  async notifySellersAndAdmin(
+    medicineName: string,
+    quantity: number,
+    message: string,
+    posterName: string,
+    posterEmail: string
+  ) {
+    // 1. Find all sellers and admins
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        roleCode: { in: ['SELLER', 'ADMIN'] },
+        isActive: true,
+      },
+      select: { id: true, email: true, roleCode: true },
+    });
+
+    const subject = `New Requirement Posted: ${medicineName}`;
+    const body = `
+      <div style="font-family: Arial, sans-serif;">
+        <h2 style="color: #2563eb;">New Requirement Posted</h2>
+        <p>A user has posted a requirement for a medicine that is currently unavailable.</p>
+        
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Medicine:</strong> ${medicineName}</p>
+          <p><strong>Quantity:</strong> ${quantity}</p>
+          <p><strong>Message:</strong> ${message || 'No additional message'}</p>
+          <p><strong>Posted By:</strong> ${posterName} (${posterEmail})</p>
+        </div>
+        
+        <p>Please check if you can fulfill this requirement by listing the medicine.</p>
+      </div>
+    `;
+
+    // 2. Send notifications
+    for (const recipient of recipients) {
+      // Send email ONLY to admins, disable for sellers to prevent timeouts
+      const shouldSendEmail = recipient.roleCode === 'ADMIN';
+      
+      await this.createNotificationWithEmail(
+        {
+          userId: recipient.id,
+          subject,
+          body: `New requirement: ${quantity} units of ${medicineName}. Posted by ${posterName}.`,
+          meta: {
+            type: 'NEW_REQUIREMENT',
+            medicineName,
+            quantity,
+            message,
+            posterEmail
+          },
+        },
+        recipient.email,
+        shouldSendEmail // Only admins get email
+      );
+    }
+
+    this.logger.log(`📢 Notified ${recipients.length} sellers/admins about requirement for ${medicineName}`);
+    return { count: recipients.length };
+  }
 }

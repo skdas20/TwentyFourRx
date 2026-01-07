@@ -6,16 +6,53 @@ import {
   Delete,
   Param,
   Query,
+  Body,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+
+import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
+
+export class PostRequirementDto {
+  @IsString()
+  medicineName: string;
+
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  message: string;
+}
 
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
+
+  /**
+   * Post a new requirement (Notifies sellers and admins)
+   */
+  @Post('requirements')
+  async postRequirement(@Request() req, @Body() dto: PostRequirementDto) {
+    // Basic validation
+    if (!dto.medicineName || !dto.quantity) {
+      throw new BadRequestException('Medicine name and quantity are required');
+    }
+
+    const user = req.user;
+    return this.notificationsService.notifySellersAndAdmin(
+      dto.medicineName,
+      dto.quantity,
+      dto.message,
+      user.name || 'User',
+      user.email
+    );
+  }
 
   /**
    * Get all notifications for the current user
