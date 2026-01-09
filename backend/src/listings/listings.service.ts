@@ -9,6 +9,8 @@ import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
 import { PricesService } from '../prices/prices.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { parse } from 'csv-parse/sync';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ListingsService {
@@ -17,6 +19,7 @@ export class ListingsService {
     private gcsService: GcsService,
     @Inject(forwardRef(() => PricesService))
     private pricesService: PricesService,
+    private notificationsService: NotificationsService,
   ) {}
 
   private serializeListing(listing: any) {
@@ -165,6 +168,18 @@ export class ListingsService {
         hasDocument: !!proposal.documentUrl,
       });
 
+      // Notify Admins
+      const admins = await this.prisma.user.findMany({ where: { roleCode: 'ADMIN' }, select: { id: true } });
+      for (const admin of admins) {
+        await this.notificationsService.createNotification({
+          userId: admin.id,
+          channel: 'INAPP',
+          subject: '💊 New Medicine Proposal',
+          body: `A new medicine proposal for ${proposal.name} has been submitted.`,
+          meta: { proposalId: proposal.id, type: 'MEDICINE_PROPOSAL' },
+        });
+      }
+
       return {
         message: 'Medicine proposal created. Waiting for admin approval.',
         proposal,
@@ -217,6 +232,18 @@ export class ListingsService {
       documentUrl: listing.documentUrl,
         productImageUrl,
     });
+
+    // Notify Admins
+    const admins = await this.prisma.user.findMany({ where: { roleCode: 'ADMIN' }, select: { id: true } });
+    for (const admin of admins) {
+      await this.notificationsService.createNotification({
+        userId: admin.id,
+        channel: 'INAPP',
+        subject: '📝 New Listing Pending Review',
+        body: `A new listing for ${listing.medicine.name} needs review.`,
+        meta: { listingId: listing.id, type: 'NEW_LISTING' },
+      });
+    }
 
     return {
       message: 'Listing created successfully. Waiting for admin approval.',
@@ -869,6 +896,322 @@ export class ListingsService {
     });
 
     return { message: 'Medicine proposal rejected', proposal: updated };
+  }
+
+  async createBulkListingRequest(
+    sellerId: string,
+    csvFile: Express.Multer.File,
+    documentFile: Express.Multer.File,
+  ) {
+    // Upload files
+    const csvUrl = await this.gcsService.uploadFile(csvFile, 'bulk-listings/csv');
+    const documentUrl = await this.gcsService.uploadFile(
+      documentFile,
+      'bulk-listings/docs',
+    );
+
+    // Create request
+    const request = await this.prisma.bulkListingRequest.create({
+      data: {
+        sellerId,
+        csvUrl,
+        documentUrl,
+        status: 'PENDING',
+      },
+    });
+
+    // Parse and Analyze CSV immediately to populate parsedData
+    // We use the buffer directly here since we have it
+    await this.analyzeBulkCsv(request.id, csvFile.buffer);
+
+    // Notify Admins
+    const admins = await this.prisma.user.findMany({ where: { roleCode: 'ADMIN' }, select: { id: true } });
+    for (const admin of admins) {
+      await this.notificationsService.createNotification({
+        userId: admin.id,
+        channel: 'INAPP',
+        subject: '📦 New Bulk Listing Request',
+        body: `A new bulk listing request has been submitted.`,
+        meta: { bulkRequestId: request.id, type: 'BULK_LISTING' },
+      });
+    }
+
+    return { message: 'Bulk listing request submitted successfully', request };
+  }
+
+  // Helper function to normalize medicine names for better matching
+  private normalizeMedicineName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[-\s]+/g, '') // Remove hyphens and spaces
+      .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
+  }
+
+  async analyzeBulkCsv(requestId: string, csvBuffer: Buffer) {
+    try {
+      const records = parse(csvBuffer, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+
+      const parsedRows: any[] = [];
+
+      for (const record of records) {
+        const row = record as any;
+        const brandName = row['Brand Name'] || row['brand_name'];
+        const form = row['Form'] || row['form'];
+        const strength = row['Strength'] || row['strength'];
+        const manufacturer = row['Manufacturer'] || row['manufacturer'];
+
+        // Basic validation
+        if (!brandName || !form || !manufacturer) {
+          parsedRows.push({ ...row, status: 'INVALID', error: 'Missing required fields' });
+          continue;
+        }
+
+        // Normalize inputs for flexible matching
+        const normalizedBrand = this.normalizeMedicineName(brandName);
+        const normalizedForm = form.toLowerCase().trim();
+        const normalizedStrength = strength ? strength.toLowerCase().replace(/\s+/g, '').trim() : '';
+        const normalizedManufacturer = manufacturer.toLowerCase().trim();
+
+        // 1. Check Active Medicines with flexible matching
+        const activeMedicines = await this.prisma.medicine.findMany({
+          where: {
+            form: { equals: form, mode: 'insensitive' },
+          },
+          include: { manufacturer: true },
+        });
+
+        let activeMatch = activeMedicines.find(med => {
+          const medNameNorm = this.normalizeMedicineName(med.name);
+          const medStrengthNorm = med.strength ? med.strength.toLowerCase().replace(/\s+/g, '').trim() : '';
+          const medManufNorm = med.manufacturer?.name?.toLowerCase().trim() || '';
+
+          return medNameNorm === normalizedBrand &&
+                 medStrengthNorm === normalizedStrength &&
+                 medManufNorm === normalizedManufacturer;
+        });
+
+        if (activeMatch) {
+          parsedRows.push({
+            ...row,
+            status: 'MATCHED',
+            medicineId: activeMatch.id,
+            matchType: 'ACTIVE',
+            matchName: activeMatch.name,
+          });
+          continue;
+        }
+
+        // 2. Check Reference Medicines with flexible matching
+        const refMedicines = await this.prisma.medicineReference.findMany({
+          where: {
+            form: { equals: form, mode: 'insensitive' },
+          },
+        });
+
+        let refMatch = refMedicines.find(ref => {
+          const refNameNorm = this.normalizeMedicineName(ref.name);
+          const refStrengthNorm = ref.strength ? ref.strength.toLowerCase().replace(/\s+/g, '').trim() : '';
+          const refManufNorm = ref.manufacturer?.toLowerCase().trim() || '';
+
+          return refNameNorm === normalizedBrand &&
+                 refStrengthNorm === normalizedStrength &&
+                 refManufNorm === normalizedManufacturer;
+        });
+
+        if (refMatch) {
+          parsedRows.push({
+            ...row,
+            status: 'MATCHED',
+            medicineId: refMatch.id,
+            matchType: 'REFERENCE', // Needs conversion to Medicine
+            matchName: refMatch.name,
+          });
+          continue;
+        }
+
+        // 3. No Match
+        parsedRows.push({
+          ...row,
+          status: 'NEW',
+        });
+      }
+
+      // Update request with parsed data
+      await this.prisma.bulkListingRequest.update({
+        where: { id: requestId },
+        data: {
+          parsedData: parsedRows,
+          status: 'PROCESSED',
+        },
+      });
+
+    } catch (error) {
+      console.error('Failed to analyze bulk CSV:', error);
+      await this.prisma.bulkListingRequest.update({
+        where: { id: requestId },
+        data: { status: 'ERROR' },
+      });
+    }
+  }
+
+  async getBulkListingRequests(status?: string) {
+    const where: any = {};
+    if (status) where.status = status;
+
+    return this.prisma.bulkListingRequest.findMany({
+      where,
+      include: {
+        seller: {
+          select: { name: true, email: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getBulkListingRequestById(id: string) {
+    return this.prisma.bulkListingRequest.findUnique({
+      where: { id },
+      include: {
+        seller: {
+          select: { name: true, email: true },
+        },
+      },
+    });
+  }
+
+  async approveBulkListingItems(requestId: string, selectedIndices: number[]) {
+    const request = await this.prisma.bulkListingRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request || !request.parsedData) {
+      throw new NotFoundException('Request not found or no data');
+    }
+
+    const rows = request.parsedData as any[];
+    const results = { created: 0, failed: 0 };
+
+    for (const index of selectedIndices) {
+      if (index < 0 || index >= rows.length) continue;
+      const row = rows[index];
+
+      try {
+        const basePrice = parseFloat(row['List Price'] || row['Unit Rate to 24RX (excl of tax)'] || '0');
+        const stock = parseInt(row['Stock'] || '0');
+        const gst = parseFloat(row['GST %'] || '0');
+        const proposedMrp = parseFloat(row['MRP'] || row['MRP(incl of tax)'] || '0');
+        const batchNo = row['Batch No'] || row['BATCH NO.'];
+        const expiryDate = row['Expiry Date'] || row['EXPIRY'];
+
+        if (row.status === 'MATCHED') {
+          // Determine Medicine ID
+          let medicineId = row.medicineId;
+
+          // If matched with reference, we must first ensure Medicine exists
+          if (row.matchType === 'REFERENCE') {
+             // Re-fetch reference to be safe
+             const ref = await this.prisma.medicineReference.findUnique({ where: { id: medicineId }});
+             if (ref) {
+                // Check/Create Medicine from Reference (Reuse createListing logic implicitly or call simpler method)
+                // We'll quickly find/create manufacturer and medicine
+                let manufacturer = await this.prisma.manufacturer.findFirst({ where: { name: ref.manufacturer }});
+                if (!manufacturer) manufacturer = await this.prisma.manufacturer.create({ data: { name: ref.manufacturer }});
+                
+                const newMed = await this.prisma.medicine.create({
+                  data: {
+                    name: ref.name,
+                    form: ref.form,
+                    strength: ref.strength,
+                    manufacturerId: manufacturer.id,
+                    mrp: ref.mrp,
+                  }
+                });
+                medicineId = newMed.id;
+             }
+          }
+
+          // Create Listing
+          await this.prisma.listing.create({
+            data: {
+              medicineId,
+              sellerId: request.sellerId,
+              basePrice,
+              stock,
+              gstPercentage: gst,
+              proposedMrp,
+              batchNo,
+              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              status: 'ACTIVE', // Auto-approve since Admin is doing it
+              approvedAt: new Date(),
+              activatedAt: new Date(),
+              documentUrl: request.documentUrl,
+            }
+          });
+          results.created++;
+
+        } else if (row.status === 'NEW') {
+          // New Medicine -> Create Medicine -> Create Listing
+          // 1. Manufacturer
+          const mfrName = row['Manufacturer'] || row['Name of Manufacturer'];
+          let manufacturer = await this.prisma.manufacturer.findFirst({ where: { name: { equals: mfrName, mode: 'insensitive' } }});
+          if (!manufacturer) manufacturer = await this.prisma.manufacturer.create({ data: { name: mfrName }});
+
+          // 2. Medicine
+          const newMed = await this.prisma.medicine.create({
+            data: {
+              name: row['Brand Name'],
+              form: row['Form'] || row['Packing Unit']?.split(' ')[0] || 'Tablet', // Fallback parsing
+              strength: row['Strength'] || 'N/A',
+              manufacturerId: manufacturer.id,
+              mrp: proposedMrp,
+            }
+          });
+
+          // 3. Add to Reference (Sync back)
+          await this.prisma.medicineReference.create({
+            data: {
+              name: newMed.name,
+              form: newMed.form,
+              strength: newMed.strength,
+              manufacturer: mfrName,
+              composition: row['Composition'] || 'N/A',
+              mrp: proposedMrp,
+              source: 'bulk_upload',
+              isActive: true,
+            }
+          });
+
+          // 4. Listing
+          await this.prisma.listing.create({
+            data: {
+              medicineId: newMed.id,
+              sellerId: request.sellerId,
+              basePrice,
+              stock,
+              gstPercentage: gst,
+              proposedMrp,
+              batchNo,
+              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              status: 'ACTIVE',
+              approvedAt: new Date(),
+              activatedAt: new Date(),
+              documentUrl: request.documentUrl,
+            }
+          });
+          results.created++;
+        }
+      } catch (e) {
+        console.error('Failed to create listing from bulk:', e);
+        results.failed++;
+      }
+    }
+
+    return results;
   }
 
   // Update listing (seller/trader only)
