@@ -3,9 +3,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Search, Plus } from "lucide-react";
+import { ArrowLeft, Search, Plus, FileText, Upload, Download } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
-import { medicineReferencesApi, inventoryApi } from "@/lib/api";
+import { medicineReferencesApi, inventoryApi, listingsApi } from "@/lib/api";
 
 function NewListingContent() {
   const router = useRouter();
@@ -29,6 +29,11 @@ function NewListingContent() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingMedicine, setLoadingMedicine] = useState(false);
   
+  // Bulk Upload State
+  const [activeTab, setActiveTab] = useState<"single" | "bulk">("single");
+  const [bulkCsv, setBulkCsv] = useState<File | null>(null);
+  const [bulkDoc, setBulkDoc] = useState<File | null>(null);
+
   // User holdings for validation
   const [userHoldings, setUserHoldings] = useState<any[]>([]);
   const [holdingsLoaded, setHoldingsLoaded] = useState(false);
@@ -320,6 +325,45 @@ function NewListingContent() {
     }
   };
 
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkCsv || !bulkDoc) {
+      alert("Please upload both CSV and Credibility Document");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const formData = new FormData();
+      formData.append('csv', bulkCsv);
+      formData.append('document', bulkDoc);
+
+      await listingsApi.createBulkListing(formData);
+      alert("Bulk listing request submitted successfully! Admin will review matches.");
+      router.push("/dashboard/seller");
+    } catch (error: any) {
+      console.error("Bulk upload failed:", error);
+      alert(error.response?.data?.message || "Bulk upload failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const downloadSampleCSV = () => {
+    const csvContent = `Brand Name,Composition,Manufacturer,Form,Strength,Batch No,Expiry Date,Stock,GST %,MRP,List Price
+Dolo 650,Paracetamol 650mg,Micro Labs Ltd,Tablet,650mg,B12345,2026-12-31,1000,12,30.00,25.00
+Amoxiclav 625,Amoxicillin + Clavulanic Acid,Abbott,Tablet,625mg,B67890,2025-06-30,500,12,150.00,120.00
+Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12,20.00,15.00`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = window.document.createElement('a');
+    a.href = url;
+    a.download = 'bulk_upload_sample.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -341,7 +385,129 @@ function NewListingContent() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loadingMedicine ? (
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+          <button
+            onClick={() => setActiveTab("single")}
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === "single"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Single Listing
+          </button>
+          <button
+            onClick={() => setActiveTab("bulk")}
+            className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === "bulk"
+                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Bulk Upload
+          </button>
+        </div>
+
+        {activeTab === "bulk" ? (
+          <form onSubmit={handleBulkSubmit} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="mb-6 space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700 mb-6">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Bulk Upload Instructions</h3>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                      Upload a CSV file containing your inventory details.
+                    </p>
+                    <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                      <p>Required Columns: Brand Name, Composition, Manufacturer, Form, Strength, MRP, List Price, Stock, Expiry Date, Batch No, GST %</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadSampleCSV}
+                    className="ml-4 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Sample CSV
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Inventory CSV <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    required
+                    onChange={(e) => setBulkCsv(e.target.files?.[0] || null)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                             text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
+                             file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                             file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
+                             hover:file:bg-blue-100 file:cursor-pointer cursor-pointer"
+                  />
+                  {bulkCsv && (
+                    <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                      ✓ {bulkCsv.name} ({(bulkCsv.size / 1024).toFixed(2)} KB)
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Credibility Document <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  Upload invoice/proof for the bulk lot (PDF, JPG, PNG - Max 5MB)
+                </p>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    required
+                    onChange={(e) => setBulkDoc(e.target.files?.[0] || null)}
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
+                             text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
+                             file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                             file:text-sm file:font-semibold file:bg-green-50 file:text-green-700
+                             hover:file:bg-green-100 file:cursor-pointer cursor-pointer"
+                  />
+                  {bulkDoc && (
+                    <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                      ✓ {bulkDoc.name} ({(bulkDoc.size / 1024).toFixed(2)} KB)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting || !bulkCsv || !bulkDoc}
+              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg
+                       hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed
+                       transition-all font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl
+                       transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {submitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  Submit Bulk Upload Request
+                </>
+              )}
+            </button>
+          </form>
+        ) : (
+          loadingMedicine ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
@@ -782,7 +948,7 @@ function NewListingContent() {
               </p>
             )}
           </form>
-        )}
+        ))}
       </main>
     </div>
   );

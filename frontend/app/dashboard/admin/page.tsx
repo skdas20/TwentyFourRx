@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper, MessageCircle } from "lucide-react";
+import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper, MessageCircle, Upload } from "lucide-react";
 import { usersApi, listingsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
@@ -18,6 +18,7 @@ export default function AdminDashboard() {
     pendingUsers: 0,
     pendingListings: 0,
     pendingProposals: 0,
+    pendingBulkListings: 0,
   });
   const [pendingUsers, setPendingUsers] = useState([]);
   const [pendingListings, setPendingListings] = useState([]);
@@ -65,12 +66,18 @@ export default function AdminDashboard() {
       const activeListingsResponse = await listingsApi.getListings();
       const activeListingsData = activeListingsResponse.data;
 
+      // Load bulk listing requests
+      const bulkRequestsResponse = await listingsApi.getBulkRequests();
+      const bulkRequestsData = bulkRequestsResponse.data || [];
+      const pendingBulkData = bulkRequestsData.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSED');
+
       setStats({
         totalUsers: allUsers.length,
         activeListings: activeListingsData.length,
         pendingUsers: pendingUsersData.length,
         pendingListings: pendingListingsData.length,
         pendingProposals: pendingProposalsData.length,
+        pendingBulkListings: pendingBulkData.length,
       });
       
       setPendingUsers(pendingUsersData.slice(0, 5)); // Show first 5
@@ -581,9 +588,9 @@ export default function AdminDashboard() {
 
                 <Link
                   href="/dashboard/admin/listings"
-                  className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 
+                  className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20
                            hover:from-green-100 hover:to-green-200 dark:hover:from-green-900/30 dark:hover:to-green-800/30
-                           rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 
+                           rounded-xl border border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600
                            transition-all text-center hover:scale-105"
                 >
                   <div className="w-12 h-12 mx-auto mb-3 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -591,6 +598,25 @@ export default function AdminDashboard() {
                   </div>
                   <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">All Listings</h4>
                   <p className="text-xs text-gray-600 dark:text-gray-400">View all listings</p>
+                </Link>
+
+                <Link
+                  href="/dashboard/admin/bulk-listings"
+                  className="group p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20
+                           hover:from-amber-100 hover:to-amber-200 dark:hover:from-amber-900/30 dark:hover:to-amber-800/30
+                           rounded-xl border border-amber-200 dark:border-amber-700 hover:border-amber-300 dark:hover:border-amber-600
+                           transition-all text-center hover:scale-105 relative"
+                >
+                  {stats.pendingBulkListings > 0 && (
+                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                      {stats.pendingBulkListings}
+                    </div>
+                  )}
+                  <div className="w-12 h-12 mx-auto mb-3 bg-amber-100 dark:bg-amber-900/40 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Upload className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Bulk Listings</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">CSV uploads</p>
                 </Link>
 
                 <Link
