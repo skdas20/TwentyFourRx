@@ -12,6 +12,7 @@ export default function MyListingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
+  const [bulkRequests, setBulkRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
   const [editingListing, setEditingListing] = useState<any>(null);
@@ -37,6 +38,7 @@ export default function MyListingsPage() {
     }
     setUser(parsed);
     loadListings();
+    loadBulkRequests();
   }, [router]);
 
   const loadListings = async () => {
@@ -47,6 +49,15 @@ export default function MyListingsPage() {
       console.error("Failed to load listings:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBulkRequests = async () => {
+    try {
+      const response = await listingsApi.getMyBulkRequests();
+      setBulkRequests(response.data || []);
+    } catch (error) {
+      console.error("Failed to load bulk requests:", error);
     }
   };
 
@@ -171,6 +182,55 @@ export default function MyListingsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Bulk Upload Requests Section */}
+        {bulkRequests.length > 0 && (
+          <div className="mb-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📦 Bulk Upload Requests</h3>
+            <div className="space-y-3">
+              {bulkRequests.map((req: any) => (
+                <div key={req.id} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {new Date(req.createdAt).toLocaleDateString()} at {new Date(req.createdAt).toLocaleTimeString()}
+                      </div>
+                      {req.status === 'PENDING' && (
+                        <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Analyzing...
+                        </span>
+                      )}
+                      {req.status === 'PROCESSED' && (
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Ready for Admin Review
+                        </span>
+                      )}
+                      {req.status === 'APPROVED' && (
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Approved
+                        </span>
+                      )}
+                      {req.status === 'ERROR' && (
+                        <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium rounded flex items-center gap-1">
+                          <XCircle className="w-3 h-3" />
+                          Error - Check File Format
+                        </span>
+                      )}
+                    </div>
+                    {req.parsedData && Array.isArray(req.parsedData) && (
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        {req.parsedData.length} items found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">

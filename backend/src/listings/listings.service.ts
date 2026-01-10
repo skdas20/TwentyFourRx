@@ -910,14 +910,22 @@ export class ListingsService {
     csvFile: Express.Multer.File,
     documentFile: Express.Multer.File,
   ) {
-    // Upload files
+    // STEP 1: Validate CSV headers IMMEDIATELY (before uploading files)
+    const validationResult = await this.validateCsvHeaders(csvFile.buffer);
+    if (!validationResult.isValid) {
+      throw new BadRequestException(
+        `Invalid CSV format: ${validationResult.error}\n\nRequired columns: Brand Name, Form, Manufacturer\nOptional columns: Strength, Composition, Batch No, Expiry Date, Stock, GST %, MRP, List Price`
+      );
+    }
+
+    // STEP 2: Upload files (only if validation passed)
     const csvUrl = await this.gcsService.uploadFile(csvFile, 'bulk-listings/csv');
     const documentUrl = await this.gcsService.uploadFile(
       documentFile,
       'bulk-listings/docs',
     );
 
-    // Create request
+    // STEP 3: Create request
     const request = await this.prisma.bulkListingRequest.create({
       data: {
         sellerId,
@@ -950,6 +958,66 @@ export class ListingsService {
       request,
       estimatedProcessingTime: '10-30 seconds'
     };
+  }
+
+  // Validate CSV headers before processing
+  private async validateCsvHeaders(csvBuffer: Buffer): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      let records: any[];
+      
+      // Check if it's an Excel file
+      const isExcel = csvBuffer[0] === 0xD0 && csvBuffer[1] === 0xCF || 
+                      csvBuffer[0] === 0x50 && csvBuffer[1] === 0x4B;
+      
+      if (isExcel) {
+        const workbook = XLSX.read(csvBuffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        records = XLSX.utils.sheet_to_json(worksheet);
+      } else {
+        records = parse(csvBuffer, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+      }
+
+      if (!records || records.length === 0) {
+        return { isValid: false, error: 'CSV file is empty' };
+      }
+
+      // Check for required columns (case-insensitive)
+      const firstRow = records[0];
+      const headers = Object.keys(firstRow);
+      const headersLower = headers.map(h => h.toLowerCase().trim());
+
+      // Required columns (must have at least one variant)
+      const requiredColumns = [
+        ['brand name', 'brand_name'],
+        ['form'],
+        ['manufacturer']
+      ];
+
+      for (const variants of requiredColumns) {
+        const hasColumn = variants.some(variant => 
+          headersLower.includes(variant.toLowerCase())
+        );
+        
+        if (!hasColumn) {
+          return { 
+            isValid: false, 
+            error: `Missing required column: "${variants[0]}". Found columns: ${headers.join(', ')}`
+          };
+        }
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      return { 
+        isValid: false, 
+        error: `Failed to parse CSV: ${error.message}`
+      };
+    }
   }
 
   // Helper function to normalize medicine names for better matching
@@ -1071,20 +1139,42 @@ export class ListingsService {
       }
 
       // Update request with parsed data
-      await this.prisma.bulkListingRequest.update({
+      const updatedRequest = await this.prisma.bulkListingRequest.update({
         where: { id: requestId },
         data: {
           parsedData: parsedRows,
           status: 'PROCESSED',
         },
+        include: { seller: true },
       });
+
+      // NOTIFY SELLER that analysis is complete
+      await this.notificationsService.createNotification({
+        userId: updatedRequest.sellerId,
+        channel: 'INAPP',
+        subject: '✅ Bulk Upload Analysis Complete',
+        body: `Your bulk upload has been analyzed. Found ${parsedRows.length} items (${parsedRows.filter(r => r.status === 'MATCHED').length} matched, ${parsedRows.filter(r => r.status === 'NEW').length} new, ${parsedRows.filter(r => r.status === 'INVALID').length} invalid). Admin will review shortly.`,
+        meta: { bulkRequestId: requestId, type: 'BULK_ANALYSIS_COMPLETE' },
+      }).catch(err => console.error('Failed to notify seller:', err));
 
     } catch (error) {
       console.error('Failed to analyze bulk CSV:', error);
-      await this.prisma.bulkListingRequest.update({
+      
+      // Update to ERROR status
+      const failedRequest = await this.prisma.bulkListingRequest.update({
         where: { id: requestId },
         data: { status: 'ERROR' },
+        include: { seller: true },
       });
+
+      // NOTIFY SELLER about the error
+      await this.notificationsService.createNotification({
+        userId: failedRequest.sellerId,
+        channel: 'INAPP',
+        subject: '❌ Bulk Upload Analysis Failed',
+        body: `There was an error analyzing your bulk upload. Please check the file format and try again, or contact support.`,
+        meta: { bulkRequestId: requestId, type: 'BULK_ANALYSIS_ERROR' },
+      }).catch(err => console.error('Failed to notify seller about error:', err));
     }
   }
 
