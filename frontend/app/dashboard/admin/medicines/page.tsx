@@ -144,13 +144,16 @@ export default function MedicineManagementPage() {
   };
 
   const confirmMassDelete = async () => {
+    // Close dialog immediately and show progress
+    setShowMassDeleteDialog(false);
+    const totalCount = selectedMedicines.size;
+    showToast.info(`Deleting ${totalCount} medicine(s)...`);
+
     try {
       const token = localStorage.getItem('accessToken');
-      const deletionResults = [];
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const id of selectedMedicines) {
+      
+      // Delete all medicines in parallel using Promise.all
+      const deletionPromises = Array.from(selectedMedicines).map(async (id) => {
         try {
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
             method: 'DELETE',
@@ -158,16 +161,17 @@ export default function MedicineManagementPage() {
               'Authorization': `Bearer ${token}`,
             },
           });
-
-          if (response.ok) {
-            successCount++;
-          } else {
-            failCount++;
-          }
+          return { success: response.ok, id };
         } catch (error) {
-          failCount++;
+          return { success: false, id };
         }
-      }
+      });
+
+      // Wait for all deletions to complete in parallel
+      const results = await Promise.all(deletionPromises);
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
 
       if (successCount > 0) {
         showToast.success(`${successCount} medicine(s) deleted successfully`);
@@ -181,8 +185,6 @@ export default function MedicineManagementPage() {
     } catch (error: any) {
       console.error('Failed to delete medicines:', error);
       showToast.error('Failed to delete medicines');
-    } finally {
-      setShowMassDeleteDialog(false);
     }
   };
 
