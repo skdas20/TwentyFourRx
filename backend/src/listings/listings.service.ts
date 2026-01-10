@@ -977,6 +977,13 @@ export class ListingsService {
         });
       }
 
+      // PERFORMANCE OPTIMIZATION: Fetch ALL medicines and references ONCE before the loop
+      const activeMedicines = await this.prisma.medicine.findMany({
+        include: { manufacturer: true },
+      });
+
+      const refMedicines = await this.prisma.medicineReference.findMany();
+
       const parsedRows: any[] = [];
 
       for (const record of records) {
@@ -999,16 +1006,13 @@ export class ListingsService {
         const normalizedManufacturer = String(manufacturer).toLowerCase().trim();
 
         // 1. Check Active Medicines with flexible matching
-        const activeMedicines = await this.prisma.medicine.findMany({
-          where: {
-            form: { equals: form, mode: 'insensitive' },
-          },
-          include: { manufacturer: true },
-        });
+        const activeMedicinesFiltered = activeMedicines.filter(med =>
+          String(med.form).toLowerCase().trim() === normalizedForm
+        );
 
-        let activeMatch = activeMedicines.find(med => {
+        let activeMatch = activeMedicinesFiltered.find(med => {
           const medNameNorm = this.normalizeMedicineName(med.name);
-          const medStrengthNorm = med.strength ? med.strength.toLowerCase().replace(/\s+/g, '').trim() : '';
+          const medStrengthNorm = med.strength ? String(med.strength).toLowerCase().replace(/\s+/g, '').trim() : '';
           const medManufNorm = med.manufacturer?.name?.toLowerCase().trim() || '';
 
           return medNameNorm === normalizedBrand &&
@@ -1028,15 +1032,13 @@ export class ListingsService {
         }
 
         // 2. Check Reference Medicines with flexible matching
-        const refMedicines = await this.prisma.medicineReference.findMany({
-          where: {
-            form: { equals: form, mode: 'insensitive' },
-          },
-        });
+        const refMedicinesFiltered = refMedicines.filter(ref =>
+          String(ref.form).toLowerCase().trim() === normalizedForm
+        );
 
-        let refMatch = refMedicines.find(ref => {
+        let refMatch = refMedicinesFiltered.find(ref => {
           const refNameNorm = this.normalizeMedicineName(ref.name);
-          const refStrengthNorm = ref.strength ? ref.strength.toLowerCase().replace(/\s+/g, '').trim() : '';
+          const refStrengthNorm = ref.strength ? String(ref.strength).toLowerCase().replace(/\s+/g, '').trim() : '';
           const refManufNorm = ref.manufacturer?.toLowerCase().trim() || '';
 
           return refNameNorm === normalizedBrand &&
@@ -1244,6 +1246,23 @@ export class ListingsService {
     }
 
     return results;
+  }
+
+  // ADMIN: Delete bulk listing request
+  async deleteBulkListingRequest(requestId: string) {
+    const request = await this.prisma.bulkListingRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Bulk listing request not found');
+    }
+
+    await this.prisma.bulkListingRequest.delete({
+      where: { id: requestId },
+    });
+
+    return { message: 'Bulk listing request deleted successfully' };
   }
 
   // Update listing (seller/trader only)

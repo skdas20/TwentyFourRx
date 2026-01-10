@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { FileText, Clock, CheckCircle, XCircle, ChevronRight, Download, ArrowLeft } from "lucide-react";
+import { FileText, Clock, CheckCircle, XCircle, ChevronRight, Download, ArrowLeft, Trash2 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function BulkListingsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -20,12 +21,31 @@ export default function BulkListingsPage() {
       setLoading(true);
       setError(null);
       const res = await listingsApi.getBulkRequests();
-      setRequests(res.data || []);
+      // Filter to show only PENDING or PROCESSED requests
+      const filteredRequests = (res.data || []).filter(
+        (r: any) => r.status === 'PENDING' || r.status === 'PROCESSED'
+      );
+      setRequests(filteredRequests);
     } catch (error: any) {
       console.error("Failed to load bulk requests:", error);
       setError(error.response?.data?.message || "Failed to load requests. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string, sellerName: string) => {
+    if (!confirm(`Are you sure you want to delete bulk request from ${sellerName}?`)) {
+      return;
+    }
+
+    try {
+      await listingsApi.deleteBulkRequest(id);
+      showToast.success('Bulk request deleted successfully');
+      loadRequests(); // Reload the list
+    } catch (error: any) {
+      console.error('Failed to delete bulk request:', error);
+      showToast.error(error.response?.data?.message || 'Failed to delete request');
     }
   };
 
@@ -111,7 +131,7 @@ export default function BulkListingsPage() {
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Items Found</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Action</th>
+                  <th className="px-6 py-4">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -131,13 +151,22 @@ export default function BulkListingsPage() {
                       {getStatusBadge(req.status)}
                     </td>
                     <td className="px-6 py-4">
-                      <Link
-                        href={`/dashboard/admin/bulk-listings/${req.id}`}
-                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                      >
-                        Review
-                        <ChevronRight className="w-4 h-4" />
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/admin/bulk-listings/${req.id}`}
+                          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                        >
+                          Review
+                          <ChevronRight className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(req.id, req.seller?.name || 'Unknown')}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Delete request"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -102,6 +102,7 @@ export const listingsApi = {
   getBulkRequest: (id: string) => api.get(`/listings/bulk/requests/${id}`),
   approveBulkItems: (id: string, selectedIndices: number[]) =>
     api.post(`/listings/bulk/requests/${id}/approve`, { selectedIndices }),
+  deleteBulkRequest: (id: string) => api.delete(`/listings/bulk/requests/${id}`),
 }
 
 // Orders API

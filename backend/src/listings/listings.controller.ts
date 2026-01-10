@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -205,6 +206,14 @@ export class ListingsController {
     @Body() dto: ApproveBulkListingDto,
   ) {
     return this.listingsService.approveBulkListingItems(id, dto.selectedIndices);
+  }
+
+  // ADMIN: Delete bulk listing request
+  @Delete('bulk/requests/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async deleteBulkListingRequest(@Param('id') id: string) {
+    return this.listingsService.deleteBulkListingRequest(id);
   }
 
   // ADMIN: Get pending medicine proposals (MUST be before :id routes)
