@@ -68,6 +68,7 @@ export const medicinesApi = {
   getMedicines: (params?: { search?: string }) =>
     api.get('/medicines', { params }),
   getMedicine: (id: string) => api.get(`/medicines/${id}`),
+  getAllMedicinesForAdmin: () => api.get('/medicines/admin/all'),
 }
 
 // Medicine References API (Search from 251K+ medicines)

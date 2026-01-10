@@ -63,30 +63,10 @@ export default function MedicineManagementPage() {
   const fetchMedicines = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-      const url = `${apiUrl}/medicines/admin/all`;
-
-      console.log('Fetching medicines from:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to fetch medicines: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('Medicines loaded:', data.length);
-      setMedicines(data);
+      const { medicinesApi } = await import('@/lib/api');
+      const response = await medicinesApi.getAllMedicinesForAdmin();
+      console.log('Medicines loaded:', response.data.length);
+      setMedicines(response.data);
     } catch (error: any) {
       console.error('Failed to load medicines:', error);
       showToast.error(`Failed to load medicines: ${error.message}`);
@@ -104,23 +84,13 @@ export default function MedicineManagementPage() {
     if (!medicineToDelete) return;
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${medicineToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete medicine');
-      }
+      const { api } = await import('@/lib/api');
+      await api.delete(`/medicines/${medicineToDelete}`);
       showToast.success('Medicine deleted successfully');
       fetchMedicines();
     } catch (error: any) {
       console.error('Failed to delete medicine:', error);
-      showToast.error(error.message || 'Failed to delete medicine');
+      showToast.error(error.response?.data?.message || 'Failed to delete medicine');
     } finally {
       setShowDeleteDialog(false);
       setMedicineToDelete(null);
@@ -160,7 +130,7 @@ export default function MedicineManagementPage() {
     showToast.info(`Deleting ${totalCount} medicine(s)...`);
 
     try {
-      const token = localStorage.getItem('accessToken');
+      const { api } = await import('@/lib/api');
       const medicineIds = Array.from(selectedMedicines);
       
       // Delete in batches of 10 to avoid overwhelming the server
@@ -174,13 +144,8 @@ export default function MedicineManagementPage() {
         // Delete current batch in parallel
         const batchPromises = batch.map(async (id) => {
           try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            return { success: response.ok, id };
+            await api.delete(`/medicines/${id}`);
+            return { success: true, id };
           } catch (error) {
             return { success: false, id };
           }
