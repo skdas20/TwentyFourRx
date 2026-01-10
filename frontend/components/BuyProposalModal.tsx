@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Upload, AlertCircle, Mail, CheckCircle, Pill } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 interface BuyProposalModalProps {
   isOpen: boolean;
@@ -180,7 +181,7 @@ export default function BuyProposalModal({
       await buyProposalsApi.uploadReceipt(proposalId, formData);
 
       // Success
-      alert("Purchase submitted successfully! Your order is pending admin approval.");
+      showToast.success("Purchase submitted successfully! Your order is pending admin approval.");
       onClose(); // Form will be reset by useEffect
     } catch (err: any) {
       console.error("Failed to submit purchase:", err);

@@ -152,21 +152,68 @@ export class MedicinesService {
       throw new NotFoundException('Medicine not found');
     }
 
-    // Delete all associated listings first (manual cascade)
-    await this.prisma.listing.deleteMany({
-      where: {
-        medicineId: id,
-      },
-    });
+    try {
+      // Get all listings for this medicine first
+      const listings = await this.prisma.listing.findMany({
+        where: { medicineId: id },
+        select: { id: true },
+      });
 
-    // Delete medicine
-    await this.prisma.medicine.delete({
-      where: { id },
-    });
+      const listingIds = listings.map(l => l.id);
 
-    console.log(`🗑️ Medicine deleted: ${medicine.name}`);
-    return {
-      message: 'Medicine deleted successfully',
-    };
+      if (listingIds.length > 0) {
+        // 1. Delete all orders related to these listings
+        await this.prisma.order.deleteMany({
+          where: { listingId: { in: listingIds } },
+        });
+
+        // 2. Delete all buy proposals related to these listings
+        await this.prisma.buyProposal.deleteMany({
+          where: { listingId: { in: listingIds } },
+        });
+
+        // 3. Delete all holds related to these listings
+        await this.prisma.hold.deleteMany({
+          where: { listingId: { in: listingIds } },
+        });
+
+        // 4. Now safe to delete listings
+        await this.prisma.listing.deleteMany({
+          where: { medicineId: id },
+        });
+      }
+
+      // 5. Delete inventory lots
+      await this.prisma.inventoryLot.deleteMany({
+        where: { medicineId: id },
+      });
+
+      // 6. Delete medicine proposals (if any reference this medicine)
+      await this.prisma.medicineProposal.deleteMany({
+        where: { approvedMedicineId: id },
+      });
+
+      // 7. Other relations with cascade will be handled automatically:
+      // - priceHistory (has cascade)
+      // - newsMedicines (has cascade)
+      // - analyticsRollups (has cascade)
+      // - watchlists (has cascade)
+      // - priceAlerts (has cascade)
+
+      // 8. Finally delete the medicine
+      await this.prisma.medicine.delete({
+        where: { id },
+      });
+
+      console.log(`🗑️ Medicine deleted successfully: ${medicine.name}`);
+      return {
+        message: 'Medicine deleted successfully',
+      };
+    } catch (error) {
+      console.error('Error deleting medicine:', error);
+      throw new BadRequestException(
+        `Unable to delete medicine: ${error.message}. It may have active references in protected records.`
+      );
+    }
   }
 }

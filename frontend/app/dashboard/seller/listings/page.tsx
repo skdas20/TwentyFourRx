@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Package, Plus, CheckCircle, Clock, XCircle, Pill, Edit, Trash2, X } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function MyListingsPage() {
   const router = useRouter();
@@ -84,11 +85,11 @@ export default function MyListingsPage() {
         throw new Error("Failed to update listing");
       }
 
-      alert("Listing updated successfully!");
+      showToast.success("Listing updated successfully!");
       setEditingListing(null);
       await loadListings();
     } catch (error: any) {
-      alert(error.message || "Failed to update listing");
+      showToast.error(error.message || "Failed to update listing");
     } finally {
       setUpdating(false);
     }
@@ -113,11 +114,11 @@ export default function MyListingsPage() {
         throw new Error("Failed to delete listing");
       }
 
-      alert("Listing deleted successfully!");
+      showToast.success("Listing deleted successfully!");
       setDeletingListing(null);
       await loadListings();
     } catch (error: any) {
-      alert(error.message || "Failed to delete listing");
+      showToast.error(error.message || "Failed to delete listing");
     } finally {
       setDeleting(false);
     }

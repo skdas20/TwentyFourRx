@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { FileText, CheckCircle, XCircle, ExternalLink, Package } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { showToast } from '@/lib/toast';
 
 interface DeliveryRequest {
   id: string;
@@ -93,7 +94,7 @@ export default function DeliveryVerificationPage() {
       setNote('');
       setSelectedRequest(null);
     } catch (err: any) {
-      alert(err.message);
+      showToast.error(err.message);
     } finally {
       setProcessingId(null);
     }

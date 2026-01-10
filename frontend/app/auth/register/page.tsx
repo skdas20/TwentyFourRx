@@ -44,6 +44,9 @@ export default function RegisterPage() {
     email: '',
     phone: '',
     roleCode: 'SELLER' as 'TRADER' | 'SELLER',
+    dlNumber: '',
+    gstin: '',
+    address: '',
   })
   const [documents, setDocuments] = useState<{ [key: string]: File }>({})
   const [error, setError] = useState('')
@@ -75,8 +78,8 @@ export default function RegisterPage() {
   }
 
   const validateStep1 = () => {
-    if (!formData.name || !formData.email) {
-      setError('Please fill all required fields')
+    if (!formData.name || !formData.email || !formData.dlNumber || !formData.gstin || !formData.address) {
+      setError('Please fill all required fields (Name, Email, DL Number, GSTIN, Address)')
       return false
     }
     setError('')
@@ -116,6 +119,9 @@ export default function RegisterPage() {
       formDataToSend.append('email', formData.email)
       if (formData.phone) formDataToSend.append('phone', formData.phone)
       formDataToSend.append('roleCode', formData.roleCode)
+      formDataToSend.append('dlNumber', formData.dlNumber)
+      formDataToSend.append('gstin', formData.gstin)
+      formDataToSend.append('address', formData.address)
 
       // Append all documents
       Object.entries(documents).forEach(([code, file]) => {
@@ -264,6 +270,51 @@ export default function RegisterPage() {
               </div>
 
               <div>
+                <label htmlFor="dlNumber" className="block text-sm font-medium text-[var(--ink)] mb-2">
+                  Drug License Number (D.L.) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="dlNumber"
+                  type="text"
+                  required
+                  className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                  placeholder="Enter DL Number"
+                  value={formData.dlNumber}
+                  onChange={(e) => setFormData({ ...formData, dlNumber: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="gstin" className="block text-sm font-medium text-[var(--ink)] mb-2">
+                  GSTIN <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="gstin"
+                  type="text"
+                  required
+                  className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                  placeholder="Enter GSTIN"
+                  value={formData.gstin}
+                  onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-[var(--ink)] mb-2">
+                  Address <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="address"
+                  required
+                  className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition resize-none"
+                  placeholder="Enter full address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-[var(--ink)] mb-2">
                   Phone
                 </label>
@@ -297,9 +348,10 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:bg-[var(--brand-blue-hi)] transition font-semibold"
+                className="group relative px-8 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
               >
-                Next: Upload Documents
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <span className="relative">Next: Upload Documents →</span>
               </button>
             </div>
           </div>
@@ -384,16 +436,17 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-[var(--ink)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-semibold"
+                className="px-8 py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition-all font-semibold border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:bg-[var(--brand-blue-hi)] transition font-semibold"
+                className="group relative px-8 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] overflow-hidden"
               >
-                Next: Review & Submit
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <span className="relative">Next: Review & Submit →</span>
               </button>
             </div>
           </div>
@@ -423,6 +476,18 @@ export default function RegisterPage() {
                 <div>
                   <span className="text-[var(--muted)]">Account Type:</span>
                   <p className="font-medium text-[var(--ink)]">{formData.roleCode}</p>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)]">DL Number:</span>
+                  <p className="font-medium text-[var(--ink)]">{formData.dlNumber}</p>
+                </div>
+                <div>
+                  <span className="text-[var(--muted)]">GSTIN:</span>
+                  <p className="font-medium text-[var(--ink)]">{formData.gstin}</p>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-[var(--muted)]">Address:</span>
+                  <p className="font-medium text-[var(--ink)]">{formData.address}</p>
                 </div>
               </div>
             </div>
@@ -460,7 +525,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-[var(--ink)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-semibold"
+                className="px-8 py-3.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl transition-all font-semibold border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
               >
                 Back
               </button>
@@ -468,9 +533,10 @@ export default function RegisterPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold disabled:opacity-50 shadow-lg"
+                className="group relative px-10 py-3.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 overflow-hidden"
               >
-                {loading ? 'Submitting...' : 'Submit for Approval'}
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <span className="relative">{loading ? 'Submitting...' : 'Submit for Approval ✓'}</span>
               </button>
             </div>
           </div>

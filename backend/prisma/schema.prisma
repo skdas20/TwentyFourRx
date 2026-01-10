@@ -93,6 +93,9 @@ model User {
   password  String
   roleCode  String     @map("role_code") @db.VarChar(32)
   status    UserStatus @default(PENDING)
+  dlNumber  String?    @map("dl_number")
+  gstin     String?    @map("gstin")
+  address   String?    @map("address")
   isActive  Boolean    @default(true) @map("is_active")
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -115,6 +118,7 @@ model User {
   contributedMedicines    MedicineContribution[] @relation("ContributedMedicines")
   reviewedContributions   MedicineContribution[] @relation("ReviewedContributions")
   supportTickets          SupportTicket[]
+  bulkListingRequests     BulkListingRequest[]
 
   @@index([roleCode])
   @@index([status])
@@ -535,6 +539,7 @@ model BuyProposal {
   qty             Int
   orderType       String         @map("order_type") // "delivery", "intraday", "mtf"
   receiptUrl      String?        @map("receipt_url") // Uploaded receipt/proof
+  sellerInvoiceUrl String?       @map("seller_invoice_url") // Invoice uploaded by seller
   notes           String?        // Optional notes from buyer
   status          ProposalStatus @default(PENDING)
   reviewerNote    String?        @map("reviewer_note")
@@ -608,3 +613,20 @@ model SupportTicket {
 
 // Updated Medicine model - add this field to the existing Medicine model  
 // imageUrl         String?       @map("image_url") // Medicine product image URL
+
+model BulkListingRequest {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerId     String   @map("seller_id") @db.Uuid
+  csvUrl       String   @map("csv_url")
+  documentUrl  String   @map("document_url")
+  status       String   @default("PENDING") // PENDING, PROCESSED, REJECTED
+  parsedData   Json?    @map("parsed_data") // Store the rows and their match status here
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  seller       User     @relation(fields: [sellerId], references: [id])
+
+  @@index([sellerId])
+  @@index([status])
+  @@map("bulk_listing_requests")
+}

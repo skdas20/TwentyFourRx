@@ -250,6 +250,75 @@ export default function NotificationsPage() {
                         </Link>
                       </div>
                     )}
+                    {notification.meta?.buyProposalId && user?.roleCode === 'ADMIN' && (
+                      <div className="mt-3">
+                        <Link
+                          href="/dashboard/admin/buy-proposals"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText size={14} />
+                          Review Proposal
+                        </Link>
+                      </div>
+                    )}
+                    {notification.meta?.supportTicketId && (
+                      <div className="mt-3">
+                        <Link
+                          href={user?.roleCode === 'ADMIN' ? "/dashboard/admin/support" : "/support"}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded hover:bg-orange-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MessageCircle size={14} />
+                          View Ticket
+                        </Link>
+                      </div>
+                    )}
+                    {notification.meta?.type === 'UPLOAD_INVOICE' && notification.meta?.buyProposalId && (
+                      <div className="mt-3">
+                        <Link
+                          href={`/dashboard/seller/proposals/${notification.meta.buyProposalId}`}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText size={14} />
+                          Upload Invoice
+                        </Link>
+                      </div>
+                    )}
+                    {/* Admin Links for Listing Management */}
+                    {user?.roleCode === 'ADMIN' && (
+                      <>
+                        {(notification.meta?.listingId || notification.meta?.type === 'NEW_LISTING') && (
+                          <div className="mt-3">
+                            <Link href="/dashboard/admin/listings" className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition" onClick={(e) => e.stopPropagation()}>
+                              <FileText size={14} /> Review Listing
+                            </Link>
+                          </div>
+                        )}
+                        {(notification.meta?.proposalId || notification.meta?.type === 'MEDICINE_PROPOSAL') && (
+                          <div className="mt-3">
+                            <Link href="/dashboard/admin/listings" className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 transition" onClick={(e) => e.stopPropagation()}>
+                              <FileText size={14} /> Review Proposal
+                            </Link>
+                          </div>
+                        )}
+                        {(notification.meta?.bulkRequestId || notification.meta?.type === 'BULK_LISTING') && (
+                          <div className="mt-3">
+                            <Link href={`/dashboard/admin/bulk-listings/${notification.meta.bulkRequestId}`} className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white text-xs font-medium rounded hover:bg-teal-700 transition" onClick={(e) => e.stopPropagation()}>
+                              <FileText size={14} /> Review Bulk Request
+                            </Link>
+                          </div>
+                        )}
+                        {(notification.meta?.contributionId || notification.meta?.type === 'CONTRIBUTION') && (
+                          <div className="mt-3">
+                            <Link href="/dashboard/admin/contributions" className="inline-flex items-center gap-2 px-3 py-1.5 bg-cyan-600 text-white text-xs font-medium rounded hover:bg-cyan-700 transition" onClick={(e) => e.stopPropagation()}>
+                              <FileText size={14} /> Review Contribution
+                            </Link>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

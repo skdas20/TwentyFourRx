@@ -18,6 +18,9 @@ export interface RegisterDto {
   email: string;
   phone?: string;
   roleCode?: 'TRADER' | 'SELLER'; // Optional, defaults to TRADER
+  dlNumber?: string;
+  gstin?: string;
+  address?: string;
   // password removed - will be auto-generated
 }
 
@@ -76,6 +79,11 @@ export class AuthService {
       throw new BadRequestException('Invalid role. Must be TRADER or SELLER');
     }
 
+    // Validate Required Business Fields
+    if (!dto.dlNumber || !dto.gstin || !dto.address) {
+      throw new BadRequestException('DL Number, GSTIN and Address are required for registration');
+    }
+
     // Generate secure password
     const generatedPassword = generateSecurePassword();
     
@@ -91,6 +99,9 @@ export class AuthService {
         password: hashedPassword,
         roleCode: roleCode,
         status: 'PENDING',
+        dlNumber: dto.dlNumber,
+        gstin: dto.gstin,
+        address: dto.address,
       },
       select: {
         id: true,
@@ -139,20 +150,16 @@ export class AuthService {
       }
     }
 
-    // Send welcome email with generated password
-    try {
-      await this.emailService.sendWelcomeEmail(
-        user.email,
-        user.name,
-        user.email,
-        generatedPassword, // Send the plain password via email
-      );
-    } catch (error) {
+    // Send welcome email with generated password (asynchronously)
+    this.emailService.sendWelcomeEmail(
+      user.email,
+      user.name,
+      user.email,
+      generatedPassword, // Send the plain password via email
+    ).catch(error => {
       console.error('Failed to send welcome email:', error);
-      // Delete the user if email fails to ensure they can retry
-      await this.prisma.user.delete({ where: { id: user.id } });
-      throw new BadRequestException('Failed to send welcome email. Please try again.');
-    }
+      // Note: Not deleting user since registration already succeeded
+    });
 
     return {
       message: 'Registration successful! Please check your email for your login credentials.',
@@ -388,17 +395,15 @@ export class AuthService {
       },
     });
 
-    // Send password reset email
-    try {
-      await this.emailService.sendPasswordResetEmail(
-        user.email,
-        user.name,
-        resetToken, // Send plain token in email
-      );
-    } catch (error) {
+    // Send password reset email asynchronously
+    this.emailService.sendPasswordResetEmail(
+      user.email,
+      user.name,
+      resetToken, // Send plain token in email
+    ).catch(error => {
       console.error('Failed to send password reset email:', error);
       // Still return success to prevent email enumeration
-    }
+    });
 
     return { message: successMessage };
   }
@@ -452,15 +457,13 @@ export class AuthService {
       data: { usedAt: new Date() },
     });
 
-    // Send confirmation email
-    try {
-      await this.emailService.sendPasswordChangedEmail(
-        tokenRecord.user.email,
-        tokenRecord.user.name,
-      );
-    } catch (error) {
+    // Send confirmation email asynchronously
+    this.emailService.sendPasswordChangedEmail(
+      tokenRecord.user.email,
+      tokenRecord.user.name,
+    ).catch(error => {
       console.error('Failed to send password changed email:', error);
-    }
+    });
 
     return { message: 'Password reset successful. You can now log in with your new password.' };
   }

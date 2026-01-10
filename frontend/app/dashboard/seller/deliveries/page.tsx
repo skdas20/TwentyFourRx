@@ -7,6 +7,7 @@ import { Package, Upload, CheckCircle, Clock, Truck, Bell, Eye, XCircle, Pill, A
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 import ProfileDropdown from '@/components/ProfileDropdown';
+import { showToast } from '@/lib/toast';
 
 interface DeliveryRequest {
   id: string;
@@ -100,17 +101,17 @@ export default function SellerDeliveriesPage() {
     const partner = deliveryPartner[requestId];
 
     if (!file) {
-      alert('Please select a courier invoice/document to upload');
+      showToast.error('Please select a courier invoice/document to upload');
       return;
     }
 
     if (!tracking || !tracking.trim()) {
-      alert('Please enter the tracking number');
+      showToast.error('Please enter the tracking number');
       return;
     }
 
     if (!partner || !partner.trim()) {
-      alert('Please enter the delivery partner name');
+      showToast.error('Please enter the delivery partner name');
       return;
     }
 
@@ -137,7 +138,7 @@ export default function SellerDeliveriesPage() {
         throw new Error(error.message || 'Failed to confirm dispatch');
       }
 
-      alert('Dispatch confirmed! Request sent to admin for approval.');
+      showToast.success('Dispatch confirmed! Request sent to admin for approval.');
       await fetchMyRequests();
       setSelectedFile(prev => ({
         ...prev,
@@ -152,7 +153,7 @@ export default function SellerDeliveriesPage() {
         [requestId]: '',
       }));
     } catch (err: any) {
-      alert(err.message);
+      showToast.error(err.message);
     } finally {
       setUploadingId(null);
     }

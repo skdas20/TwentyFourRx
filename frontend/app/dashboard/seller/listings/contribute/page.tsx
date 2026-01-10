@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Upload, X, ImageIcon } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import AutocompleteInput from "@/components/AutocompleteInput";
+import { showToast } from "@/lib/toast";
 
 export default function ContributeMedicinePage() {
   const router = useRouter();
@@ -40,13 +41,13 @@ export default function ContributeMedicinePage() {
       // Validate file type
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Invalid file type. Only JPG, PNG, and WebP images are allowed.');
+        showToast.error('Invalid file type. Only JPG, PNG, and WebP images are allowed.');
         return;
       }
       
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        alert('File is too large. Maximum size is 5MB.');
+        showToast.error('File is too large. Maximum size is 5MB.');
         return;
       }
       
@@ -70,18 +71,18 @@ export default function ContributeMedicinePage() {
     e.preventDefault();
     
     if (!name || !composition || !form || !strength || !manufacturer || !mrp) {
-      alert("Please fill in all required fields");
+      showToast.error("Please fill in all required fields");
       return;
     }
 
     if (!productImage) {
-      alert("Product image is required. Please upload an image of the medicine.");
+      showToast.error("Product image is required. Please upload an image of the medicine.");
       return;
     }
 
     const parsedMrp = parseFloat(mrp);
     if (isNaN(parsedMrp) || parsedMrp <= 0) {
-      alert("Please enter a valid MRP greater than 0");
+      showToast.error("Please enter a valid MRP greater than 0");
       return;
     }
 
@@ -116,11 +117,11 @@ export default function ContributeMedicinePage() {
         throw new Error(data.message || 'Failed to submit medicine contribution');
       }
       
-      alert("Medicine contribution submitted successfully! You can now create a listing for this medicine.");
+      showToast.success("Medicine contribution submitted successfully! You can now create a listing for this medicine.");
       router.push("/dashboard/seller/listings/new");
     } catch (error: any) {
       console.error("Failed to contribute medicine:", error);
-      alert(error.message || "Failed to submit contribution. Please try again.");
+      showToast.error(error.message || "Failed to submit contribution. Please try again.");
     } finally {
       setSubmitting(false);
     }

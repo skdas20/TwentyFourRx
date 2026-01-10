@@ -93,6 +93,15 @@ export const listingsApi = {
     api.patch(`/listings/proposals/${id}/approve`, { adminMarkupPct }),
   rejectMedicineProposal: (id: string, reviewerNote: string) =>
     api.patch(`/listings/proposals/${id}/reject`, { reviewerNote }),
+  // Bulk Listings
+  createBulkListing: (data: FormData) =>
+    api.post('/listings/bulk', data, {
+      headers: { 'Content-Type': undefined },
+    }),
+  getBulkRequests: (status?: string) => api.get('/listings/bulk/requests', { params: { status } }),
+  getBulkRequest: (id: string) => api.get(`/listings/bulk/requests/${id}`),
+  approveBulkItems: (id: string, selectedIndices: number[]) =>
+    api.post(`/listings/bulk/requests/${id}/approve`, { selectedIndices }),
 }
 
 // Orders API
@@ -205,7 +214,12 @@ export const buyProposalsApi = {
     api.post(`/buy-proposals/${proposalId}/upload-receipt`, data, {
       headers: { 'Content-Type': undefined }, // Let browser set multipart boundary
     }),
+  uploadSellerInvoice: (proposalId: string, data: FormData) =>
+    api.post(`/buy-proposals/${proposalId}/seller-invoice`, data, {
+      headers: { 'Content-Type': undefined },
+    }),
   getMyProposals: () => api.get('/buy-proposals/my'),
+  getProposal: (id: string) => api.get(`/buy-proposals/${id}`),
   getPendingProposals: () => api.get('/buy-proposals/pending'),
   approveProposal: (id: string, data: FormData | { reviewerNote?: string }) => {
     // Check if data is FormData (new flow with invoice upload) or plain object (old flow)

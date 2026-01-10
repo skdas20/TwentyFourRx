@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Search, Plus, FileText, Upload, Download } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { medicineReferencesApi, inventoryApi, listingsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 function NewListingContent() {
   const router = useRouter();
@@ -172,7 +173,7 @@ function NewListingContent() {
       }
     } catch (error: any) {
       console.error("Failed to load medicine:", error);
-      alert("Failed to load medicine. Please search manually.");
+      showToast.error("Failed to load medicine. Please search manually.");
     } finally {
       setLoadingMedicine(false);
     }
@@ -180,7 +181,7 @@ function NewListingContent() {
 
   const handleSearch = async () => {
     if (searchQuery.length < 2) {
-      alert("Please enter at least 2 characters to search");
+      showToast.warning("Please enter at least 2 characters to search");
       return;
     }
     
@@ -194,11 +195,11 @@ function NewListingContent() {
       if (response.data && response.data.length > 0) {
         setSearchResults(response.data);
       } else {
-        alert("No medicines found. Try a different search term.");
+        showToast.info("No medicines found. Try a different search term.");
       }
     } catch (error: any) {
       console.error("Search failed:", error);
-      alert(error.response?.data?.message || "Search failed. Please try again.");
+      showToast.error(error.response?.data?.message || "Search failed. Please try again.");
     } finally {
       setSearching(false);
     }
@@ -207,7 +208,7 @@ function NewListingContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMedicine || !proposedMrp || !basePrice || !stock || !productImage) {
-      alert("Please fill in all required fields including medicine photo");
+      showToast.error("Please fill in all required fields including medicine photo");
       return;
     }
 
@@ -216,23 +217,23 @@ function NewListingContent() {
     const parsedStock = parseInt(stock);
 
     if (isNaN(parsedMrp) || parsedMrp <= 0) {
-      alert("Please enter a valid MRP greater than 0");
+      showToast.error("Please enter a valid MRP greater than 0");
       return;
     }
 
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      alert("Please enter a valid price greater than 0");
+      showToast.error("Please enter a valid price greater than 0");
       return;
     }
 
     // Validate price is lower than proposed MRP
     if (parsedPrice >= parsedMrp) {
-      alert(`Your selling price (₹${parsedPrice}) must be lower than the MRP (₹${parsedMrp}). Please offer a discount to attract buyers.`);
+      showToast.warning(`Your selling price (₹${parsedPrice}) must be lower than the MRP (₹${parsedMrp}). Please offer a discount to attract buyers.`);
       return;
     }
 
     if (isNaN(parsedStock) || parsedStock <= 0) {
-      alert("Please enter a valid stock quantity greater than 0");
+      showToast.error("Please enter a valid stock quantity greater than 0");
       return;
     }
 
@@ -304,7 +305,7 @@ function NewListingContent() {
 
       console.log("Listing created:", data);
 
-      alert(data?.message || "Listing created successfully!");
+      showToast.success(data?.message || "Listing created successfully!");
       router.push("/dashboard/seller");
     } catch (error: any) {
       console.error("Failed to create listing:", error);
@@ -319,7 +320,7 @@ function NewListingContent() {
         errorMessage = error.message;
       }
       
-      alert(errorMessage);
+      showToast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -328,7 +329,7 @@ function NewListingContent() {
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkCsv || !bulkDoc) {
-      alert("Please upload both CSV and Credibility Document");
+      showToast.error("Please upload both CSV and Credibility Document");
       return;
     }
 
@@ -339,11 +340,11 @@ function NewListingContent() {
       formData.append('document', bulkDoc);
 
       await listingsApi.createBulkListing(formData);
-      alert("Bulk listing request submitted successfully! Admin will review matches.");
+      showToast.success("Bulk listing request submitted successfully! Admin will review matches.");
       router.push("/dashboard/seller");
     } catch (error: any) {
       console.error("Bulk upload failed:", error);
-      alert(error.response?.data?.message || "Bulk upload failed");
+      showToast.error(error.response?.data?.message || "Bulk upload failed");
     } finally {
       setSubmitting(false);
     }
@@ -856,7 +857,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                     if (file) {
                       // Check file size (5MB = 5 * 1024 * 1024 bytes)
                       if (file.size > 5 * 1024 * 1024) {
-                        alert("Image file size must be less than 5MB. Please compress or resize the image.");
+                        showToast.error("Image file size must be less than 5MB. Please compress or resize the image.");
                         e.target.value = '';
                         setProductImage(null);
                         return;
@@ -895,7 +896,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                     if (file) {
                       // Check file size (5MB = 5 * 1024 * 1024 bytes)
                       if (file.size > 5 * 1024 * 1024) {
-                        alert("Document file size must be less than 5MB. Please compress the file.");
+                        showToast.error("Document file size must be less than 5MB. Please compress the file.");
                         e.target.value = '';
                         setDocument(null);
                         return;

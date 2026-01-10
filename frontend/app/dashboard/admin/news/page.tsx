@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Edit, Trash2, Eye, EyeOff, ExternalLink, LogOut } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { showToast } from "@/lib/toast";
 
 export default function AdminNewsPage() {
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function AdminNewsPage() {
     e.preventDefault();
     
     if (!title.trim()) {
-      alert("Please enter a title");
+      showToast.error("Please enter a title");
       return;
     }
 
@@ -127,12 +128,12 @@ export default function AdminNewsPage() {
         throw new Error('Failed to save news');
       }
 
-      alert(editingNews ? 'News updated successfully!' : 'News created successfully!');
+      showToast.success(editingNews ? 'News updated successfully!' : 'News created successfully!');
       handleCloseModal();
       loadNews();
     } catch (error: any) {
       console.error('Failed to save news:', error);
-      alert(error.message || 'Failed to save news');
+      showToast.error(error.message || 'Failed to save news');
     } finally {
       setSubmitting(false);
     }
@@ -156,11 +157,11 @@ export default function AdminNewsPage() {
         throw new Error('Failed to delete news');
       }
 
-      alert('News deleted successfully!');
+      showToast.success('News deleted successfully!');
       loadNews();
     } catch (error: any) {
       console.error('Failed to delete news:', error);
-      alert(error.message || 'Failed to delete news');
+      showToast.error(error.message || 'Failed to delete news');
     }
   };
 
@@ -183,7 +184,7 @@ export default function AdminNewsPage() {
       loadNews();
     } catch (error: any) {
       console.error('Failed to toggle publish:', error);
-      alert(error.message || 'Failed to toggle publish status');
+      showToast.error(error.message || 'Failed to toggle publish status');
     }
   };
 

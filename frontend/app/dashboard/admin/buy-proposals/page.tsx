@@ -6,6 +6,7 @@ import Link from "next/link";
 import { FileText, CheckCircle, XCircle, Clock, Eye, Download, ArrowLeft, Upload } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
+import { showToast } from "@/lib/toast";
 
 export default function BuyProposalsPage() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function BuyProposalsPage() {
 
   const handleApprove = async (id: string) => {
     if (!invoiceFile) {
-      alert("Please upload an invoice document before approving");
+      showToast.error("Please upload an invoice document before approving");
       return;
     }
     if (!confirm("Are you sure you want to approve this proposal?")) return;
@@ -62,14 +63,14 @@ export default function BuyProposalsPage() {
       formData.append('invoice', invoiceFile);
 
       await buyProposalsApi.approveProposal(id, formData);
-      alert("Proposal approved successfully! Invoice sent to buyer.");
+      showToast.success("Proposal approved successfully! Invoice sent to buyer.");
       setSelectedProposal(null);
       setReviewerNote("");
       setInvoiceFile(null);
       loadProposals();
     } catch (error: any) {
       console.error("Failed to approve:", error);
-      alert(error.response?.data?.message || "Failed to approve proposal");
+      showToast.error(error.response?.data?.message || "Failed to approve proposal");
     } finally {
       setProcessing(false);
     }
@@ -77,7 +78,7 @@ export default function BuyProposalsPage() {
 
   const handleReject = async (id: string) => {
     if (!reviewerNote.trim()) {
-      alert("Please provide a reason for rejection");
+      showToast.error("Please provide a reason for rejection");
       return;
     }
     if (!confirm("Are you sure you want to reject this proposal?")) return;
@@ -85,14 +86,14 @@ export default function BuyProposalsPage() {
     try {
       setProcessing(true);
       await buyProposalsApi.rejectProposal(id, reviewerNote);
-      alert("Proposal rejected successfully!");
+      showToast.success("Proposal rejected successfully!");
       setSelectedProposal(null);
       setReviewerNote("");
       setInvoiceFile(null);
       loadProposals();
     } catch (error: any) {
       console.error("Failed to reject:", error);
-      alert(error.response?.data?.message || "Failed to reject proposal");
+      showToast.error(error.response?.data?.message || "Failed to reject proposal");
     } finally {
       setProcessing(false);
     }
@@ -197,7 +198,21 @@ export default function BuyProposalsPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 ml-4">
+                  <div className="flex flex-col gap-2 ml-4 items-end">
+                    {proposal.sellerInvoiceUrl ? (
+                      <a
+                        href={proposal.sellerInvoiceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-green-600 dark:text-green-400 flex items-center gap-1 mb-1"
+                      >
+                        <CheckCircle className="w-3 h-3" /> Seller Invoice Ready
+                      </a>
+                    ) : (
+                      <span className="text-xs font-medium text-orange-600 dark:text-orange-400 flex items-center gap-1 mb-1">
+                        <Clock className="w-3 h-3" /> Pending Seller Invoice
+                      </span>
+                    )}
                     {proposal.receiptUrl ? (
                       <a
                         href={proposal.receiptUrl}
@@ -275,7 +290,7 @@ export default function BuyProposalsPage() {
               )}
 
               <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Receipt Document:</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Receipt Document (Buyer):</p>
                 {selectedProposal.receiptUrl ? (
                   <a
                     href={selectedProposal.receiptUrl}
@@ -290,6 +305,26 @@ export default function BuyProposalsPage() {
                   <div className="inline-flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg border-2 border-orange-200 dark:border-orange-700">
                     <FileText className="w-5 h-5" />
                     <span className="font-medium">No receipt document attached</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Seller Invoice:</p>
+                {selectedProposal.sellerInvoiceUrl ? (
+                  <a
+                    href={selectedProposal.sellerInvoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors border-2 border-green-200 dark:border-green-700 font-medium"
+                  >
+                    <FileText className="w-5 h-5" />
+                    View Seller Invoice
+                  </a>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-4 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg border-2 border-orange-200 dark:border-orange-700">
+                    <Clock className="w-5 h-5" />
+                    <span className="font-medium">Pending Seller Upload</span>
                   </div>
                 )}
               </div>
@@ -321,13 +356,13 @@ export default function BuyProposalsPage() {
                       if (file) {
                         // Validate file size (max 10MB)
                         if (file.size > 10 * 1024 * 1024) {
-                          alert("File size must be less than 10MB");
+                          showToast.error("File size must be less than 10MB");
                           return;
                         }
                         // Validate file type
                         const validTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
                         if (!validTypes.includes(file.type)) {
-                          alert("Only JPG, PNG, and PDF files are allowed");
+                          showToast.error("Only JPG, PNG, and PDF files are allowed");
                           return;
                         }
                         setInvoiceFile(file);

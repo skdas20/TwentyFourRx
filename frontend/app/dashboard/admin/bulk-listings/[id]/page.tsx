@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Download, CheckCircle, AlertCircle, FileText, ExternalLink } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function BulkRequestDetailPage() {
   const params = useParams();
@@ -60,11 +61,11 @@ export default function BulkRequestDetailPage() {
       setSubmitting(true);
       const indices = Array.from(selectedIndices);
       await listingsApi.approveBulkItems(id, indices);
-      alert("Selected items approved successfully!");
+      showToast.success("Selected items approved successfully!");
       router.push("/dashboard/admin/bulk-listings");
     } catch (error: any) {
       console.error("Failed to approve:", error);
-      alert(error.response?.data?.message || "Failed to approve items");
+      showToast.error(error.response?.data?.message || "Failed to approve items");
     } finally {
       setSubmitting(false);
     }

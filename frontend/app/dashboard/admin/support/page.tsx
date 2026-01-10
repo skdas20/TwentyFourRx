@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
+import { showToast } from '@/lib/toast';
 
 interface SupportTicket {
   id: string;
@@ -135,7 +136,7 @@ export default function AdminSupportPage() {
       setRespondingTo(null);
       fetchTickets();
     } catch (err: any) {
-      alert(err.message);
+      showToast.error(err.message);
     }
   };
 
@@ -158,7 +159,7 @@ export default function AdminSupportPage() {
 
       fetchTickets();
     } catch (err: any) {
-      alert(err.message);
+      showToast.error(err.message);
     }
   };
 
@@ -185,7 +186,7 @@ export default function AdminSupportPage() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <Logo size="sm" href="/" />
+              <Logo size="sm" href="/" isLoggedIn={true} />
               <span className="text-sm text-gray-500 dark:text-gray-400">Admin - Support</span>
             </div>
 

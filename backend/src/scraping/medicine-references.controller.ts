@@ -18,12 +18,14 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { GcsService } from '../common/services/gcs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Controller('medicine-references')
 export class MedicineReferencesController {
   constructor(
     private prisma: PrismaService,
     private gcsService: GcsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   @Get('search')
@@ -33,18 +35,33 @@ export class MedicineReferencesController {
       return [];
     }
 
-    const results = await this.prisma.medicineReference.findMany({
+    // Search with name priority first
+    const nameResults = await this.prisma.medicineReference.findMany({
+      where: {
+        name: { contains: query, mode: 'insensitive' },
+        isActive: true,
+      },
+      take: 15,
+      orderBy: { name: 'asc' },
+    });
+
+    // If name results are insufficient, search by generic name and composition
+    const additionalResults = nameResults.length < 15 ? await this.prisma.medicineReference.findMany({
       where: {
         OR: [
-          { name: { contains: query, mode: 'insensitive' } },
           { genericName: { contains: query, mode: 'insensitive' } },
           { composition: { contains: query, mode: 'insensitive' } },
         ],
         isActive: true,
+        NOT: {
+          id: { in: nameResults.map(r => r.id) },
+        },
       },
-      take: 20,
+      take: 20 - nameResults.length,
       orderBy: { name: 'asc' },
-    });
+    }) : [];
+
+    const results = [...nameResults, ...additionalResults];
 
     return results.map((ref) => ({
       id: ref.id,
@@ -194,6 +211,18 @@ export class MedicineReferencesController {
         status: 'PENDING',
       },
     });
+
+    // Notify Admins
+    const admins = await this.prisma.user.findMany({ where: { roleCode: 'ADMIN' }, select: { id: true } });
+    for (const admin of admins) {
+      await this.notificationsService.createNotification({
+        userId: admin.id,
+        channel: 'INAPP',
+        subject: '💊 New Medicine Contribution',
+        body: `A new medicine contribution for ${contribution.name} has been submitted.`,
+        meta: { contributionId: contribution.id, type: 'CONTRIBUTION' },
+      });
+    }
 
     return {
       success: true,

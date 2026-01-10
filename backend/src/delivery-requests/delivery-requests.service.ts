@@ -86,16 +86,14 @@ export class DeliveryRequestsService {
             },
         });
 
-        // Send email to SELLER (not admin)
-        try {
-            await this.emailService.sendEmail(
-                seller.email,
-                '📦 Physical Delivery Request - Action Required',
-                this.getSellerDeliveryRequestTemplate(request, seller),
-            );
-        } catch (error) {
+        // Send email to SELLER (not admin) - asynchronously
+        this.emailService.sendEmail(
+            seller.email,
+            '📦 Physical Delivery Request - Action Required',
+            this.getSellerDeliveryRequestTemplate(request, seller),
+        ).catch(error => {
             console.error('Failed to send seller notification email:', error);
-        }
+        });
 
         // Create in-app notification for SELLER
         await this.prisma.notification.create({
@@ -217,16 +215,14 @@ export class DeliveryRequestsService {
             },
         });
 
-        // Send OTP via email to BUYER
-        try {
-            await this.emailService.sendEmail(
-                updated.requester.email,
-                '🔐 Delivery OTP - Your Order Has Been Dispatched',
-                this.getOtpEmailTemplate(updated, otp),
-            );
-        } catch (error) {
+        // Send OTP via email to BUYER - asynchronously
+        this.emailService.sendEmail(
+            updated.requester.email,
+            '🔐 Delivery OTP - Your Order Has Been Dispatched',
+            this.getOtpEmailTemplate(updated, otp),
+        ).catch(error => {
             console.error('Failed to send OTP email:', error);
-        }
+        });
 
         // Notify the requester (buyer) - Order dispatched
         await this.prisma.notification.create({
@@ -366,21 +362,19 @@ export class DeliveryRequestsService {
                 },
             });
 
-            // Send email to admin
-            try {
-                await this.emailService.sendEmail(
-                    admin.email,
-                    '📦 Delivery Confirmation - Admin Approval Required',
-                    `<p>A seller has confirmed dispatch and uploaded documents for a delivery request.</p>
-                     <p>Buyer: ${request.requester.name}</p>
-                     <p>Medicine: ${request.inventoryLot.medicine.name}</p>
-                     <p>Quantity: ${request.qty}</p>
-                     ${invoiceUrl ? `<p>Courier Receipt/Documents: <a href="${invoiceUrl}">View Documents</a></p>` : ''}
-                     <p>Please review and approve to generate OTP for buyer.</p>`,
-                );
-            } catch (error) {
+            // Send email to admin - asynchronously
+            this.emailService.sendEmail(
+                admin.email,
+                '📦 Delivery Confirmation - Admin Approval Required',
+                `<p>A seller has confirmed dispatch and uploaded documents for a delivery request.</p>
+                 <p>Buyer: ${request.requester.name}</p>
+                 <p>Medicine: ${request.inventoryLot.medicine.name}</p>
+                 <p>Quantity: ${request.qty}</p>
+                 ${invoiceUrl ? `<p>Courier Receipt/Documents: <a href="${invoiceUrl}">View Documents</a></p>` : ''}
+                 <p>Please review and approve to generate OTP for buyer.</p>`,
+            ).catch(error => {
                 console.error('Failed to send admin email:', error);
-            }
+            });
         }
 
         // Notify buyer that seller has confirmed
@@ -460,16 +454,14 @@ export class DeliveryRequestsService {
             },
         });
 
-        // Send OTP via email to buyer
-        try {
-            await this.emailService.sendEmail(
-                updated.requester.email,
-                '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
-                this.getOtpEmailTemplate(updated, otp),
-            );
-        } catch (error) {
+        // Send OTP via email to buyer - asynchronously
+        this.emailService.sendEmail(
+            updated.requester.email,
+            '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
+            this.getOtpEmailTemplate(updated, otp),
+        ).catch(error => {
             console.error('Failed to send OTP email:', error);
-        }
+        });
 
         // Notify the requester (buyer)
         await this.prisma.notification.create({
@@ -561,16 +553,14 @@ export class DeliveryRequestsService {
             },
         });
 
-        // Send OTP via email
-        try {
-            await this.emailService.sendEmail(
-                updated.requester.email,
-                '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
-                this.getOtpEmailTemplate(updated, otp),
-            );
-        } catch (error) {
+        // Send OTP via email - asynchronously
+        this.emailService.sendEmail(
+            updated.requester.email,
+            '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
+            this.getOtpEmailTemplate(updated, otp),
+        ).catch(error => {
             console.error('Failed to send OTP email:', error);
-        }
+        });
 
         // Notify the requester
         await this.prisma.notification.create({

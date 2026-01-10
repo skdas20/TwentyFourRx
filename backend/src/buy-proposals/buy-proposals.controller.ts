@@ -104,6 +104,12 @@ export class BuyProposalsController {
     return this.buyProposalsService.getPendingProposals();
   }
 
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async getProposal(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.buyProposalsService.getProposalById(id, user.sub);
+  }
+
   @Patch(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
@@ -142,5 +148,20 @@ export class BuyProposalsController {
       throw new Error('Receipt file is required');
     }
     return this.buyProposalsService.uploadReceipt(id, user.sub, receipt);
+  }
+
+  @Post(':id/seller-invoice')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'TRADER')
+  @UseInterceptors(FileInterceptor('invoice'))
+  async uploadSellerInvoice(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @UploadedFile() invoice: Express.Multer.File,
+  ) {
+    if (!invoice) {
+      throw new Error('Invoice file is required');
+    }
+    return this.buyProposalsService.uploadSellerInvoice(id, user.sub, invoice);
   }
 }

@@ -11,6 +11,7 @@ import ProfileDropdown from "@/components/ProfileDropdown";
 import NotificationBell from "@/components/NotificationBell";
 import BuyProposalModal from "@/components/BuyProposalModal";
 import { listingsApi, watchlistApi, pricesApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function MedicinesPage() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export default function MedicinesPage() {
       }
     } catch (error: any) {
       console.error("Failed to toggle watchlist:", error);
-      alert(error.response?.data?.message || "Failed to update watchlist");
+      showToast.error(error.response?.data?.message || "Failed to update watchlist");
     }
   };
 
@@ -243,9 +244,9 @@ export default function MedicinesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 dark:from-gray-950 dark:via-blue-950/20 dark:to-indigo-950/20">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <div className="flex justify-between items-center h-16 gap-2">
             {/* Logo & Nav */}

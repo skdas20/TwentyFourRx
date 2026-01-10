@@ -12,6 +12,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { watchlistApi, medicineReferencesApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function WatchlistPage() {
   const router = useRouter();
@@ -127,7 +128,7 @@ export default function WatchlistPage() {
       setShowSearchResults(false);
     } catch (error: any) {
       console.error("Failed to add to watchlist:", error);
-      alert(error.response?.data?.message || "Failed to add to watchlist");
+      showToast.error(error.response?.data?.message || "Failed to add to watchlist");
     } finally {
       setAddingToWatchlist(null);
     }
@@ -140,7 +141,7 @@ export default function WatchlistPage() {
       await loadWatchlists();
     } catch (error: any) {
       console.error("Failed to remove from watchlist:", error);
-      alert(error.response?.data?.message || "Failed to remove from watchlist");
+      showToast.error(error.response?.data?.message || "Failed to remove from watchlist");
     }
   };
 

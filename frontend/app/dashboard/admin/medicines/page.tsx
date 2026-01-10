@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Search, Pill, Plus, Bell, LogOut } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
+import { showToast } from '@/lib/toast';
 
 interface Medicine {
   id: string;
@@ -28,6 +30,10 @@ export default function MedicineManagementPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [medicineToDelete, setMedicineToDelete] = useState<string | null>(null);
+  const [selectedMedicines, setSelectedMedicines] = useState<Set<string>>(new Set());
+  const [showMassDeleteDialog, setShowMassDeleteDialog] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -73,32 +79,110 @@ export default function MedicineManagementPage() {
       setMedicines(data);
     } catch (error: any) {
       console.error('Failed to load medicines:', error);
-      alert(`Failed to load medicines: ${error.message}`);
+      showToast.error(`Failed to load medicines: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this medicine? This will also delete all associated listings!')) {
-      return;
-    }
+  const handleDelete = (id: string) => {
+    setMedicineToDelete(id);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!medicineToDelete) return;
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${medicineToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Failed to delete medicine');
-      alert('Medicine deleted successfully');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete medicine');
+      }
+      showToast.success('Medicine deleted successfully');
       fetchMedicines();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete medicine:', error);
-      alert('Failed to delete medicine');
+      showToast.error(error.message || 'Failed to delete medicine');
+    } finally {
+      setShowDeleteDialog(false);
+      setMedicineToDelete(null);
+    }
+  };
+
+  const toggleSelectMedicine = (id: string) => {
+    const newSelected = new Set(selectedMedicines);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedMedicines(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedMedicines.size === filteredMedicines.length) {
+      setSelectedMedicines(new Set());
+    } else {
+      setSelectedMedicines(new Set(filteredMedicines.map(m => m.id)));
+    }
+  };
+
+  const handleMassDelete = () => {
+    if (selectedMedicines.size === 0) {
+      showToast.warning('Please select medicines to delete');
+      return;
+    }
+    setShowMassDeleteDialog(true);
+  };
+
+  const confirmMassDelete = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const deletionResults = [];
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const id of selectedMedicines) {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        showToast.success(`${successCount} medicine(s) deleted successfully`);
+      }
+      if (failCount > 0) {
+        showToast.error(`${failCount} medicine(s) could not be deleted`);
+      }
+
+      setSelectedMedicines(new Set());
+      fetchMedicines();
+    } catch (error: any) {
+      console.error('Failed to delete medicines:', error);
+      showToast.error('Failed to delete medicines');
+    } finally {
+      setShowMassDeleteDialog(false);
     }
   };
 
@@ -129,7 +213,7 @@ export default function MedicineManagementPage() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <Logo size="sm" href="/" />
+              <Logo size="sm" href="/" isLoggedIn={true} />
               <span className="text-sm text-gray-500 dark:text-gray-400">Admin - Medicines</span>
             </div>
 
@@ -230,10 +314,34 @@ export default function MedicineManagementPage() {
             </div>
           ) : (
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Mass Delete Actions */}
+              {selectedMedicines.size > 0 && (
+                <div className="px-6 py-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    {selectedMedicines.size} medicine(s) selected
+                  </span>
+                  <button
+                    onClick={handleMassDelete}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Selected
+                  </button>
+                </div>
+              )}
+              
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-900">
                     <tr>
+                      <th className="px-6 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedMedicines.size === filteredMedicines.length && filteredMedicines.length > 0}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Medicine
                       </th>
@@ -257,6 +365,14 @@ export default function MedicineManagementPage() {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredMedicines.map((medicine) => (
                       <tr key={medicine.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedMedicines.has(medicine.id)}
+                            onChange={() => toggleSelectMedicine(medicine.id)}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                          />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{medicine.name}</div>
                         </td>
@@ -310,6 +426,35 @@ export default function MedicineManagementPage() {
             </div>
           )}
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <ConfirmDialog
+          title="Delete Medicine"
+          message="Are you sure you want to delete this medicine? This will also delete all associated listings!"
+          type="danger"
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setShowDeleteDialog(false);
+            setMedicineToDelete(null);
+          }}
+        />
+      )}
+
+      {/* Mass Delete Confirmation Dialog */}
+      {showMassDeleteDialog && (
+        <ConfirmDialog
+          title="Delete Multiple Medicines"
+          message={`Are you sure you want to delete ${selectedMedicines.size} medicine(s)? This will also delete all associated listings!`}
+          type="danger"
+          confirmText="Delete All"
+          cancelText="Cancel"
+          onConfirm={confirmMassDelete}
+          onCancel={() => setShowMassDeleteDialog(false)}
+        />
+      )}
     </div>
   );
 }

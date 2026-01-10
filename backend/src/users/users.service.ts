@@ -84,12 +84,10 @@ export class UsersService {
       },
     });
 
-    // Send approval email
-    try {
-      await this.emailService.sendApprovalEmail(updated.email, updated.name);
-    } catch (error) {
+    // Send approval email asynchronously (non-blocking)
+    this.emailService.sendApprovalEmail(updated.email, updated.name).catch(error => {
       console.error('Failed to send approval email:', error);
-    }
+    });
 
     return updated;
   }

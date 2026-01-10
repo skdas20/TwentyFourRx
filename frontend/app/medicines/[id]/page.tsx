@@ -13,6 +13,7 @@ import BuyProposalModal from "@/components/BuyProposalModal";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import NotificationBell from "@/components/NotificationBell";
 import { pricesApi, listingsApi, watchlistApi, inventoryApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function MedicineDetailPage() {
   const router = useRouter();
@@ -155,7 +156,7 @@ export default function MedicineDetailPage() {
 
   const handleToggleWatchlist = async () => {
     if (!user) {
-      alert("Please login to add to watchlist");
+      showToast.warning("Please login to add to watchlist");
       return;
     }
 
@@ -174,7 +175,7 @@ export default function MedicineDetailPage() {
       }
     } catch (error: any) {
       console.error("Failed to toggle watchlist:", error);
-      alert(error.response?.data?.message || "Failed to update watchlist");
+      showToast.error(error.response?.data?.message || "Failed to update watchlist");
     } finally {
       setWatchlistLoading(false);
     }
@@ -193,7 +194,7 @@ export default function MedicineDetailPage() {
     } else {
       try {
         await navigator.clipboard.writeText(url);
-        alert("Link copied to clipboard!");
+        showToast.success("Link copied to clipboard!");
       } catch (error) {
         console.error("Failed to copy:", error);
       }

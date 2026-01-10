@@ -4,6 +4,7 @@ import { Search, Package, FileText, TrendingUp, BarChart3, Users, X, ShoppingCar
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { notificationsApi, listingsApi, medicineReferencesApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 interface SearchResult {
   id: string;
@@ -46,13 +47,13 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
         quantity: parseInt(reqData.quantity),
         message: reqData.message
       });
-      alert("Requirement posted successfully! Sellers will be notified.");
+      showToast.success("Requirement posted successfully! Sellers will be notified.");
       setShowReqModal(false);
       setReqData({ medicineName: "", quantity: "", message: "" });
       setIsOpen(false);
     } catch (error) {
       console.error("Failed to post requirement:", error);
-      alert("Failed to post requirement. Please try again.");
+      showToast.error("Failed to post requirement. Please try again.");
     } finally {
       setReqSubmitting(false);
     }

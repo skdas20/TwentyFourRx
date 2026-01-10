@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Pill, CheckCircle, Clock, XCircle, User, Image as ImageIcon, ExternalLink } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import { showToast } from "@/lib/toast";
 
 interface Contribution {
   id: string;
@@ -103,13 +104,13 @@ export default function AdminContributionsPage() {
         throw new Error(data.message || "Failed to approve contribution");
       }
       
-      alert("Contribution approved successfully!");
+      showToast.success("Contribution approved successfully!");
       setReviewNote("");
       setSelectedContribution(null);
       loadContributions();
     } catch (error: any) {
       console.error("Failed to approve:", error);
-      alert(error.message || "Failed to approve contribution");
+      showToast.error(error.message || "Failed to approve contribution");
     } finally {
       setProcessing(null);
     }
@@ -117,7 +118,7 @@ export default function AdminContributionsPage() {
 
   const handleReject = async (id: string) => {
     if (!reviewNote.trim()) {
-      alert("Please provide a reason for rejection");
+      showToast.error("Please provide a reason for rejection");
       return;
     }
     
@@ -145,13 +146,13 @@ export default function AdminContributionsPage() {
         throw new Error(data.message || "Failed to reject contribution");
       }
       
-      alert("Contribution rejected");
+      showToast.success("Contribution rejected");
       setReviewNote("");
       setSelectedContribution(null);
       loadContributions();
     } catch (error: any) {
       console.error("Failed to reject:", error);
-      alert(error.message || "Failed to reject contribution");
+      showToast.error(error.message || "Failed to reject contribution");
     } finally {
       setProcessing(null);
     }

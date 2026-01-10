@@ -268,7 +268,11 @@ export class ListingsService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.medicineProposal.findMany({
-        where: { sellerId },
+        where: {
+          sellerId,
+          // Exclude APPROVED proposals since they're already shown as ACTIVE listings
+          status: { in: ['PENDING', 'REJECTED'] }
+        },
         orderBy: { createdAt: 'desc' },
       }),
     ]);
@@ -504,8 +508,8 @@ export class ListingsService {
           },
         });
         
-        // Send email notification
-        await emailService.sendEmail(
+        // Send email notification asynchronously (non-blocking)
+        emailService.sendEmail(
           listing.seller.email,
           'Your Listing Has Been Deprioritized - Lower Price Available',
           `
@@ -543,9 +547,11 @@ export class ListingsService {
               <p>Best regards,<br>24Rx Exchange Team</p>
             </div>
           `,
-        );
-
-        console.log(`📧 Sent deprioritization notification to ${listing.seller.email} for listing ${listing.id}`);
+        ).then(() => {
+          console.log(`📧 Sent deprioritization notification to ${listing.seller.email} for listing ${listing.id}`);
+        }).catch(error => {
+          console.error(`Failed to send email to ${listing.seller.email}:`, error);
+        });
       }
 
       if (higherPriceListings.length > 0) {
@@ -1209,6 +1215,16 @@ export class ListingsService {
         console.error('Failed to create listing from bulk:', e);
         results.failed++;
       }
+    }
+
+    // Update the bulk request status to APPROVED if all selected items were processed
+    if (results.created > 0) {
+      await this.prisma.bulkListingRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'APPROVED',
+        },
+      });
     }
 
     return results;

@@ -158,39 +158,68 @@ export class PdfService {
       .fillColor('#000000')
       .text('Proforma Invoice', quotationX, yPosition + 10);
 
-    // Party Name and Details
+    // Party Details
     doc
       .fontSize(9)
       .font('Helvetica-Bold')
       .fillColor('#000000')
-      .text('Party Name', rightSectionX, yPosition + 45);
+      .text('Party Details', rightSectionX, yPosition + 45);
 
-    doc
-      .fontSize(9)
-      .font('Helvetica')
-      .fillColor('#000000')
-      .text(data.partyName, rightSectionX, yPosition + 58, {
-        width: 170,
-        align: 'left',
-      });
+    let detailsY = yPosition + 58;
+    const lineHeight = 11;
 
     doc
       .fontSize(7)
+      .font('Helvetica-Bold')
+      .fillColor('#000000');
+
+    // Name
+    doc.text('Name:', rightSectionX, detailsY);
+    doc
       .font('Helvetica')
-      .text(data.partyAddress, rightSectionX, yPosition + 72, {
-        width: 170,
+      .text(data.partyName || '-', rightSectionX + 55, detailsY, {
+        width: 115,
         align: 'left',
       });
 
-    if (data.partyPhone) {
-      doc.text(`PHONE: ${data.partyPhone}`, rightSectionX, yPosition + 100);
-    }
-    if (data.partyGSTIN) {
-      doc.text(`GSTIN: ${data.partyGSTIN}`, rightSectionX, yPosition + 112);
-    }
-    if (data.partyDLNo) {
-      doc.text(`D.L.No: ${data.partyDLNo}`, rightSectionX, yPosition + 124);
-    }
+    detailsY += lineHeight;
+
+    // Phone
+    doc.font('Helvetica-Bold');
+    doc.text('Phone:', rightSectionX, detailsY);
+    doc
+      .font('Helvetica')
+      .text(data.partyPhone || '-', rightSectionX + 55, detailsY);
+
+    detailsY += lineHeight;
+
+    // Address
+    doc.font('Helvetica-Bold');
+    doc.text('Address:', rightSectionX, detailsY);
+    doc
+      .font('Helvetica')
+      .text(data.partyAddress || '-', rightSectionX + 55, detailsY, {
+        width: 115,
+        align: 'left',
+      });
+
+    detailsY += lineHeight + 3;
+
+    // D.L. Number
+    doc.font('Helvetica-Bold');
+    doc.text('D.L. Number:', rightSectionX, detailsY);
+    doc
+      .font('Helvetica')
+      .text(data.partyDLNo || '-', rightSectionX + 55, detailsY);
+
+    detailsY += lineHeight;
+
+    // GSTIN
+    doc.font('Helvetica-Bold');
+    doc.text('GSTIN:', rightSectionX, detailsY);
+    doc
+      .font('Helvetica')
+      .text(data.partyGSTIN || '-', rightSectionX + 55, detailsY);
 
     return yPosition + 150;
   }

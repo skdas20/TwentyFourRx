@@ -9,9 +9,10 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { IsString, IsNumber, IsPositive, IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsPositive, IsInt, IsOptional, Min, Max, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ListingsService } from './listings.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -19,6 +20,11 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+
+export class ApproveBulkListingDto {
+  @IsArray()
+  selectedIndices: number[];
+}
 
 export class CreateListingDto {
   @IsString()
@@ -150,6 +156,55 @@ export class ListingsController {
   @Roles('SELLER', 'TRADER')
   async getMyListings(@CurrentUser() user: any) {
     return this.listingsService.getListingsBySeller(user.sub);
+  }
+
+  // SELLER/TRADER: Create bulk listing request
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SELLER', 'TRADER')
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'csv', maxCount: 1 },
+    { name: 'document', maxCount: 1 },
+  ]))
+  async createBulkListing(
+    @CurrentUser() user: any,
+    @UploadedFiles() files: { csv?: Express.Multer.File[], document?: Express.Multer.File[] },
+  ) {
+    if (!files.csv?.[0] || !files.document?.[0]) {
+      throw new BadRequestException('Both CSV and Document files are required');
+    }
+    return this.listingsService.createBulkListingRequest(
+      user.sub,
+      files.csv[0],
+      files.document[0],
+    );
+  }
+
+  // ADMIN: Get bulk listing requests
+  @Get('bulk/requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getBulkListingRequests(@Query('status') status?: string) {
+    return this.listingsService.getBulkListingRequests(status);
+  }
+
+  // ADMIN: Get bulk listing request details
+  @Get('bulk/requests/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getBulkListingRequest(@Param('id') id: string) {
+    return this.listingsService.getBulkListingRequestById(id);
+  }
+
+  // ADMIN: Approve bulk listing items
+  @Post('bulk/requests/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async approveBulkListing(
+    @Param('id') id: string,
+    @Body() dto: ApproveBulkListingDto,
+  ) {
+    return this.listingsService.approveBulkListingItems(id, dto.selectedIndices);
   }
 
   // ADMIN: Get pending medicine proposals (MUST be before :id routes)

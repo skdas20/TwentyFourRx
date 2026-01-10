@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Clock, CheckCircle, AlertCircle, MessageCircle, Bell, Search, LogOut, Plus, X, ArrowLeft } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
+import { showToast } from '@/lib/toast';
 
 interface SupportTicket {
   id: string;
@@ -79,7 +80,7 @@ export default function SupportPage() {
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTicket.subject.trim() || !newTicket.message.trim()) {
-      alert('Please fill in all fields');
+      showToast.error('Please fill in all fields');
       return;
     }
 
@@ -101,12 +102,12 @@ export default function SupportPage() {
         throw new Error('Failed to submit ticket');
       }
 
-      alert('Support ticket submitted successfully!');
+      showToast.success('Support ticket submitted successfully!');
       setNewTicket({ subject: '', message: '' });
       setShowCreateForm(false);
       fetchTickets();
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      showToast.error(`Error: ${err.message}`);
     } finally {
       setSubmitting(false);
     }

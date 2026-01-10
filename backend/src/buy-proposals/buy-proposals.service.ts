@@ -33,6 +33,27 @@ export class BuyProposalsService {
     };
   }
 
+  async getProposalById(id: string, userId: string) {
+    const proposal = await this.prisma.buyProposal.findUnique({
+      where: { id },
+      include: {
+        listing: { include: { medicine: true } },
+        buyer: { select: { name: true, email: true } },
+      },
+    });
+
+    if (!proposal) throw new NotFoundException('Proposal not found');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.roleCode !== 'ADMIN' && proposal.buyerId !== userId && proposal.listing.sellerId !== userId) {
+      throw new BadRequestException('Access denied');
+    }
+
+    return proposal;
+  }
+
   async sendInvoice(
     buyerId: string,
     listingId: string,
@@ -83,84 +104,101 @@ export class BuyProposalsService {
       },
     });
 
+    // Notify Seller to upload invoice
+    await this.notificationsService.createNotification({
+      userId: listing.sellerId,
+      channel: 'INAPP',
+      subject: '📦 New Buy Request - Action Required',
+      body: `A buyer has requested ${qty} units of ${listing.medicine.name}. Please upload your invoice to proceed.`,
+      meta: { buyProposalId: proposal.id, type: 'UPLOAD_INVOICE' },
+    });
+
     // Send purchase order (PO) email to buyer
     const totals = this.calculateTotalsWithGst(listing, qty);
     const totalCost = totals.total.toNumber();
     const buyer = await this.prisma.user.findUnique({
       where: { id: buyerId },
-      select: { email: true, name: true },
+      select: {
+        email: true,
+        name: true,
+        phone: true,
+        dlNumber: true,
+        gstin: true,
+        address: true,
+      },
     });
 
     if (buyer && buyer.email) {
-      try {
-        // Generate PDF Quotation
-        const invoiceNo = `QT${Date.now().toString().slice(-6)}`;
-        const currentDate = new Date().toLocaleDateString('en-GB');
+      // Generate and send email asynchronously (non-blocking)
+      (async () => {
+        try {
+          const invoiceNo = `QT${Date.now().toString().slice(-6)}`;
+          const currentDate = new Date().toLocaleDateString('en-GB');
 
-        const quotationData = {
-          invoiceNo: invoiceNo,
-          invoiceDate: currentDate,
-          orderNo: proposal.id.substring(0, 8),
-          orderDate: currentDate,
-          lrDate: currentDate,
-          dueDate: currentDate,
-          partyName: buyer.name || 'Customer',
-          partyAddress: 'As per records',
-          partyPhone: '',
-          partyGSTIN: '',
-          partyDLNo: '',
-          items: [
-            {
-              hsn: '',
-              productName: listing.medicine.name,
-              pack: '1*1',
-              qty: qty,
-              batch: listing.batchNo || '',
-              mfg: '',
-              exp: listing.expiryDate ? new Date(listing.expiryDate).toLocaleDateString('en-GB') : '',
-              mrp: totals.unitPrice.toNumber(),
-              rate: totals.unitPrice.toNumber(),
-              dis: 0,
-              sgst: totals.gstPercentage / 2,
-              sgstValue: totals.gstAmount.toNumber() / 2,
-              cgst: totals.gstPercentage / 2,
-              cgstValue: totals.gstAmount.toNumber() / 2,
-              amount: totals.total.toNumber(),
-            },
-          ],
-          totalSGST: totals.gstAmount.toNumber() / 2,
-          totalCGST: totals.gstAmount.toNumber() / 2,
-          grandTotal: totals.total.toNumber(),
-          totalItems: 1,
-          totalQty: qty,
-        };
+          const quotationData = {
+            invoiceNo: invoiceNo,
+            invoiceDate: currentDate,
+            orderNo: proposal.id.substring(0, 8),
+            orderDate: currentDate,
+            lrDate: currentDate,
+            dueDate: currentDate,
+            partyName: buyer.name || 'Customer',
+            partyAddress: (buyer.address || 'As per records').replace(/[\r\n]+/g, ', '),
+            partyPhone: buyer.phone || '',
+            partyGSTIN: buyer.gstin || '',
+            partyDLNo: buyer.dlNumber || '',
+            items: [
+              {
+                hsn: '',
+                productName: listing.medicine.name,
+                pack: '1*1',
+                qty: qty,
+                batch: listing.batchNo || '',
+                mfg: '',
+                exp: listing.expiryDate ? new Date(listing.expiryDate).toLocaleDateString('en-GB') : '',
+                mrp: totals.unitPrice.toNumber(),
+                rate: totals.unitPrice.toNumber(),
+                dis: 0,
+                sgst: totals.gstPercentage / 2,
+                sgstValue: totals.gstAmount.toNumber() / 2,
+                cgst: totals.gstPercentage / 2,
+                cgstValue: totals.gstAmount.toNumber() / 2,
+                amount: totals.total.toNumber(),
+              },
+            ],
+            totalSGST: totals.gstAmount.toNumber() / 2,
+            totalCGST: totals.gstAmount.toNumber() / 2,
+            grandTotal: totals.total.toNumber(),
+            totalItems: 1,
+            totalQty: qty,
+          };
 
-        const pdfBuffer = await this.pdfService.generateQuotationPDF(quotationData);
+          const pdfBuffer = await this.pdfService.generateQuotationPDF(quotationData);
 
-        await this.emailService.sendEmail(
-          buyer.email,
-          '📋 Buy Proposal - Purchase Order & Quotation',
-          getPurchaseOrderEmailTemplate(
-            buyer.name,
-            listing.medicine.name,
-            qty,
-            totals.unitPrice.toNumber(),
-            totals.gstPercentage,
-            totals.gstAmount.toNumber(),
-            totalCost,
-          ),
-          [
-            {
-              filename: `Quotation_${invoiceNo}.pdf`,
-              content: pdfBuffer,
-              contentType: 'application/pdf',
-            },
-          ]
-        );
-      } catch (error) {
-        console.error('Failed to send PO email:', error);
-        // Continue execution - don't fail the request just because email failed
-      }
+          await this.emailService.sendEmail(
+            buyer.email,
+            '📋 Buy Proposal - Purchase Order & Quotation',
+            getPurchaseOrderEmailTemplate(
+              buyer.name,
+              listing.medicine.name,
+              qty,
+              totals.unitPrice.toNumber(),
+              totals.gstPercentage,
+              totals.gstAmount.toNumber(),
+              totalCost,
+            ),
+            [
+              {
+                filename: `Quotation_${invoiceNo}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf',
+              },
+            ]
+          );
+        } catch (error) {
+          console.error('Failed to send PO email:', error);
+        }
+      })();
     }
 
     return {
@@ -554,6 +592,44 @@ export class BuyProposalsService {
     return { message: 'Buy proposal rejected' };
   }
 
+  async uploadSellerInvoice(
+    proposalId: string,
+    sellerId: string,
+    invoice: Express.Multer.File,
+  ) {
+    const proposal = await this.prisma.buyProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        listing: true,
+      },
+    });
+
+    if (!proposal) {
+      throw new NotFoundException('Proposal not found');
+    }
+
+    if (proposal.listing.sellerId !== sellerId) {
+      throw new BadRequestException('You are not the seller of this item');
+    }
+
+    // Upload invoice
+    let sellerInvoiceUrl: string;
+    try {
+      sellerInvoiceUrl = await this.gcsService.uploadFile(invoice, 'seller-invoices');
+    } catch (error) {
+      console.error('Failed to upload seller invoice:', error);
+      throw new BadRequestException('Failed to upload invoice');
+    }
+
+    // Update proposal
+    const updated = await this.prisma.buyProposal.update({
+      where: { id: proposalId },
+      data: { sellerInvoiceUrl },
+    });
+
+    return { message: 'Invoice uploaded successfully', proposal: updated };
+  }
+
   async uploadReceipt(
     proposalId: string,
     buyerId: string,
@@ -620,6 +696,22 @@ export class BuyProposalsService {
         },
       },
     });
+
+    // Notify all admins about new pending buy proposal
+    const admins = await this.prisma.user.findMany({
+      where: { roleCode: 'ADMIN' },
+      select: { id: true },
+    });
+
+    for (const admin of admins) {
+      await this.notificationsService.createNotification({
+        userId: admin.id,
+        channel: 'INAPP',
+        subject: '📝 New Buy Proposal Pending Review',
+        body: `${updatedProposal.buyer.name} has uploaded a receipt for ${updatedProposal.qty} units of ${updatedProposal.listing.medicine.name}. Please review.`,
+        meta: { buyProposalId: updatedProposal.id },
+      });
+    }
 
     return {
       message: 'Receipt uploaded successfully',

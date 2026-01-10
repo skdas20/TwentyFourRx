@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { deliveryRequestsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function AdminDeliveryRequestsPage() {
   const router = useRouter();
@@ -53,13 +54,13 @@ export default function AdminDeliveryRequestsPage() {
     try {
       setProcessing(true);
       await deliveryRequestsApi.approveRequest(requestId, reviewNote);
-      alert("Delivery request approved successfully!");
+      showToast.success("Delivery request approved successfully!");
       setSelectedRequest(null);
       setReviewNote("");
       loadRequests();
     } catch (error: any) {
       console.error("Failed to approve:", error);
-      alert(error.response?.data?.message || "Failed to approve request");
+      showToast.error(error.response?.data?.message || "Failed to approve request");
     } finally {
       setProcessing(false);
     }
@@ -67,7 +68,7 @@ export default function AdminDeliveryRequestsPage() {
 
   const handleReject = async (requestId: string) => {
     if (!reviewNote.trim()) {
-      alert("Please provide a reason for rejection");
+      showToast.error("Please provide a reason for rejection");
       return;
     }
 
@@ -76,13 +77,13 @@ export default function AdminDeliveryRequestsPage() {
     try {
       setProcessing(true);
       await deliveryRequestsApi.rejectRequest(requestId, reviewNote);
-      alert("Delivery request rejected");
+      showToast.success("Delivery request rejected");
       setSelectedRequest(null);
       setReviewNote("");
       loadRequests();
     } catch (error: any) {
       console.error("Failed to reject:", error);
-      alert(error.response?.data?.message || "Failed to reject request");
+      showToast.error(error.response?.data?.message || "Failed to reject request");
     } finally {
       setProcessing(false);
     }

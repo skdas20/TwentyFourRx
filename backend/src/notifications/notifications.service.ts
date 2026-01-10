@@ -51,14 +51,11 @@ export class NotificationsService {
     // Create in-app notification
     const notification = await this.createNotification(dto);
 
-    // Send email if requested
+    // Send email if requested (asynchronously in background)
     if (sendEmail && userEmail) {
-      try {
-        await this.emailService.sendEmail(userEmail, dto.subject, dto.body);
-        this.logger.log(`📧 Email sent to ${userEmail}: ${dto.subject}`);
-      } catch (error) {
-        this.logger.error(`Failed to send email to ${userEmail}:`, error);
-      }
+      this.emailService.sendEmail(userEmail, dto.subject, dto.body)
+        .then(() => this.logger.log(`📧 Email sent to ${userEmail}: ${dto.subject}`))
+        .catch(error => this.logger.error(`Failed to send email to ${userEmail}:`, error));
     }
 
     return notification;
