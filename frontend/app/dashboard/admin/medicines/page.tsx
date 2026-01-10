@@ -96,7 +96,7 @@ export default function MedicineManagementPage() {
       const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
       showToast.success(`Markup updated to ${displayText}!`);
       setShowMarkupModal(false);
-      loadMedicines();
+      fetchMedicines();
     } catch (error: any) {
       showToast.error(error.response?.data?.message || 'Failed to update markup');
     }
@@ -457,7 +457,7 @@ export default function MedicineManagementPage() {
                             <div className="flex items-center gap-2">
                               {medicine.listings && medicine.listings.length > 0 && (medicine.listings[0].status === 'APPROVED' || medicine.listings[0].status === 'ACTIVE') && (
                                 <button
-                                  onClick={() => handleEditMarkup(medicine.listings[0])}
+                                  onClick={() => handleEditMarkup(medicine.listings?.[0])}
                                   className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                   title="Edit Markup"
                                 >

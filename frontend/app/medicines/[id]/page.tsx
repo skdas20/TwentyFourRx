@@ -94,12 +94,12 @@ export default function MedicineDetailPage() {
         if (!listing.medicine) return false;
         if (listing.medicineId === medicineId) return false;
 
-        // ONLY match if composition is EXACTLY the same
+        // ONLY match if composition is EXACTLY the same (strict equality)
         if (medicine.composition && listing.medicine.composition) {
           const currentComp = medicine.composition.toLowerCase().trim();
           const listingComp = listing.medicine.composition.toLowerCase().trim();
 
-          // Exact composition match only
+          // Exact composition match only - no partial matches
           return currentComp === listingComp;
         }
 

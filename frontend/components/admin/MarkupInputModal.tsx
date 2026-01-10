@@ -8,6 +8,7 @@ interface MarkupInputModalProps {
   onConfirm: (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => void
   onClose: () => void
   defaultMarkup?: number
+  defaultMarkupType?: 'PERCENTAGE' | 'FIXED'
   title?: string
 }
 
@@ -16,17 +17,18 @@ export default function MarkupInputModal({
   onConfirm,
   onClose,
   defaultMarkup = 0,
+  defaultMarkupType = 'PERCENTAGE',
   title = 'Enter Admin Markup'
 }: MarkupInputModalProps) {
   const [markup, setMarkup] = useState(defaultMarkup.toString())
-  const [markupType, setMarkupType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE')
+  const [markupType, setMarkupType] = useState<'PERCENTAGE' | 'FIXED'>(defaultMarkupType)
 
   useEffect(() => {
     if (!isOpen) {
       setMarkup(defaultMarkup.toString())
-      setMarkupType('PERCENTAGE')
+      setMarkupType(defaultMarkupType)
     }
-  }, [isOpen, defaultMarkup])
+  }, [isOpen, defaultMarkup, defaultMarkupType])
 
   if (!isOpen) return null
 
