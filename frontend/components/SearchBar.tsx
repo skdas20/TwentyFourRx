@@ -82,7 +82,7 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
           ]);
 
           const listingsData = listingsRes.data || [];
-          const referenceData = referencesRes.data?.data || [];
+          const referenceData = referencesRes.data || [];
 
           // 1. Process Listings (Available for Buy/Sell)
           const listingResults: SearchResult[] = listingsData.slice(0, 5).map((listing: any) => ({
