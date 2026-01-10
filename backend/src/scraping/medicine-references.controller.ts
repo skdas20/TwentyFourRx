@@ -35,33 +35,19 @@ export class MedicineReferencesController {
       return [];
     }
 
-    // Search with name priority first
-    const nameResults = await this.prisma.medicineReference.findMany({
-      where: {
-        name: { contains: query, mode: 'insensitive' },
-        isActive: true,
-      },
-      take: 15,
-      orderBy: { name: 'asc' },
-    });
-
-    // If name results are insufficient, search by generic name and composition
-    const additionalResults = nameResults.length < 15 ? await this.prisma.medicineReference.findMany({
+    // Search all fields together - name, genericName, composition
+    const results = await this.prisma.medicineReference.findMany({
       where: {
         OR: [
+          { name: { contains: query, mode: 'insensitive' } },
           { genericName: { contains: query, mode: 'insensitive' } },
           { composition: { contains: query, mode: 'insensitive' } },
         ],
         isActive: true,
-        NOT: {
-          id: { in: nameResults.map(r => r.id) },
-        },
       },
-      take: 20 - nameResults.length,
+      take: 20,
       orderBy: { name: 'asc' },
-    }) : [];
-
-    const results = [...nameResults, ...additionalResults];
+    });
 
     return results.map((ref) => ({
       id: ref.id,
