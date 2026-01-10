@@ -183,10 +183,25 @@ export class MedicinesService {
         });
       }
 
-      // 5. Delete inventory lots
-      await this.prisma.inventoryLot.deleteMany({
+      // 5. Get all inventory lots for this medicine
+      const inventoryLots = await this.prisma.inventoryLot.findMany({
         where: { medicineId: id },
+        select: { id: true },
       });
+
+      const inventoryLotIds = inventoryLots.map(lot => lot.id);
+
+      if (inventoryLotIds.length > 0) {
+        // 5a. Delete delivery requests that reference these inventory lots
+        await this.prisma.deliveryRequest.deleteMany({
+          where: { inventoryLotId: { in: inventoryLotIds } },
+        });
+
+        // 5b. Now safe to delete inventory lots
+        await this.prisma.inventoryLot.deleteMany({
+          where: { medicineId: id },
+        });
+      }
 
       // 6. Delete medicine proposals (if any reference this medicine)
       await this.prisma.medicineProposal.deleteMany({
