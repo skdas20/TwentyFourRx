@@ -69,10 +69,13 @@ export class CreateListingDto {
 }
 
 export class ApproveListingDto {
+  @IsString()
+  @IsOptional()
+  markupType?: 'PERCENTAGE' | 'FIXED';
+
   @Transform(({ value }) => value === '' || value === null || value === undefined ? undefined : parseFloat(value))
   @IsNumber()
   @Min(0)
-  @Max(100)
   @IsOptional()
   adminMarkupPct?: number;
 
@@ -274,6 +277,7 @@ export class ListingsController {
   async approveListing(@Param('id') id: string, @Body() dto: ApproveListingDto) {
     return this.listingsService.approveListing(
       id,
+      dto.markupType || 'PERCENTAGE',
       dto.adminMarkupPct,
       dto.reviewerNote,
     );

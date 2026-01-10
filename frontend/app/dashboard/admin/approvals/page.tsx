@@ -81,15 +81,16 @@ export default function ListingApprovalsPage() {
     setShowRejectModal(true)
   }
 
-  const confirmApprove = async (markup: number) => {
+  const confirmApprove = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
     if (!currentActionId) return
 
     try {
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
       if (actionType === 'listing') {
-        await listingsApi.approveListing(currentActionId, { adminMarkupPct: markup })
-        showToast.success(`Listing approved with ${markup}% markup!`)
+        await listingsApi.approveListing(currentActionId, { adminMarkupPct: markupValue, markupType })
+        showToast.success(`Listing approved with ${displayText} markup!`)
       } else {
-        await listingsApi.approveMedicineProposal(currentActionId, markup)
+        await listingsApi.approveMedicineProposal(currentActionId, markupValue)
         showToast.success('Medicine proposal approved and listing activated!')
       }
       loadData()

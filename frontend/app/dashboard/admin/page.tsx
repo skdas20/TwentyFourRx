@@ -142,12 +142,13 @@ export default function AdminDashboard() {
     setShowMarkupModal(true);
   };
 
-  const confirmApproveListing = async (markup: number) => {
+  const confirmApproveListing = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
     if (!currentActionId) return;
     
     try {
-      await listingsApi.approveListing(currentActionId, { adminMarkupPct: markup });
-      showToast.success(`Listing approved with ${markup}% markup!`);
+      await listingsApi.approveListing(currentActionId, { adminMarkupPct: markupValue, markupType });
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`Listing approved with ${displayText} markup!`);
       loadDashboardData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to approve listing:', error);
@@ -186,13 +187,14 @@ export default function AdminDashboard() {
     setShowProposalMarkupModal(true);
   };
 
-  const confirmApproveProposal = async (markup: number) => {
+  const confirmApproveProposal = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
     if (!currentActionId) return;
     
     try {
-      const response = await listingsApi.approveMedicineProposal(currentActionId, markup);
+      const response = await listingsApi.approveMedicineProposal(currentActionId, markupValue);
       console.log('Proposal approved:', response.data);
-      showToast.success('Medicine proposal approved and listing activated successfully!');
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`Medicine proposal approved with ${displayText} markup and listing activated successfully!`);
       loadDashboardData(); // Refresh data
     } catch (error: any) {
       console.error('Failed to approve proposal:', error);

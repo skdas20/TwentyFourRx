@@ -342,6 +342,7 @@ export class ListingsService {
 
   async approveListing(
     listingId: string,
+    markupType: 'PERCENTAGE' | 'FIXED' = 'PERCENTAGE',
     adminMarkupPct?: number,
     reviewerNote?: string,
   ) {
@@ -389,15 +390,23 @@ export class ListingsService {
       }
     }
 
-    const markupPct = adminMarkupPct || 0;
+    const markupValue = adminMarkupPct || 0;
     const basePrice = listing.basePrice.toNumber();
-    const listPrice = basePrice * (1 + markupPct / 100);
+    
+    // Calculate final price based on markup type
+    let listPrice: number;
+    if (markupType === 'FIXED') {
+      listPrice = basePrice + markupValue;
+    } else {
+      listPrice = basePrice * (1 + markupValue / 100);
+    }
 
     const updated = await this.prisma.listing.update({
       where: { id: listingId },
       data: {
         status: 'APPROVED',
-        adminMarkupPct: markupPct,
+        adminMarkupType: markupType,
+        adminMarkupPct: markupValue,
         listPrice,
         reviewerNote,
         approvedAt: new Date(),
@@ -1238,15 +1247,11 @@ export class ListingsService {
 
         // Calculate final price based on markup type
         let finalPrice: number;
-        let adminMarkupPct: number | null = null;
-        let adminMarkupFixed: number | null = null;
 
         if (markupType === 'PERCENTAGE') {
           finalPrice = basePrice * (1 + markupValue / 100);
-          adminMarkupPct = markupValue;
         } else {
           finalPrice = basePrice + markupValue;
-          adminMarkupFixed = markupValue;
         }
 
         if (row.status === 'MATCHED') {
@@ -1283,7 +1288,8 @@ export class ListingsService {
               sellerId: request.sellerId,
               basePrice,
               listPrice: finalPrice,
-              adminMarkupPct: adminMarkupPct ?? undefined,
+              adminMarkupType: markupType,
+              adminMarkupPct: markupValue,
               stock,
               gstPercentage: gst,
               proposedMrp,
@@ -1336,7 +1342,8 @@ export class ListingsService {
               sellerId: request.sellerId,
               basePrice,
               listPrice: finalPrice,
-              adminMarkupPct: adminMarkupPct ?? undefined,
+              adminMarkupType: markupType,
+              adminMarkupPct: markupValue,
               stock,
               gstPercentage: gst,
               proposedMrp,

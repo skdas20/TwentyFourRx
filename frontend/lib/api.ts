@@ -87,7 +87,7 @@ export const listingsApi = {
   getPendingListings: () => api.get('/listings/pending'),
   createListing: (data: { medicineReferenceId: string; basePrice: number; stock: number }) =>
     api.post('/listings', data),
-  approveListing: (id: string, data?: { adminMarkupPct?: number; reviewerNote?: string }) =>
+  approveListing: (id: string, data?: { adminMarkupPct?: number; markupType?: 'PERCENTAGE' | 'FIXED'; reviewerNote?: string }) =>
     api.patch(`/listings/${id}/approve`, data),
   rejectListing: (id: string, reviewerNote: string) =>
     api.patch(`/listings/${id}/reject`, { reviewerNote }),

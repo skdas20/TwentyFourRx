@@ -84,10 +84,11 @@ export default function AdminAllListingsPage() {
     setShowRejectModal(true);
   };
 
-  const confirmApproveListing = async (markup: number) => {
+  const confirmApproveListing = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
     try {
-      await listingsApi.approveListing(selectedItem.id, { adminMarkupPct: markup });
-      showToast.success('Listing approved successfully!');
+      await listingsApi.approveListing(selectedItem.id, { adminMarkupPct: markupValue, markupType });
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`Listing approved with ${displayText} markup!`);
       setShowMarkupModal(false);
       loadListings();
     } catch (error: any) {
@@ -95,10 +96,11 @@ export default function AdminAllListingsPage() {
     }
   };
 
-  const confirmApproveProposal = async (markup: number) => {
+  const confirmApproveProposal = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
     try {
-      await listingsApi.approveMedicineProposal(selectedItem.id, markup);
-      showToast.success('Medicine proposal approved successfully!');
+      await listingsApi.approveMedicineProposal(selectedItem.id, markupValue);
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`Medicine proposal approved with ${displayText} markup!`);
       setShowMarkupModal(false);
       loadListings();
     } catch (error: any) {

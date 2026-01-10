@@ -44,6 +44,11 @@ enum OrderType {
   SELL
 }
 
+enum MarkupType {
+  PERCENTAGE
+  FIXED
+}
+
 enum HoldStatus {
   ACTIVE
   CONVERTED
@@ -220,7 +225,8 @@ model Listing {
   sellerId        String        @map("seller_id") @db.Uuid
   basePrice       Decimal       @map("base_price") @db.Decimal(14, 2)
   proposedMrp     Decimal?      @map("proposed_mrp") @db.Decimal(14, 2) // Seller's proposed MRP for admin review
-  adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2)
+  adminMarkupType MarkupType?   @default(PERCENTAGE) @map("admin_markup_type") // PERCENTAGE or FIXED
+  adminMarkupPct  Decimal       @default(0) @map("admin_markup_pct") @db.Decimal(6, 2) // Percentage or fixed amount
   listPrice       Decimal?      @map("list_price") @db.Decimal(14, 2)
   gstPercentage   Decimal       @default(0) @map("gst_percentage") @db.Decimal(5, 2) // GST percentage: 0 or 5
   stock           Int

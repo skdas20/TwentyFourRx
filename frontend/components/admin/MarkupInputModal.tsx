@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 
 interface MarkupInputModalProps {
   isOpen: boolean
-  onConfirm: (markup: number) => void
+  onConfirm: (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => void
   onClose: () => void
   defaultMarkup?: number
   title?: string
@@ -19,10 +19,12 @@ export default function MarkupInputModal({
   title = 'Enter Admin Markup'
 }: MarkupInputModalProps) {
   const [markup, setMarkup] = useState(defaultMarkup.toString())
+  const [markupType, setMarkupType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE')
 
   useEffect(() => {
     if (!isOpen) {
       setMarkup(defaultMarkup.toString())
+      setMarkupType('PERCENTAGE')
     }
   }, [isOpen, defaultMarkup])
 
@@ -31,10 +33,13 @@ export default function MarkupInputModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const markupValue = parseFloat(markup)
-    if (isNaN(markupValue) || markupValue < 0 || markupValue > 100) {
+    if (isNaN(markupValue) || markupValue < 0) {
       return
     }
-    onConfirm(markupValue)
+    if (markupType === 'PERCENTAGE' && markupValue > 100) {
+      return
+    }
+    onConfirm(markupValue, markupType)
   }
 
   return (
@@ -53,13 +58,45 @@ export default function MarkupInputModal({
         </div>
         
         <form onSubmit={handleSubmit} className="p-6">
+          {/* Markup Type Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Markup Type
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="markupType"
+                  value="PERCENTAGE"
+                  checked={markupType === 'PERCENTAGE'}
+                  onChange={() => setMarkupType('PERCENTAGE')}
+                  className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-gray-700 dark:text-gray-300">Percentage (%)</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="markupType"
+                  value="FIXED"
+                  checked={markupType === 'FIXED'}
+                  onChange={() => setMarkupType('FIXED')}
+                  className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-gray-700 dark:text-gray-300">Fixed Value (₹)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Markup Value Input */}
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Markup Percentage (0-100)
+            {markupType === 'PERCENTAGE' ? 'Markup Percentage (0-100)' : 'Fixed Markup Amount (₹)'}
           </label>
           <input
             type="number"
             min="0"
-            max="100"
+            max={markupType === 'PERCENTAGE' ? '100' : undefined}
             step="0.1"
             value={markup}
             onChange={(e) => setMarkup(e.target.value)}
