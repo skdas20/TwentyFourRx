@@ -153,7 +153,8 @@ export default function MedicinesPage() {
 
       const medicineName = medicine.name || "";
       const manufacturer = medicine.manufacturer?.name || "";
-      const searchText = `${medicineName} ${manufacturer}`.toLowerCase();
+      const composition = medicine.composition || "";
+      const searchText = `${medicineName} ${manufacturer} ${composition}`.toLowerCase();
       const matchesSearch = searchText.includes(searchTerm.toLowerCase());
 
       const matchesForm = selectedForm === "ALL" || medicine.form === selectedForm;

@@ -614,6 +614,7 @@ export class ListingsService {
       whereClause.medicine = {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
+          { composition: { contains: search, mode: 'insensitive' } },
           { form: { contains: search, mode: 'insensitive' } },
           { strength: { contains: search, mode: 'insensitive' } },
           { manufacturer: { name: { contains: search, mode: 'insensitive' } } },
