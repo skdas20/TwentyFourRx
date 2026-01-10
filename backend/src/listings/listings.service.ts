@@ -993,10 +993,10 @@ export class ListingsService {
         }
 
         // Normalize inputs for flexible matching
-        const normalizedBrand = this.normalizeMedicineName(brandName);
-        const normalizedForm = form.toLowerCase().trim();
-        const normalizedStrength = strength ? strength.toLowerCase().replace(/\s+/g, '').trim() : '';
-        const normalizedManufacturer = manufacturer.toLowerCase().trim();
+        const normalizedBrand = this.normalizeMedicineName(String(brandName));
+        const normalizedForm = String(form).toLowerCase().trim();
+        const normalizedStrength = strength ? String(strength).toLowerCase().replace(/\s+/g, '').trim() : '';
+        const normalizedManufacturer = String(manufacturer).toLowerCase().trim();
 
         // 1. Check Active Medicines with flexible matching
         const activeMedicines = await this.prisma.medicine.findMany({
