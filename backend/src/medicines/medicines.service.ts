@@ -94,6 +94,13 @@ export class MedicinesService {
           select: {
             id: true,
             status: true,
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
       },

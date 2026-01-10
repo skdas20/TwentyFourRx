@@ -25,6 +25,12 @@ import { Public } from '../common/decorators/public.decorator';
 export class ApproveBulkListingDto {
   @IsArray()
   selectedIndices: number[];
+
+  @IsString()
+  markupType: 'PERCENTAGE' | 'FIXED';
+
+  @IsNumber()
+  markupValue: number;
 }
 
 export class CreateListingDto {
@@ -212,7 +218,7 @@ export class ListingsController {
     @Param('id') id: string,
     @Body() dto: ApproveBulkListingDto,
   ) {
-    return this.listingsService.approveBulkListingItems(id, dto.selectedIndices);
+    return this.listingsService.approveBulkListingItems(id, dto.selectedIndices, dto.markupType, dto.markupValue);
   }
 
   // ADMIN: Delete bulk listing request

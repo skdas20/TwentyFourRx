@@ -17,6 +17,10 @@ export default function BulkRequestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [showMarkupDialog, setShowMarkupDialog] = useState(false);
+  const [markupType, setMarkupType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [markupPercentage, setMarkupPercentage] = useState<string>('15');
+  const [markupFixed, setMarkupFixed] = useState<string>('10');
 
   useEffect(() => {
     loadRequest();
@@ -52,16 +56,25 @@ export default function BulkRequestDetailPage() {
     setSelectedIndices(newSet);
   };
 
-  const handleApprove = async () => {
+  const handleApprove = () => {
     if (selectedIndices.size === 0) return;
-    
-    if (!confirm(`Are you sure you want to approve ${selectedIndices.size} items?`)) return;
+    setShowMarkupDialog(true);
+  };
+
+  const confirmApprove = async () => {
+    const markupValue = markupType === 'PERCENTAGE' ? parseFloat(markupPercentage) : parseFloat(markupFixed);
+    if (isNaN(markupValue) || markupValue < 0) {
+      showToast.error(`Please enter a valid markup ${markupType === 'PERCENTAGE' ? 'percentage' : 'value'}`);
+      return;
+    }
 
     try {
       setSubmitting(true);
+      setShowMarkupDialog(false);
       const indices = Array.from(selectedIndices);
-      await listingsApi.approveBulkItems(id, indices);
-      showToast.success("Selected items approved successfully!");
+      await listingsApi.approveBulkItems(id, indices, markupType, markupValue);
+      const markupText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`${selectedIndices.size} items approved with ${markupText} markup!`);
       router.push("/dashboard/admin/bulk-listings");
     } catch (error: any) {
       console.error("Failed to approve:", error);
@@ -274,6 +287,109 @@ export default function BulkRequestDetailPage() {
           >
             {submitting ? "Approving..." : "Approve Selected"}
           </button>
+        </div>
+      )}
+
+      {/* Markup Dialog */}
+      {showMarkupDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Set Markup</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              This markup will be applied to all {selectedIndices.size} selected items.
+            </p>
+            <div className="space-y-4">
+              {/* Markup Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Markup Type
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="markupType"
+                      value="PERCENTAGE"
+                      checked={markupType === 'PERCENTAGE'}
+                      onChange={(e) => setMarkupType('PERCENTAGE')}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Percentage (%)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="markupType"
+                      value="FIXED"
+                      checked={markupType === 'FIXED'}
+                      onChange={(e) => setMarkupType('FIXED')}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Fixed Value (₹)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Percentage Input */}
+              {markupType === 'PERCENTAGE' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Markup Percentage (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={markupPercentage}
+                    onChange={(e) => setMarkupPercentage(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 15"
+                  />
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Final price = Base Price × (1 + {markupPercentage || 0}%/100)
+                  </p>
+                </div>
+              )}
+
+              {/* Fixed Value Input */}
+              {markupType === 'FIXED' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Fixed Markup Value (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={markupFixed}
+                    onChange={(e) => setMarkupFixed(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., 10"
+                  />
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Final price = Base Price + ₹{markupFixed || 0}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setShowMarkupDialog(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmApprove}
+                  disabled={submitting}
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Approve with {markupType === 'PERCENTAGE' ? `${markupPercentage}%` : `₹${markupFixed}`} Markup
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       </main>

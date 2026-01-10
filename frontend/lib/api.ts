@@ -101,8 +101,8 @@ export const listingsApi = {
   getMyBulkRequests: () => api.get('/listings/bulk/my-requests'),
   getBulkRequests: (status?: string) => api.get('/listings/bulk/requests', { params: { status } }),
   getBulkRequest: (id: string) => api.get(`/listings/bulk/requests/${id}`),
-  approveBulkItems: (id: string, selectedIndices: number[]) =>
-    api.post(`/listings/bulk/requests/${id}/approve`, { selectedIndices }),
+  approveBulkItems: (id: string, selectedIndices: number[], markupType: 'PERCENTAGE' | 'FIXED', markupValue: number) =>
+    api.post(`/listings/bulk/requests/${id}/approve`, { selectedIndices, markupType, markupValue }),
   deleteBulkRequest: (id: string) => api.delete(`/listings/bulk/requests/${id}`),
 }
 

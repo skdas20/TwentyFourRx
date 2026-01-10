@@ -70,25 +70,26 @@ export default function AdminDashboard() {
         console.log(`  - ${listing.medicine?.name} - Document: ${listing.documentUrl || 'No document'}`);
       });
       
-      // Load medicine proposals
-      const proposalsResponse = await listingsApi.getPendingProposals();
-      const pendingProposalsData = proposalsResponse.data;
-      
-      // Load active listings
-      const activeListingsResponse = await listingsApi.getListings();
-      const activeListingsData = activeListingsResponse.data;
+      // Load all data in parallel for faster loading
+      const [
+        proposalsResponse,
+        activeListingsResponse,
+        bulkRequestsResponse,
+        buyProposalsResponse,
+        deliveryRequestsResponse
+      ] = await Promise.all([
+        listingsApi.getPendingProposals(),
+        listingsApi.getListings(),
+        listingsApi.getBulkRequests(),
+        buyProposalsApi.getPendingProposals(),
+        deliveryRequestsApi.getAllRequests('PENDING')
+      ]);
 
-      // Load bulk listing requests
-      const bulkRequestsResponse = await listingsApi.getBulkRequests();
+      const pendingProposalsData = proposalsResponse.data;
+      const activeListingsData = activeListingsResponse.data;
       const bulkRequestsData = bulkRequestsResponse.data || [];
       const pendingBulkData = bulkRequestsData.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSED');
-
-      // Load buy proposals
-      const buyProposalsResponse = await buyProposalsApi.getPendingProposals();
       const pendingBuyProposalsData = buyProposalsResponse.data || [];
-
-      // Load delivery requests
-      const deliveryRequestsResponse = await deliveryRequestsApi.getAllRequests('PENDING');
       const pendingDeliveriesData = deliveryRequestsResponse.data || [];
 
       setStats({

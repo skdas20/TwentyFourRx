@@ -1212,7 +1212,7 @@ export class ListingsService {
     });
   }
 
-  async approveBulkListingItems(requestId: string, selectedIndices: number[]) {
+  async approveBulkListingItems(requestId: string, selectedIndices: number[], markupType: 'PERCENTAGE' | 'FIXED', markupValue: number) {
     const request = await this.prisma.bulkListingRequest.findUnique({
       where: { id: requestId },
     });
@@ -1235,6 +1235,19 @@ export class ListingsService {
         const proposedMrp = parseFloat(row['MRP'] || row['MRP(incl of tax)'] || '0');
         const batchNo = row['Batch No'] || row['BATCH NO.'];
         const expiryDate = row['Expiry Date'] || row['EXPIRY'];
+
+        // Calculate final price based on markup type
+        let finalPrice: number;
+        let adminMarkupPct: number | null = null;
+        let adminMarkupFixed: number | null = null;
+
+        if (markupType === 'PERCENTAGE') {
+          finalPrice = basePrice * (1 + markupValue / 100);
+          adminMarkupPct = markupValue;
+        } else {
+          finalPrice = basePrice + markupValue;
+          adminMarkupFixed = markupValue;
+        }
 
         if (row.status === 'MATCHED') {
           // Determine Medicine ID
@@ -1263,18 +1276,20 @@ export class ListingsService {
              }
           }
 
-          // Create Listing
+          // Create Listing with markup
           await this.prisma.listing.create({
             data: {
               medicineId,
               sellerId: request.sellerId,
               basePrice,
+              finalPrice,
+              adminMarkupPct,
               stock,
               gstPercentage: gst,
               proposedMrp,
               batchNo,
               expiryDate: expiryDate ? new Date(expiryDate) : null,
-              status: 'ACTIVE', // Auto-approve since Admin is doing it
+              status: 'ACTIVE',
               approvedAt: new Date(),
               activatedAt: new Date(),
               documentUrl: request.documentUrl,
@@ -1314,12 +1329,14 @@ export class ListingsService {
             }
           });
 
-          // 4. Listing
+          // 4. Listing with markup
           await this.prisma.listing.create({
             data: {
               medicineId: newMed.id,
               sellerId: request.sellerId,
               basePrice,
+              finalPrice,
+              adminMarkupPct,
               stock,
               gstPercentage: gst,
               proposedMrp,

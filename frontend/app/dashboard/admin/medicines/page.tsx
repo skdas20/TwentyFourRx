@@ -22,6 +22,15 @@ interface Medicine {
     name: string;
   } | null;
   isActive: boolean;
+  listings?: Array<{
+    id: string;
+    status: string;
+    seller: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 export default function MedicineManagementPage() {
@@ -30,6 +39,7 @@ export default function MedicineManagementPage() {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [medicineToDelete, setMedicineToDelete] = useState<string | null>(null);
   const [selectedMedicines, setSelectedMedicines] = useState<Set<string>>(new Set());
@@ -151,27 +161,41 @@ export default function MedicineManagementPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
+      const medicineIds = Array.from(selectedMedicines);
       
-      // Delete all medicines in parallel using Promise.all
-      const deletionPromises = Array.from(selectedMedicines).map(async (id) => {
-        try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-          return { success: response.ok, id };
-        } catch (error) {
-          return { success: false, id };
-        }
-      });
+      // Delete in batches of 10 to avoid overwhelming the server
+      const BATCH_SIZE = 10;
+      let successCount = 0;
+      let failCount = 0;
 
-      // Wait for all deletions to complete in parallel
-      const results = await Promise.all(deletionPromises);
-      
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.length - successCount;
+      for (let i = 0; i < medicineIds.length; i += BATCH_SIZE) {
+        const batch = medicineIds.slice(i, i + BATCH_SIZE);
+        
+        // Delete current batch in parallel
+        const batchPromises = batch.map(async (id) => {
+          try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/medicines/${id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+            return { success: response.ok, id };
+          } catch (error) {
+            return { success: false, id };
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        successCount += batchResults.filter(r => r.success).length;
+        failCount += batchResults.filter(r => !r.success).length;
+
+        // Show progress
+        if (medicineIds.length > BATCH_SIZE) {
+          const progress = Math.min(i + BATCH_SIZE, medicineIds.length);
+          showToast.info(`Deleted ${progress}/${totalCount}...`);
+        }
+      }
 
       if (successCount > 0) {
         showToast.success(`${successCount} medicine(s) deleted successfully`);
@@ -195,14 +219,28 @@ export default function MedicineManagementPage() {
     router.push('/auth/login');
   };
 
+  // Get unique sellers from medicines
+  const uniqueSellers = Array.from(
+    new Map(
+      medicines
+        .flatMap(m => m.listings || [])
+        .map(l => [l.seller.id, l.seller])
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
   const filteredMedicines = medicines.filter((medicine) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = 
       medicine.name.toLowerCase().includes(searchLower) ||
       medicine.manufacturer.name.toLowerCase().includes(searchLower) ||
       medicine.form.toLowerCase().includes(searchLower) ||
-      medicine.strength.toLowerCase().includes(searchLower)
-    );
+      medicine.strength.toLowerCase().includes(searchLower);
+    
+    const matchesSeller = 
+      sellerFilter === 'all' || 
+      (medicine.listings && medicine.listings.some(l => l.seller.id === sellerFilter));
+    
+    return matchesSearch && matchesSeller;
   });
 
   if (!user) return null;
@@ -219,9 +257,9 @@ export default function MedicineManagementPage() {
               <span className="text-sm text-gray-500 dark:text-gray-400">Admin - Medicines</span>
             </div>
 
-            {/* Search */}
-            <div className="flex-1 max-w-lg mx-8">
-              <div className="relative">
+            {/* Search and Filters */}
+            <div className="flex-1 max-w-2xl mx-8 flex gap-3">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -233,6 +271,19 @@ export default function MedicineManagementPage() {
                            focus:ring-[var(--brand-blue)] focus:border-transparent"
                 />
               </div>
+              <select
+                value={sellerFilter}
+                onChange={(e) => setSellerFilter(e.target.value)}
+                className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg
+                         text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent"
+              >
+                <option value="all">All Sellers</option>
+                {uniqueSellers.map((seller) => (
+                  <option key={seller.id} value={seller.id}>
+                    {seller.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* User Menu */}
