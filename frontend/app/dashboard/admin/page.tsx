@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Users, Package, TrendingUp, Clock, CheckCircle, XCircle, Activity, Pill, LogOut, Bell, Search, FileText, Newspaper, MessageCircle, Upload } from "lucide-react";
-import { usersApi, listingsApi, buyProposalsApi, deliveryRequestsApi } from "@/lib/api";
+import { usersApi, listingsApi, buyProposalsApi, deliveryRequestsApi, medicineReferencesApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
 import MarkupInputModal from "@/components/admin/MarkupInputModal";
@@ -21,6 +21,7 @@ export default function AdminDashboard() {
     pendingUsers: 0,
     pendingListings: 0,
     pendingProposals: 0,
+    pendingContributions: 0,
     pendingBulkListings: 0,
     pendingBuyProposals: 0,
     pendingDeliveries: 0,
@@ -73,12 +74,14 @@ export default function AdminDashboard() {
       // Load all data in parallel for faster loading
       const [
         proposalsResponse,
+        contributionsResponse,
         activeListingsResponse,
         bulkRequestsResponse,
         buyProposalsResponse,
         deliveryRequestsResponse
       ] = await Promise.all([
         listingsApi.getPendingProposals(),
+        medicineReferencesApi.getContributions('PENDING'),
         listingsApi.getListings(),
         listingsApi.getBulkRequests(),
         buyProposalsApi.getPendingProposals(),
@@ -86,6 +89,7 @@ export default function AdminDashboard() {
       ]);
 
       const pendingProposalsData = proposalsResponse.data;
+      const pendingContributionsData = contributionsResponse.data?.contributions || [];
       const activeListingsData = activeListingsResponse.data;
       const bulkRequestsData = bulkRequestsResponse.data || [];
       const pendingBulkData = bulkRequestsData.filter((r: any) => r.status === 'PENDING' || r.status === 'PROCESSED');
@@ -98,6 +102,7 @@ export default function AdminDashboard() {
         pendingUsers: pendingUsersData.length,
         pendingListings: pendingListingsData.length,
         pendingProposals: pendingProposalsData.length,
+        pendingContributions: pendingContributionsData.length,
         pendingBulkListings: pendingBulkData.length,
         pendingBuyProposals: pendingBuyProposalsData.length,
         pendingDeliveries: pendingDeliveriesData.length,
@@ -796,9 +801,9 @@ export default function AdminDashboard() {
                            rounded-2xl border-2 border-cyan-200/50 dark:border-cyan-700/50 hover:border-cyan-400 dark:hover:border-cyan-500
                            transition-all text-center hover:scale-105 hover:shadow-lg"
                 >
-                  {stats.pendingProposals > 0 && (
+                  {stats.pendingContributions > 0 && (
                     <div className="absolute -top-3 -right-3 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold rounded-full w-7 h-7 flex items-center justify-center shadow-lg animate-pulse z-50">
-                      {stats.pendingProposals}
+                      {stats.pendingContributions}
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
