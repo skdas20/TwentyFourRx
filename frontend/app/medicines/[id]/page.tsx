@@ -89,46 +89,21 @@ export default function MedicineDetailPage() {
       const listingsRes = await listingsApi.getListings({});
       const allListings = (listingsRes.data || []).filter((l: any) => l.status === 'ACTIVE');
 
-      // Filter medicines with similar composition (active ingredients)
+      // Filter medicines with EXACT same composition only
       const related = allListings.filter((listing: any) => {
         if (!listing.medicine) return false;
         if (listing.medicineId === medicineId) return false;
 
-        // Primary match: Same composition
+        // ONLY match if composition is EXACTLY the same
         if (medicine.composition && listing.medicine.composition) {
           const currentComp = medicine.composition.toLowerCase().trim();
           const listingComp = listing.medicine.composition.toLowerCase().trim();
 
-          // Exact composition match
-          if (currentComp === listingComp) return true;
-
-          // Partial composition match (for combination drugs)
-          const currentIngredients = currentComp.split(/[+,/&]/).map((s: string) => s.trim());
-          const listingIngredients = listingComp.split(/[+,/&]/).map((s: string) => s.trim());
-
-          // Check if at least one ingredient matches
-          const hasCommonIngredient = currentIngredients.some((ing: string) =>
-            listingIngredients.some((lIng: string) =>
-              ing.includes(lIng) || lIng.includes(ing)
-            )
-          );
-
-          if (hasCommonIngredient) return true;
+          // Exact composition match only
+          return currentComp === listingComp;
         }
 
-        // Secondary match: Same generic name
-        if (medicine.genericName && listing.medicine.genericName) {
-          if (medicine.genericName.toLowerCase() === listing.medicine.genericName.toLowerCase()) {
-            return true;
-          }
-        }
-
-        // Fallback: Same form + strength + manufacturer (for medicines without composition)
-        const sameForm = listing.medicine.form === medicine.form;
-        const sameStrength = listing.medicine.strength === medicine.strength;
-        const sameManufacturer = listing.medicine.manufacturer?.name === medicine.manufacturer?.name;
-
-        return sameForm && sameStrength && sameManufacturer;
+        return false;
       });
 
       // Group by medicine ID to avoid duplicates

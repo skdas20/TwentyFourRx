@@ -21,7 +21,6 @@ export default function MedicinesPage() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [watchlistItems, setWatchlistItems] = useState<Set<string>>(new Set());
-  const [priceHistories, setPriceHistories] = useState<Map<string, any[]>>(new Map());
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState<any>(null);
 
@@ -39,30 +38,8 @@ export default function MedicinesPage() {
       const response = await listingsApi.getListings();
       const listingsData = response.data;
       setListings(listingsData);
-
-      // Get unique medicine IDs
-      const medicineIds = Array.from(new Set(listingsData.map((l: any) => l.medicineId || l.medicine?.id).filter(Boolean))) as string[];
-
-      // Load price history for each medicine (last 7 days for mini charts)
-      const historyMap = new Map();
-      await Promise.all(
-        medicineIds.map(async (medicineId: string) => {
-          try {
-            const priceRes = await pricesApi.getPriceHistory(medicineId, 7);
-            const priceData = priceRes.data || {};
-            const rawHistory = Array.isArray(priceData) ? priceData : Array.isArray(priceData.history) ? priceData.history : [];
-
-            if (rawHistory.length > 0) {
-              historyMap.set(medicineId, rawHistory);
-            }
-          } catch (error) {
-            // Silently fail for individual medicines
-            console.warn(`Failed to load price history for ${medicineId}:`, error);
-          }
-        })
-      );
-
-      setPriceHistories(historyMap);
+      // Don't load price histories here - too slow for 300+ medicines
+      // Price trends can be loaded on-demand or in detail page
     } catch (error) {
       console.error("Failed to load listings:", error);
     } finally {
@@ -185,57 +162,39 @@ export default function MedicinesPage() {
     });
   })();
 
-  // Mini chart component - displays actual price history data
+  // Mini chart component - simple visual indicator based on price change
   const MiniChart = ({ medicineId, change }: { medicineId: string; change: number }) => {
-    const history = priceHistories.get(medicineId) || [];
-
-    if (history.length === 0) {
-      // No data available - show flat line
-      return (
-        <svg width="60" height="24" className="inline-block">
-          <line x1="0" y1="12" x2="60" y2="12" stroke="#6b7280" strokeWidth="1.5" />
-        </svg>
-      );
-    }
-
     const width = 60;
     const height = 24;
-    const padding = 2;
-
-    // Extract prices from history
-    const prices = history.map((entry: any) => parseFloat(entry.closePrice || entry.avgPrice || entry.price || 0));
-
-    // Find min and max for normalization
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const priceRange = maxPrice - minPrice || 1; // Avoid division by zero
-
-    // Normalize function
-    const normalize = (price: number) => {
-      return height - padding - ((price - minPrice) / priceRange) * (height - padding * 2);
-    };
-
-    // Generate path points
-    const points = prices.map((price, i) => {
-      const x = padding + (i / Math.max(prices.length - 1, 1)) * (width - padding * 2);
-      const y = normalize(price);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-
-    // Determine color based on overall trend (first vs last price)
-    const firstPrice = prices[0];
-    const lastPrice = prices[prices.length - 1];
-    const isRising = lastPrice > firstPrice;
-    const isFalling = lastPrice < firstPrice;
-    const color = isRising ? "#ef4444" : isFalling ? "#10b981" : "#6b7280";
+    const centerY = height / 2;
+    
+    // Determine trend and color
+    const isPositive = change > 0;
+    const isNegative = change < 0;
+    const color = isPositive ? "#ef4444" : isNegative ? "#10b981" : "#6b7280";
+    
+    // Generate path based on change
+    let path = "";
+    if (change === 0) {
+      // Flat line for no change
+      path = `M 0 ${centerY} L ${width} ${centerY}`;
+    } else if (isPositive) {
+      // Upward curve for price increase (red)
+      const endY = 4; // Higher point
+      path = `M 0 ${height - 4} Q ${width / 2} ${centerY} ${width} ${endY}`;
+    } else {
+      // Downward curve for price decrease (green)
+      const endY = height - 4; // Lower point
+      path = `M 0 4 Q ${width / 2} ${centerY} ${width} ${endY}`;
+    }
 
     return (
       <svg width="60" height="24" className="inline-block">
-        <polyline
-          points={points}
+        <path
+          d={path}
           fill="none"
           stroke={color}
-          strokeWidth="1.5"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -368,7 +327,7 @@ export default function MedicinesPage() {
         <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
           <div className="col-span-3">Medicine</div>
           <div className="col-span-2 text-center">Market Price</div>
-          <div className="col-span-2 text-center">1D Change</div>
+          <div className="col-span-2 text-center">30D Change</div>
           <div className="col-span-2 text-center">Stock</div>
           <div className="col-span-3 text-right">Actions</div>
         </div>
