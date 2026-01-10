@@ -1466,4 +1466,51 @@ export class ListingsService {
 
     return { message: 'Listing deleted successfully' };
   }
+
+  // ADMIN: Update markup for a listing
+  async updateListingMarkup(listingId: string, markupValue: number, markupType: 'PERCENTAGE' | 'FIXED' = 'PERCENTAGE') {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      include: {
+        medicine: true,
+      },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    // Recalculate list price with new markup
+    const basePrice = Number(listing.basePrice);
+    const gstPct = Number(listing.gstPercentage);
+    const gstAmount = basePrice * (gstPct / 100);
+    const priceWithGst = basePrice + gstAmount;
+
+    let listPrice: number;
+    if (markupType === 'FIXED') {
+      listPrice = priceWithGst + markupValue;
+    } else {
+      const markupAmount = priceWithGst * (markupValue / 100);
+      listPrice = priceWithGst + markupAmount;
+    }
+
+    const updated = await this.prisma.listing.update({
+      where: { id: listingId },
+      data: {
+        adminMarkupPct: new Decimal(markupValue),
+        adminMarkupType: markupType,
+        listPrice: new Decimal(listPrice),
+      },
+      include: {
+        medicine: {
+          include: {
+            manufacturer: true,
+            marketer: true,
+          },
+        },
+      },
+    });
+
+    return { message: 'Markup updated successfully', listing: this.serializeListing(updated) };
+  }
 }

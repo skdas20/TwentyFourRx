@@ -91,6 +91,8 @@ export const listingsApi = {
     api.patch(`/listings/${id}/approve`, data),
   rejectListing: (id: string, reviewerNote: string) =>
     api.patch(`/listings/${id}/reject`, { reviewerNote }),
+  updateListingMarkup: (id: string, data: { adminMarkupPct: number; markupType?: 'PERCENTAGE' | 'FIXED' }) =>
+    api.patch(`/listings/${id}/markup`, data),
   getPendingProposals: () => api.get('/listings/proposals/pending'),
   approveMedicineProposal: (id: string, adminMarkupPct?: number) =>
     api.patch(`/listings/proposals/${id}/approve`, { adminMarkupPct }),

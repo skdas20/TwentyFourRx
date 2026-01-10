@@ -84,6 +84,17 @@ export class ApproveListingDto {
   reviewerNote?: string;
 }
 
+export class UpdateMarkupDto {
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @IsPositive()
+  adminMarkupPct: number;
+
+  @IsString()
+  @IsOptional()
+  markupType?: 'PERCENTAGE' | 'FIXED';
+}
+
 export class RejectListingDto {
   @IsString()
   reviewerNote: string;
@@ -301,6 +312,17 @@ export class ListingsController {
     @Body() dto: UpdateListingDto,
   ) {
     return this.listingsService.updateListing(id, user.sub, dto);
+  }
+
+  // ADMIN: Update markup for a listing
+  @Patch(':id/markup')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async updateListingMarkup(
+    @Param('id') id: string,
+    @Body() dto: UpdateMarkupDto,
+  ) {
+    return this.listingsService.updateListingMarkup(id, dto.adminMarkupPct, dto.markupType || 'PERCENTAGE');
   }
 
   // SELLER/TRADER: Delete own listing

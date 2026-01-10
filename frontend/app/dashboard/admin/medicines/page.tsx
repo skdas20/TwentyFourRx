@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Edit, Trash2, Search, Pill, Plus, Bell, LogOut } from 'lucide-react';
+import { ArrowLeft, Edit, Edit2, Trash2, Search, Pill, Plus, Bell, LogOut } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
+import MarkupInputModal from '@/components/admin/MarkupInputModal';
 import { showToast } from '@/lib/toast';
 
 interface Medicine {
@@ -25,6 +26,8 @@ interface Medicine {
   listings?: Array<{
     id: string;
     status: string;
+    adminMarkupPct: number;
+    adminMarkupType: string;
     seller: {
       id: string;
       name: string;
@@ -44,6 +47,8 @@ export default function MedicineManagementPage() {
   const [medicineToDelete, setMedicineToDelete] = useState<string | null>(null);
   const [selectedMedicines, setSelectedMedicines] = useState<Set<string>>(new Set());
   const [showMassDeleteDialog, setShowMassDeleteDialog] = useState(false);
+  const [showMarkupModal, setShowMarkupModal] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -79,7 +84,23 @@ export default function MedicineManagementPage() {
     setMedicineToDelete(id);
     setShowDeleteDialog(true);
   };
+  const handleEditMarkup = (listing: any) => {
+    setSelectedListing(listing);
+    setShowMarkupModal(true);
+  };
 
+  const confirmEditMarkup = async (markupValue: number, markupType: 'PERCENTAGE' | 'FIXED') => {
+    try {
+      const { listingsApi } = await import('@/lib/api');
+      await listingsApi.updateListingMarkup(selectedListing.id, { adminMarkupPct: markupValue, markupType });
+      const displayText = markupType === 'PERCENTAGE' ? `${markupValue}%` : `₹${markupValue}`;
+      showToast.success(`Markup updated to ${displayText}!`);
+      setShowMarkupModal(false);
+      loadMedicines();
+    } catch (error: any) {
+      showToast.error(error.response?.data?.message || 'Failed to update markup');
+    }
+  };
   const confirmDelete = async () => {
     if (!medicineToDelete) return;
 
@@ -427,13 +448,30 @@ export default function MedicineManagementPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleDelete(medicine.id)}
-                              className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="flex flex-col gap-1">
+                            {medicine.listings && medicine.listings.length > 0 && (medicine.listings[0].status === 'APPROVED' || medicine.listings[0].status === 'ACTIVE') && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                Markup: {medicine.listings[0].adminMarkupType === 'FIXED' ? `₹${medicine.listings[0].adminMarkupPct}` : `${medicine.listings[0].adminMarkupPct}%`}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              {medicine.listings && medicine.listings.length > 0 && (medicine.listings[0].status === 'APPROVED' || medicine.listings[0].status === 'ACTIVE') && (
+                                <button
+                                  onClick={() => handleEditMarkup(medicine.listings[0])}
+                                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                  title="Edit Markup"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDelete(medicine.id)}
+                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                title="Delete Medicine"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -444,6 +482,18 @@ export default function MedicineManagementPage() {
             </div>
           )}
       </main>
+
+      {/* Markup Edit Modal */}
+      {showMarkupModal && selectedListing && (
+        <MarkupInputModal
+          isOpen={showMarkupModal}
+          onClose={() => setShowMarkupModal(false)}
+          onConfirm={confirmEditMarkup}
+          title="Edit Listing Markup"
+          defaultMarkup={selectedListing.adminMarkupPct}
+          defaultMarkupType={selectedListing.adminMarkupType}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       {showDeleteDialog && (
