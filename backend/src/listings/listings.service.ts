@@ -10,6 +10,7 @@ import { GcsService } from '../common/services/gcs.service';
 import { PricesService } from '../prices/prices.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { parse } from 'csv-parse/sync';
+import * as XLSX from 'xlsx';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -955,11 +956,26 @@ export class ListingsService {
 
   async analyzeBulkCsv(requestId: string, csvBuffer: Buffer) {
     try {
-      const records = parse(csvBuffer, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      });
+      let records: any[];
+      
+      // Check if it's an Excel file by looking at file signature
+      const isExcel = csvBuffer[0] === 0xD0 && csvBuffer[1] === 0xCF || // .xls
+                      csvBuffer[0] === 0x50 && csvBuffer[1] === 0x4B; // .xlsx
+      
+      if (isExcel) {
+        // Parse Excel file
+        const workbook = XLSX.read(csvBuffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        records = XLSX.utils.sheet_to_json(worksheet);
+      } else {
+        // Parse CSV file
+        records = parse(csvBuffer, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+        });
+      }
 
       const parsedRows: any[] = [];
 
