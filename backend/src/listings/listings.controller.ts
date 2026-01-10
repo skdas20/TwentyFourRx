@@ -181,6 +181,13 @@ export class ListingsController {
     );
   }
 
+  // SELLER: Get my bulk listing requests
+  @Get('bulk/my-requests')
+  @UseGuards(JwtAuthGuard)
+  async getMyBulkListingRequests(@CurrentUser() user: any) {
+    return this.listingsService.getMyBulkListingRequests(user.sub);
+  }
+
   // ADMIN: Get bulk listing requests
   @Get('bulk/requests')
   @UseGuards(JwtAuthGuard, RolesGuard)

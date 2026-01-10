@@ -98,6 +98,7 @@ export const listingsApi = {
     api.post('/listings/bulk', data, {
       headers: { 'Content-Type': undefined },
     }),
+  getMyBulkRequests: () => api.get('/listings/bulk/my-requests'),
   getBulkRequests: (status?: string) => api.get('/listings/bulk/requests', { params: { status } }),
   getBulkRequest: (id: string) => api.get(`/listings/bulk/requests/${id}`),
   approveBulkItems: (id: string, selectedIndices: number[]) =>

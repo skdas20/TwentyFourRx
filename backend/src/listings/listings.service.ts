@@ -927,23 +927,29 @@ export class ListingsService {
       },
     });
 
-    // Parse and Analyze CSV immediately to populate parsedData
-    // We use the buffer directly here since we have it
-    await this.analyzeBulkCsv(request.id, csvFile.buffer);
+    // Parse and Analyze CSV in BACKGROUND (non-blocking) - improves response time
+    // User gets immediate confirmation while analysis happens asynchronously
+    this.analyzeBulkCsv(request.id, csvFile.buffer).catch(err => {
+      console.error('Background CSV analysis failed:', err);
+    });
 
-    // Notify Admins
+    // Notify Admins (also non-blocking)
     const admins = await this.prisma.user.findMany({ where: { roleCode: 'ADMIN' }, select: { id: true } });
-    for (const admin of admins) {
-      await this.notificationsService.createNotification({
+    Promise.all(admins.map(admin => 
+      this.notificationsService.createNotification({
         userId: admin.id,
         channel: 'INAPP',
         subject: '📦 New Bulk Listing Request',
         body: `A new bulk listing request has been submitted.`,
         meta: { bulkRequestId: request.id, type: 'BULK_LISTING' },
-      });
-    }
+      })
+    )).catch(err => console.error('Failed to notify admins:', err));
 
-    return { message: 'Bulk listing request submitted successfully', request };
+    return { 
+      message: 'Bulk listing request submitted successfully! Analysis is in progress...', 
+      request,
+      estimatedProcessingTime: '10-30 seconds'
+    };
   }
 
   // Helper function to normalize medicine names for better matching
@@ -1080,6 +1086,14 @@ export class ListingsService {
         data: { status: 'ERROR' },
       });
     }
+  }
+
+  // Get seller's own bulk listing requests
+  async getMyBulkListingRequests(sellerId: string) {
+    return this.prisma.bulkListingRequest.findMany({
+      where: { sellerId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async getBulkListingRequests(status?: string) {
