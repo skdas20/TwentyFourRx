@@ -1355,6 +1355,7 @@ export class ListingsService {
               name: row['Brand Name'],
               form: row['Form'] || row['Packing Unit']?.split(' ')[0] || 'Tablet', // Fallback parsing
               strength: row['Strength'] || 'N/A',
+              composition: row['Composition'] || null,
               manufacturerId: manufacturer.id,
               mrp: proposedMrp,
             }
