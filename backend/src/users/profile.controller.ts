@@ -33,11 +33,17 @@ export class ProfileController {
     @CurrentUser() user: any,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
+    console.log(`📤 Document upload request from user: ${user.sub}`);
+    console.log(`📎 Received ${files?.length || 0} files`);
+    
     const documents: { [key: string]: Express.Multer.File } = {};
     files.forEach((file) => {
+      console.log(`  - ${file.fieldname}: ${file.originalname} (${file.size} bytes)`);
       documents[file.fieldname] = file;
     });
 
-    return this.usersService.uploadKycDocuments(user.sub, documents);
+    const result = await this.usersService.uploadKycDocuments(user.sub, documents);
+    console.log(`✅ Upload completed for user: ${user.sub}`);
+    return result;
   }
 }

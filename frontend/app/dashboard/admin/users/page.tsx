@@ -38,20 +38,27 @@ export default function UsersManagementPage() {
       const usersWithKycStatus = await Promise.all(
         response.data.map(async (user: any) => {
           try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+            const token = localStorage.getItem('accessToken');
+            
             // Check if user has any KYC documents
-            const docsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/${user.id}/documents`, {
+            const docsResponse = await fetch(`${API_URL}/users/${user.id}/documents`, {
               headers: {
-                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                'Authorization': `Bearer ${token}`,
               },
             });
             
             if (docsResponse.ok) {
               const docsData = await docsResponse.json();
+              console.log(`User ${user.name} has ${docsData.documents?.length || 0} documents`);
               return {
                 ...user,
                 hasKycDocuments: docsData.documents && docsData.documents.length > 0,
                 kycDocumentsCount: docsData.documents?.length || 0,
+                kycDocuments: docsData.documents || [],
               };
+            } else {
+              console.error(`Failed to load docs for ${user.name}:`, docsResponse.status);
             }
           } catch (error) {
             console.error(`Failed to load KYC status for user ${user.id}:`, error);
@@ -61,6 +68,7 @@ export default function UsersManagementPage() {
             ...user,
             hasKycDocuments: false,
             kycDocumentsCount: 0,
+            kycDocuments: [],
           };
         })
       );
