@@ -348,6 +348,7 @@ export class BuyProposalsService {
             id: true,
             email: true,
             name: true,
+            phone: true,
           },
         },
       },
