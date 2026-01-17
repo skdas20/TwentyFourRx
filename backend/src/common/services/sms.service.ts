@@ -33,7 +33,8 @@ export class SmsService {
         return false;
       }
 
-      this.logger.log(`📱 Sending SMS to +91${cleanPhone}: ${message.substring(0, 50)}...`);
+      this.logger.log(`📱 Attempting to send SMS to +91${cleanPhone}`);
+      this.logger.log(`📝 Message: ${message}`);
 
       // 2Factor API endpoint for transactional SMS
       const url = `${this.apiUrl}/${this.apiKey}/ADDON_SERVICES/SEND/TSMS`;
@@ -52,13 +53,16 @@ export class SmsService {
         this.logger.log(`✅ SMS sent successfully to +91${cleanPhone}`);
         return true;
       } else {
-        this.logger.error(`❌ SMS failed for +91${cleanPhone}: ${JSON.stringify(response.data)}`);
+        this.logger.error(`❌ SMS API Error for +91${cleanPhone}:`);
+        this.logger.error(`Response: ${JSON.stringify(response.data)}`);
+        this.logger.warn(`⚠️  DLT templates may be required. See SMS_DLT_SETUP_REQUIRED.md`);
         return false;
       }
     } catch (error) {
-      this.logger.error(`❌ SMS error for ${phoneNumber}:`, error.message);
+      this.logger.error(`❌ SMS Exception for ${phoneNumber}:`, error.message);
       if (error.response) {
-        this.logger.error(`Response: ${JSON.stringify(error.response.data)}`);
+        this.logger.error(`API Response: ${JSON.stringify(error.response.data)}`);
+        this.logger.warn(`⚠️  This usually means DLT templates are not registered. See SMS_DLT_SETUP_REQUIRED.md`);
       }
       return false;
     }
