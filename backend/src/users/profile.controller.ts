@@ -33,17 +33,40 @@ export class ProfileController {
     @CurrentUser() user: any,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    console.log(`📤 Document upload request from user: ${user.sub}`);
-    console.log(`📎 Received ${files?.length || 0} files`);
+    console.log(`\n========================================`);
+    console.log(`📤 DOCUMENT UPLOAD REQUEST RECEIVED`);
+    console.log(`========================================`);
+    console.log(`👤 User ID: ${user?.sub || 'UNKNOWN'}`);
+    console.log(`👤 User Email: ${user?.email || 'UNKNOWN'}`);
+    console.log(`📎 Files received: ${files?.length || 0}`);
+    console.log(`📦 Request timestamp: ${new Date().toISOString()}`);
+    
+    if (!files || files.length === 0) {
+      console.log(`⚠️  WARNING: No files received in request!`);
+    }
     
     const documents: { [key: string]: Express.Multer.File } = {};
-    files.forEach((file) => {
-      console.log(`  - ${file.fieldname}: ${file.originalname} (${file.size} bytes)`);
+    files?.forEach((file, index) => {
+      console.log(`\n📄 File ${index + 1}:`);
+      console.log(`   - Field name: ${file.fieldname}`);
+      console.log(`   - Original name: ${file.originalname}`);
+      console.log(`   - Size: ${file.size} bytes (${(file.size / 1024).toFixed(2)} KB)`);
+      console.log(`   - MIME type: ${file.mimetype}`);
       documents[file.fieldname] = file;
     });
 
-    const result = await this.usersService.uploadKycDocuments(user.sub, documents);
-    console.log(`✅ Upload completed for user: ${user.sub}`);
-    return result;
+    console.log(`\n🔄 Calling uploadKycDocuments service...`);
+    try {
+      const result = await this.usersService.uploadKycDocuments(user.sub, documents);
+      console.log(`✅ Upload completed successfully for user: ${user.sub}`);
+      console.log(`📊 Result: ${JSON.stringify(result)}`);
+      console.log(`========================================\n`);
+      return result;
+    } catch (error) {
+      console.log(`❌ Upload failed with error:`);
+      console.log(error);
+      console.log(`========================================\n`);
+      throw error;
+    }
   }
 }
