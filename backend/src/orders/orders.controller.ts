@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { ApprovedUserGuard } from '../common/guards/approved-user.guard';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -8,6 +9,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
+  @UseGuards(ApprovedUserGuard)
   async create(
     @Request() req,
     @Body() body: { listingId: string; qty: number },

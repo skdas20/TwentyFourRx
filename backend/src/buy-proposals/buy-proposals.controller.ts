@@ -15,6 +15,7 @@ import { Transform } from 'class-transformer';
 import { BuyProposalsService } from './buy-proposals.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { ApprovedUserGuard } from '../common/guards/approved-user.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
@@ -59,7 +60,7 @@ export class BuyProposalsController {
   constructor(private buyProposalsService: BuyProposalsService) {}
 
   @Post('send-invoice')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
   @Roles('TRADER', 'SELLER')
   async sendInvoice(
     @CurrentUser() user: any,
@@ -74,7 +75,7 @@ export class BuyProposalsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
   @Roles('TRADER', 'SELLER')
   @UseInterceptors(FileInterceptor('receipt'))
   async createProposal(
@@ -136,7 +137,7 @@ export class BuyProposalsController {
   }
 
   @Post(':id/upload-receipt')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
   @Roles('TRADER', 'SELLER')
   @UseInterceptors(FileInterceptor('receipt'))
   async uploadReceipt(
@@ -151,7 +152,7 @@ export class BuyProposalsController {
   }
 
   @Post(':id/seller-invoice')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
   @Roles('SELLER', 'TRADER')
   @UseInterceptors(FileInterceptor('invoice'))
   async uploadSellerInvoice(

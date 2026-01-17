@@ -640,24 +640,7 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Quick Actions</h3>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
-                <Link
-                  href="/medicines"
-                  className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20
-                           hover:from-blue-500/20 hover:to-blue-600/20 dark:hover:from-blue-500/30 dark:hover:to-blue-600/30
-                           rounded-2xl border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500
-                           transition-all text-center hover:scale-105 hover:shadow-lg"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
-                  <div className="relative">
-                    <div className="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                      <Pill className="w-7 h-7 text-white" />
-                    </div>
-                    <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Medicines</h4>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Browse catalog</p>
-                  </div>
-                </Link>
-
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
                 <Link
                   href="/dashboard/admin/news"
                   className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 

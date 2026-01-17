@@ -10,14 +10,16 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsPositive, IsInt, IsOptional, Min, Max, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ListingsService } from './listings.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { ApprovedUserGuard } from '../common/guards/approved-user.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -127,6 +129,7 @@ export class ListingsController {
 
   // SELLER/TRADER: Create new listing (from medicine_references)
   // Both can create listings - same permissions
+  // Note: Pending users CAN create listings, but cannot BUY medicines
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')
@@ -180,6 +183,7 @@ export class ListingsController {
   }
 
   // SELLER/TRADER: Create bulk listing request
+  // Note: Pending users CAN create bulk listings, but cannot BUY medicines
   @Post('bulk')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')
@@ -300,6 +304,21 @@ export class ListingsController {
   @Roles('ADMIN')
   async rejectListing(@Param('id') id: string, @Body() dto: RejectListingDto) {
     return this.listingsService.rejectListing(id, dto.reviewerNote);
+  }
+
+  // ADMIN: Upload medicine image for listing
+  @Post(':id/upload-image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadMedicineImage(
+    @Param('id') id: string,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    if (!image) {
+      throw new BadRequestException('Image file is required');
+    }
+    return this.listingsService.uploadMedicineImage(id, image);
   }
 
   // SELLER/TRADER: Update own listing

@@ -98,6 +98,13 @@ export const listingsApi = {
     api.patch(`/listings/proposals/${id}/approve`, { adminMarkupPct }),
   rejectMedicineProposal: (id: string, reviewerNote: string) =>
     api.patch(`/listings/proposals/${id}/reject`, { reviewerNote }),
+  uploadMedicineImage: (listingId: string, image: File) => {
+    const formData = new FormData();
+    formData.append('image', image);
+    return api.post(`/listings/${listingId}/upload-image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   // Bulk Listings
   createBulkListing: (data: FormData) =>
     api.post('/listings/bulk', data, {

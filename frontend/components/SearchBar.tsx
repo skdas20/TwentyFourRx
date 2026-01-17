@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Package, FileText, TrendingUp, BarChart3, Users, X, ShoppingCart, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { notificationsApi, listingsApi, medicineReferencesApi } from "@/lib/api";
+import { notificationsApi, listingsApi } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 
 interface SearchResult {
@@ -75,53 +75,33 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
 
       const timer = setTimeout(async () => {
         try {
-          // Parallel search: Active Listings (Trade) and Medicine Database (Reference)
-          const [listingsRes, referencesRes] = await Promise.all([
-            listingsApi.getListings({ search: query }).catch(() => ({ data: [] })),
-            medicineReferencesApi.search(query).catch(() => ({ data: [] }))
-          ]);
-
+          // Search only active listings (medicines available for trade)
+          const listingsRes = await listingsApi.getListings({ search: query }).catch(() => ({ data: [] }));
           const listingsData = listingsRes.data || [];
-          const referenceData = referencesRes.data || [];
 
-          // 1. Process Listings (Available for Buy/Sell)
-          const listingResults: SearchResult[] = listingsData.slice(0, 5).map((listing: any) => ({
-            id: listing.id,
-            type: "listing" as const,
-            title: listing.medicine?.name || "Medicine",
-            description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units`,
-            price: listing.listPrice || listing.basePrice,
-            url: `/medicines/${listing.medicineId}`,
-            icon: <ShoppingCart className="w-4 h-4" />,
-            clickable: isLoggedIn,
-          }));
-
-          // 2. Process References (Information only, unless matched with listing)
-          // Filter out references that are already in listings to avoid duplicates
-          const listedMedicineIds = new Set(listingsData.map((l: any) => l.medicineId));
-          
-          const referenceResults: SearchResult[] = referenceData
-            .filter((ref: any) => !listedMedicineIds.has(ref.id))
-            .slice(0, 3)
-            .map((med: any) => ({
-              id: med.id,
-              type: "medicine" as const,
-              title: `${med.name} ${med.strength || ''}`,
-              description: `${med.form} • ${med.manufacturer}`,
-              price: med.mrp,
-              url: `/medicines/${med.id}`, // Detail page handles "no listing" case
-              icon: <Package className="w-4 h-4" />,
+          // Process Listings (Available for Buy/Sell)
+          const listingResults: SearchResult[] = listingsData.slice(0, 8).map((listing: any) => {
+            const expiryDate = listing.expiryDate ? new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '';
+            return {
+              id: listing.id,
+              type: "listing" as const,
+              title: listing.medicine?.name || "Medicine",
+              description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units${expiryDate ? ` • Exp: ${expiryDate}` : ''}`,
+              price: listing.listPrice || listing.basePrice,
+              url: `/medicines/${listing.medicineId}`,
+              icon: <ShoppingCart className="w-4 h-4" />,
               clickable: isLoggedIn,
-            }));
+            };
+          });
 
-          // 3. Static Features (Navigation)
+          // Static Features (Navigation)
           const featureResults = staticResults.filter(
             (item) =>
               item.title.toLowerCase().includes(query.toLowerCase()) ||
               item.description?.toLowerCase().includes(query.toLowerCase())
           );
 
-          setResults([...listingResults, ...referenceResults, ...featureResults]);
+          setResults([...listingResults, ...featureResults]);
         } catch (error) {
           console.error("Search error:", error);
           const featureResults = staticResults.filter(

@@ -90,7 +90,7 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
-    // Create user with PENDING status
+    // Create user with PENDING status (Allows login but restricted features)
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
@@ -102,6 +102,7 @@ export class AuthService {
         dlNumber: dto.dlNumber,
         gstin: dto.gstin,
         address: dto.address,
+        isActive: true,
       },
       select: {
         id: true,
@@ -114,57 +115,24 @@ export class AuthService {
       },
     });
 
-    // Upload documents if provided
-    const uploadedDocuments: any[] = [];
-    if (documents && Object.keys(documents).length > 0) {
-      try {
-        for (const [docTypeCode, file] of Object.entries(documents)) {
-          // Get document type
-          const docType = await this.prisma.kycDocumentType.findUnique({
-            where: { code: docTypeCode },
-          });
-
-          if (!docType) {
-            console.warn(`Unknown document type: ${docTypeCode}, skipping...`);
-            continue;
-          }
-
-          // Upload to Google Cloud Storage
-          const fileUrl = await this.gcsService.uploadFile(file, `kyc/${user.id}`);
-
-          // Save to database
-          const kycDoc = await this.prisma.kycDocument.create({
-            data: {
-              userId: user.id,
-              docTypeId: docType.id,
-              fileUrl,
-              status: 'PENDING',
-            },
-          });
-
-          uploadedDocuments.push(kycDoc);
-        }
-      } catch (error) {
-        console.error('Failed to upload documents:', error);
-        // Don't fail registration if document upload fails
-      }
+    // Send welcome email with generated password
+    let emailSent = false;
+    try {
+      await this.emailService.sendWelcomeEmail(
+        user.email,
+        user.name,
+        user.email,
+        generatedPassword,
+      );
+      emailSent = true;
+    } catch (error) {
+      console.error('Failed to send welcome email (Non-fatal):', error);
+      // Do NOT delete user. Proceed.
     }
 
-    // Send welcome email with generated password (asynchronously)
-    this.emailService.sendWelcomeEmail(
-      user.email,
-      user.name,
-      user.email,
-      generatedPassword, // Send the plain password via email
-    ).catch(error => {
-      console.error('Failed to send welcome email:', error);
-      // Note: Not deleting user since registration already succeeded
-    });
-
     return {
-      message: 'Registration successful! Please check your email for your login credentials.',
+      message: 'Registration successful! Please check your email for your login credentials. You can now login and complete your profile.',
       user,
-      uploadedDocuments: uploadedDocuments.length,
     };
   }
 
@@ -232,16 +200,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Check if user is approved
-    if (user.status !== 'APPROVED') {
-      throw new UnauthorizedException(
-        `Your account is ${user.status}. Please wait for admin approval.`,
-      );
-    }
-
-    // Check if user is active
+    // Allow PENDING users to login (Restricted access)
+    // Check if user is active/blocked
     if (!user.isActive) {
       throw new UnauthorizedException('Your account has been deactivated');
+    }
+    if (user.status === 'BLOCKED') {
+      throw new UnauthorizedException('Your account has been blocked');
+    }
+    if (user.status === 'REJECTED') {
+      throw new UnauthorizedException('Your registration was rejected. Please contact support.');
     }
 
     // Generate JWT access token

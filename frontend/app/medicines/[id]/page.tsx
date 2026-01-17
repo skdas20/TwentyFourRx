@@ -528,6 +528,14 @@ export default function MedicineDetailPage() {
                         <span>{medicine?.form || "N/A"}</span>
                         <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
                         <span>{medicine?.strength || "N/A"}</span>
+                        {selectedListing?.expiryDate && (
+                          <>
+                            <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
+                            <span className="text-orange-600 dark:text-orange-400 font-medium">
+                              Exp: {new Date(selectedListing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -616,6 +624,11 @@ export default function MedicineDetailPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">{listing.medicine?.name}</h3>
+                    {listing.expiryDate && (
+                      <p className="text-xs text-orange-600 dark:text-orange-400">
+                        Exp: {new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
                     <div className="flex items-baseline gap-2 mt-2">
                       <span className="text-xl font-bold text-blue-600 dark:text-blue-400">₹{listing.listPrice || listing.basePrice}</span>
                     </div>

@@ -600,6 +600,44 @@ export class ListingsService {
     return { message: 'Listing rejected', listing: updated };
   }
 
+  async uploadMedicineImage(listingId: string, image: Express.Multer.File) {
+    // Find the listing
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      include: { medicine: true },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (!listing.medicine) {
+      throw new BadRequestException('Listing has no associated medicine');
+    }
+
+    try {
+      // Upload image with watermark
+      console.log('📤 Uploading medicine image:', image.originalname);
+      const imageUrl = await this.gcsService.uploadImageWithWatermark(image, 'medicine-images');
+      console.log('✅ Medicine image uploaded (watermarked):', imageUrl);
+
+      // Update the medicine's image URL
+      await this.prisma.medicine.update({
+        where: { id: listing.medicineId },
+        data: { imageUrl },
+      });
+
+      return { 
+        message: 'Medicine image uploaded successfully', 
+        imageUrl,
+        medicineId: listing.medicineId,
+      };
+    } catch (error) {
+      console.error('❌ Failed to upload medicine image:', error);
+      throw new BadRequestException('Failed to upload medicine image');
+    }
+  }
+
   async getActiveListings(medicineId?: string, search?: string) {
     const whereClause: any = {
       status: 'ACTIVE',

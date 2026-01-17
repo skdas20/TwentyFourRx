@@ -371,6 +371,11 @@ export default function MedicinesPage() {
                         </Link>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                           {listing.medicine?.manufacturer?.name || "Manufacturer"}
+                          {listing.expiryDate && (
+                            <span className="ml-2 text-orange-600 dark:text-orange-400">
+                              Exp: {new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -479,9 +484,16 @@ export default function MedicinesPage() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <Package className="w-3 h-3" />
-                            {listing.stock?.toLocaleString() || 0} units
+                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              {listing.stock?.toLocaleString() || 0} units
+                            </span>
+                            {listing.expiryDate && (
+                              <span className="text-orange-600 dark:text-orange-400">
+                                Exp: {new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2">

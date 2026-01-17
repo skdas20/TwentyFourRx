@@ -2,13 +2,59 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../config/prisma.service';
 import { UserStatus } from '@prisma/client';
 import { EmailService } from '../common/services/email.service';
+import { GcsService } from '../common/services/gcs.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private gcsService: GcsService,
   ) {}
+
+  async uploadKycDocuments(userId: string, documents: { [docTypeCode: string]: Express.Multer.File }) {
+    const user = await this.findOne(userId);
+    const uploadedDocs: any[] = [];
+
+    for (const [docTypeCode, file] of Object.entries(documents)) {
+      const docType = await this.prisma.kycDocumentType.findUnique({
+        where: { code: docTypeCode },
+      });
+
+      if (!docType) continue;
+
+      // Upload to GCS
+      const fileUrl = await this.gcsService.uploadFile(file, `kyc/${userId}`);
+
+      // Upsert document (update if exists, create if not)
+      const kycDoc = await this.prisma.kycDocument.upsert({
+        where: {
+          uq_kyc_user_doc: {
+            userId,
+            docTypeId: docType.id,
+          },
+        },
+        update: {
+          fileUrl,
+          status: 'PENDING',
+          uploadedAt: new Date(),
+        },
+        create: {
+          userId,
+          docTypeId: docType.id,
+          fileUrl,
+          status: 'PENDING',
+        },
+      });
+
+      uploadedDocs.push(kycDoc);
+    }
+
+    return {
+      message: 'Documents uploaded successfully. Admin will review them shortly.',
+      count: uploadedDocs.length,
+    };
+  }
 
   async findAll(filters?: { status?: UserStatus; roleCode?: string }) {
     return this.prisma.user.findMany({
