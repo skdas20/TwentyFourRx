@@ -50,6 +50,41 @@ export class UsersService {
       uploadedDocs.push(kycDoc);
     }
 
+    // CRITICAL FIX: Notify admins when KYC documents are uploaded for review
+    if (uploadedDocs.length > 0) {
+      try {
+        const admins = await this.prisma.user.findMany({
+          where: { roleCode: 'ADMIN' },
+          select: { id: true, email: true },
+        });
+
+        // Create in-app notifications for all admins
+        for (const admin of admins) {
+          await this.prisma.notification.create({
+            data: {
+              userId: admin.id,
+              channel: 'INAPP',
+              subject: '📄 KYC Documents Submitted for Review',
+              body: `${user.name} (${user.email}) has uploaded ${uploadedDocs.length} KYC document(s) for review.`,
+              meta: {
+                type: 'KYC_DOCUMENTS_UPLOADED',
+                userId: user.id,
+                userName: user.name,
+                userEmail: user.email,
+                documentCount: uploadedDocs.length,
+              },
+              sentAt: new Date(),
+            },
+          });
+        }
+
+        console.log(`✅ Notified ${admins.length} admin(s) about KYC document upload from ${user.email}`);
+      } catch (error) {
+        console.error('⚠️ Failed to notify admins about KYC upload (non-critical):', error);
+        // Don't throw - document upload was successful
+      }
+    }
+
     return {
       message: 'Documents uploaded successfully. Admin will review them shortly.',
       count: uploadedDocs.length,
@@ -134,6 +169,27 @@ export class UsersService {
     this.emailService.sendApprovalEmail(updated.email, updated.name).catch(error => {
       console.error('Failed to send approval email:', error);
     });
+
+    // CRITICAL FIX: Notify user that their profile is now 100% complete
+    try {
+      await this.prisma.notification.create({
+        data: {
+          userId: updated.id,
+          channel: 'INAPP',
+          subject: '✅ Profile Approved - 100% Complete!',
+          body: `Congratulations! Your KYC documents have been approved. Your profile is now 100% complete and you have full access to all platform features.`,
+          meta: {
+            type: 'PROFILE_APPROVED',
+            status: 'APPROVED',
+          },
+          sentAt: new Date(),
+        },
+      });
+
+      console.log(`✅ Notified user ${updated.email} about profile approval`);
+    } catch (error) {
+      console.error('⚠️ Failed to notify user about approval (non-critical):', error);
+    }
 
     return updated;
   }
