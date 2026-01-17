@@ -5,6 +5,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { EmailService } from '../common/services/email.service';
 import { PdfService } from '../common/services/pdf.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SmsService } from '../common/services/sms.service';
 import { getPurchaseOrderEmailTemplate, getTaxInvoiceEmailTemplate } from '../common/email-templates';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class BuyProposalsService {
     private emailService: EmailService,
     private pdfService: PdfService,
     private notificationsService: NotificationsService,
+    private smsService: SmsService,
   ) { }
 
   private calculateTotalsWithGst(listing: any, qty: number) {
@@ -264,10 +266,25 @@ export class BuyProposalsService {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
       },
     });
+
+    // Send SMS to buyer (proposal created)
+    if (proposal.buyer && proposal.buyer.phone) {
+      try {
+        await this.smsService.sendBuyProposalCreatedSms(
+          proposal.buyer.phone,
+          proposal.listing.medicine.name,
+          proposal.id.substring(0, 8),
+        );
+      } catch (error) {
+        console.error('Failed to send SMS:', error);
+        // Don't fail the whole operation if SMS fails
+      }
+    }
 
     return {
       message: 'Buy proposal submitted successfully. Waiting for admin approval.',
@@ -557,6 +574,39 @@ export class BuyProposalsService {
           });
         } catch (error) {
           console.error('Failed to create notification for seller:', error);
+        }
+      }
+
+      // Send SMS to Buyer (proposal approved)
+      if (proposal.buyer && proposal.buyer.phone) {
+        try {
+          const proposalLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/my-proposals`;
+          await this.smsService.sendBuyProposalApprovedSms(
+            proposal.buyer.phone,
+            proposal.listing.medicine.name,
+            proposalLink,
+          );
+        } catch (error) {
+          console.error('Failed to send SMS to buyer:', error);
+        }
+      }
+
+      // Send SMS to Seller (buy request received - need to upload invoice)
+      const seller = await this.prisma.user.findUnique({
+        where: { id: proposal.listing.sellerId },
+        select: { phone: true },
+      });
+
+      if (seller && seller.phone) {
+        try {
+          const uploadLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/seller`;
+          await this.smsService.sendBuyRequestReceivedSms(
+            seller.phone,
+            proposal.listing.medicine.name,
+            uploadLink,
+          );
+        } catch (error) {
+          console.error('Failed to send SMS to seller:', error);
         }
       }
 

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../config/prisma.service';
 import { EmailService } from '../common/services/email.service';
 import { GcsService } from '../common/services/gcs.service';
+import { SmsService } from '../common/services/sms.service';
 import { generateOtp, generateOtpExpiry, validateOtp } from '../common/utils/otp.util';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class DeliveryRequestsService {
         private prisma: PrismaService,
         private emailService: EmailService,
         private gcsService: GcsService,
+        private smsService: SmsService,
     ) { }
 
     // Create a delivery request for an inventory lot
@@ -105,6 +107,18 @@ export class DeliveryRequestsService {
                 meta: { deliveryRequestId: request.id },
             },
         });
+
+        // Send SMS to SELLER - asynchronously
+        if (seller.phone) {
+            const uploadLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/seller/deliveries`;
+            this.smsService.sendDeliveryRequestedSms(
+                seller.phone,
+                request.inventoryLot.medicine.name,
+                uploadLink,
+            ).catch(error => {
+                console.error('Failed to send SMS to seller:', error);
+            });
+        }
 
         return {
             message: 'Delivery request submitted successfully. The seller will be notified to process your request.',
