@@ -328,8 +328,8 @@ function NewListingContent() {
 
   const handleBulkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bulkCsv || !bulkDoc) {
-      showToast.error("Please upload both CSV and Credibility Document");
+    if (!bulkCsv) {
+      showToast.error("Please upload CSV file");
       return;
     }
 
@@ -337,7 +337,9 @@ function NewListingContent() {
       setSubmitting(true);
       const formData = new FormData();
       formData.append('csv', bulkCsv);
-      formData.append('document', bulkDoc);
+      if (bulkDoc) {
+        formData.append('document', bulkDoc);
+      }
 
       await listingsApi.createBulkListing(formData);
       showToast.success("Bulk listing request submitted successfully! Admin will review matches.");
@@ -460,7 +462,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Credibility Document <span className="text-red-500">*</span>
+                  Credibility Document <span className="text-gray-500">(Optional)</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   Upload invoice/proof for the bulk lot (PDF, JPG, PNG - Max 5MB)
@@ -469,7 +471,6 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                   <input
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
-                    required
                     onChange={(e) => setBulkDoc(e.target.files?.[0] || null)}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                              text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -488,7 +489,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
 
             <button
               type="submit"
-              disabled={submitting || !bulkCsv || !bulkDoc}
+              disabled={submitting || !bulkCsv}
               className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg
                        hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl
@@ -879,18 +880,14 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Credibility Document {!ownsSelectedMedicine && <span className="text-red-500">*</span>}
-                  {ownsSelectedMedicine && <span className="text-gray-500">(Optional)</span>}
+                  Credibility Document <span className="text-gray-500">(Optional)</span>
                 </label>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  {!ownsSelectedMedicine 
-                    ? "Required: Upload invoice, receipt, or purchase proof to verify you have this medicine (PDF, JPG, PNG - Max 5MB)"
-                    : "Upload invoice, receipt, or purchase proof (PDF, JPG, PNG - Max 5MB)"}
+                  Upload invoice, receipt, or purchase proof (PDF, JPG, PNG - Max 5MB)
                 </p>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
-                  required={!ownsSelectedMedicine}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -914,11 +911,6 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                     ✓ {document.name} ({(document.size / 1024 / 1024).toFixed(2)} MB)
                   </p>
                 )}
-                {!ownsSelectedMedicine && !document && (
-                  <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                    ⚠️ This document is required since you don't own this medicine in your holdings
-                  </p>
-                )}
               </div>
             </div>
 
@@ -932,7 +924,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
               </button>
               <button
                 type="submit"
-                disabled={submitting || !proposedMrp || !productImage || (!ownsSelectedMedicine && !document) || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
+                disabled={submitting || !proposedMrp || !productImage || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
                 {submitting ? "Selling..." : (
@@ -943,11 +935,6 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                 )}
               </button>
             </div>
-            {!ownsSelectedMedicine && !document && holdingsLoaded && (
-              <p className="text-center text-sm text-red-600 dark:text-red-400 mt-3">
-                Please upload a credibility document to verify you have this medicine
-              </p>
-            )}
           </form>
         ))}
       </main>
