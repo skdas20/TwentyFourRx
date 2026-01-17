@@ -10,7 +10,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 export default function UsersManagementPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -33,7 +33,39 @@ export default function UsersManagementPage() {
   const loadUsers = async () => {
     try {
       const response = await usersApi.getUsers();
-      setUsers(response.data);
+      
+      // For each user, check if they have uploaded KYC documents
+      const usersWithKycStatus = await Promise.all(
+        response.data.map(async (user: any) => {
+          try {
+            // Check if user has any KYC documents
+            const docsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'}/users/${user.id}/documents`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              },
+            });
+            
+            if (docsResponse.ok) {
+              const docsData = await docsResponse.json();
+              return {
+                ...user,
+                hasKycDocuments: docsData.documents && docsData.documents.length > 0,
+                kycDocumentsCount: docsData.documents?.length || 0,
+              };
+            }
+          } catch (error) {
+            console.error(`Failed to load KYC status for user ${user.id}:`, error);
+          }
+          
+          return {
+            ...user,
+            hasKycDocuments: false,
+            kycDocumentsCount: 0,
+          };
+        })
+      );
+      
+      setUsers(usersWithKycStatus);
     } catch (error) {
       console.error("Failed to load users:", error);
     } finally {
@@ -168,25 +200,36 @@ export default function UsersManagementPage() {
                         }`}>
                           {u.status}
                         </span>
+                        {u.status === "PENDING" && u.hasKycDocuments && (
+                          <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs font-medium rounded">
+                            📄 {u.kycDocumentsCount} KYC Doc{u.kycDocumentsCount > 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                  {u.status === "PENDING" && (
+                  {u.status === "PENDING" && u.hasKycDocuments ? (
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApprove(u.id)}
                         className="p-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg transition-colors"
+                        title="Approve KYC Documents"
                       >
                         <CheckCircle className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => handleReject(u.id)}
                         className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-400 rounded-lg transition-colors"
+                        title="Reject KYC Documents"
                       >
                         <XCircle className="w-5 h-5" />
                       </button>
                     </div>
-                  )}
+                  ) : u.status === "PENDING" && !u.hasKycDocuments ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                      Awaiting KYC documents...
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}
