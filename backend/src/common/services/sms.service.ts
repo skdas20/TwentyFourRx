@@ -19,14 +19,21 @@ export class SmsService {
    */
   async sendSms(phoneNumber: string, message: string): Promise<boolean> {
     try {
+      // Remove +91 prefix if present and validate
+      let cleanPhone = phoneNumber.replace(/\D/g, '');
+      
+      // If starts with 91, remove it (country code)
+      if (cleanPhone.startsWith('91') && cleanPhone.length === 12) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
       // Validate phone number (should be 10 digits for India)
-      const cleanPhone = phoneNumber.replace(/\D/g, '');
       if (cleanPhone.length !== 10) {
-        this.logger.warn(`Invalid phone number format: ${phoneNumber}`);
+        this.logger.warn(`Invalid phone number format: ${phoneNumber} (cleaned: ${cleanPhone})`);
         return false;
       }
 
-      this.logger.log(`Sending SMS to ${cleanPhone}: ${message.substring(0, 50)}...`);
+      this.logger.log(`📱 Sending SMS to +91${cleanPhone}: ${message.substring(0, 50)}...`);
 
       // 2Factor API endpoint for transactional SMS
       const url = `${this.apiUrl}/${this.apiKey}/ADDON_SERVICES/SEND/TSMS`;
@@ -42,10 +49,10 @@ export class SmsService {
       });
 
       if (response.data && response.data.Status === 'Success') {
-        this.logger.log(`✅ SMS sent successfully to ${cleanPhone}`);
+        this.logger.log(`✅ SMS sent successfully to +91${cleanPhone}`);
         return true;
       } else {
-        this.logger.error(`❌ SMS failed: ${JSON.stringify(response.data)}`);
+        this.logger.error(`❌ SMS failed for +91${cleanPhone}: ${JSON.stringify(response.data)}`);
         return false;
       }
     } catch (error) {

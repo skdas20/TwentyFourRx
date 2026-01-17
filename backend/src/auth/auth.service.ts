@@ -84,6 +84,21 @@ export class AuthService {
       throw new BadRequestException('DL Number, GSTIN and Address are required for registration');
     }
 
+    // Format phone number with +91 prefix if provided
+    let formattedPhone = dto.phone;
+    if (formattedPhone) {
+      // Remove any non-digit characters
+      formattedPhone = formattedPhone.replace(/\D/g, '');
+      
+      // Validate 10-digit Indian mobile number
+      if (formattedPhone.length !== 10) {
+        throw new BadRequestException('Phone number must be exactly 10 digits');
+      }
+      
+      // Add +91 prefix
+      formattedPhone = `+91${formattedPhone}`;
+    }
+
     // Generate secure password
     const generatedPassword = generateSecurePassword();
     
@@ -95,7 +110,7 @@ export class AuthService {
       data: {
         name: dto.name,
         email: dto.email.toLowerCase(),
-        phone: dto.phone,
+        phone: formattedPhone,
         password: hashedPassword,
         roleCode: roleCode,
         status: 'PENDING',

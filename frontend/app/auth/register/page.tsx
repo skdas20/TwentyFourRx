@@ -201,16 +201,27 @@ export default function RegisterPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-[var(--ink)] mb-2">
-                  Phone
+                  Phone Number (India +91)
                 </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
-                  placeholder="Phone number"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
+                <div className="flex">
+                  <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-[var(--border)] bg-gray-50 dark:bg-gray-700 text-[var(--muted)] text-sm">
+                    +91
+                  </span>
+                  <input
+                    id="phone"
+                    type="tel"
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    className="block w-full rounded-r-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
+                    placeholder="10-digit mobile"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData({ ...formData, phone: value });
+                    }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted)]">Enter 10-digit mobile number</p>
               </div>
 
               <div>
