@@ -26,9 +26,9 @@ export default function AdminDashboard() {
     pendingBuyProposals: 0,
     pendingDeliveries: 0,
   });
-  const [pendingUsers, setPendingUsers] = useState([]);
-  const [pendingListings, setPendingListings] = useState([]);
-  const [pendingProposals, setPendingProposals] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [pendingListings, setPendingListings] = useState<any[]>([]);
+  const [pendingProposals, setPendingProposals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserForDocs, setSelectedUserForDocs] = useState<{id: string, name: string} | null>(null);
   
@@ -61,7 +61,42 @@ export default function AdminDashboard() {
       // Load users data
       const usersResponse = await usersApi.getUsers();
       const allUsers = usersResponse.data;
-      const pendingUsersData = allUsers.filter((u: any) => u.status === 'PENDING');
+      
+      // For each PENDING user, check if they have uploaded KYC documents
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const token = localStorage.getItem('accessToken');
+      
+      const pendingUsersWithDocs = await Promise.all(
+        allUsers
+          .filter((u: any) => u.status === 'PENDING')
+          .map(async (user: any) => {
+            try {
+              const docsResponse = await fetch(`${API_URL}/users/${user.id}/documents`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+              
+              if (docsResponse.ok) {
+                const docsData = await docsResponse.json();
+                return {
+                  ...user,
+                  hasKycDocuments: docsData.documents && docsData.documents.length > 0,
+                  kycDocumentsCount: docsData.documents?.length || 0,
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to load KYC status for user ${user.id}:`, error);
+            }
+            
+            return {
+              ...user,
+              hasKycDocuments: false,
+              kycDocumentsCount: 0,
+            };
+          })
+      );
+      
+      // ONLY show PENDING users who have uploaded KYC documents in the dashboard
+      const pendingUsersData = pendingUsersWithDocs.filter((u: any) => u.hasKycDocuments);
       
       // Load listings data
       const listingsResponse = await listingsApi.getPendingListings();

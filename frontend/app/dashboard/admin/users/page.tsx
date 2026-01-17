@@ -99,6 +99,40 @@ export default function UsersManagementPage() {
     }
   };
 
+  const handleDelete = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const token = localStorage.getItem('accessToken');
+      
+      const response = await fetch(`${API_URL}/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        alert(`User "${userName}" has been deleted successfully.`);
+        loadUsers();
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete user: ${error.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      alert("Failed to delete user. Please try again.");
+    }
+  };
+
+  const handleViewDocuments = (userId: string, userName: string) => {
+    // Navigate to a documents view page or open a modal
+    router.push(`/dashboard/admin/users/${userId}/documents`);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
@@ -219,6 +253,13 @@ export default function UsersManagementPage() {
                   {u.status === "PENDING" && u.hasKycDocuments ? (
                     <div className="flex gap-2">
                       <button
+                        onClick={() => handleViewDocuments(u.id, u.name)}
+                        className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                        title="View KYC Documents"
+                      >
+                        View Documents
+                      </button>
+                      <button
                         onClick={() => handleApprove(u.id)}
                         className="p-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg transition-colors"
                         title="Approve KYC Documents"
@@ -232,12 +273,36 @@ export default function UsersManagementPage() {
                       >
                         <XCircle className="w-5 h-5" />
                       </button>
+                      <button
+                        onClick={() => handleDelete(u.id, u.name)}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
                     </div>
                   ) : u.status === "PENDING" && !u.hasKycDocuments ? (
-                    <div className="text-sm text-gray-500 dark:text-gray-400 italic">
-                      Awaiting KYC documents...
+                    <div className="flex gap-2 items-center">
+                      <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                        Awaiting KYC documents...
+                      </div>
+                      <button
+                        onClick={() => handleDelete(u.id, u.name)}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
                     </div>
-                  ) : null}
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(u.id, u.name)}
+                      className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                      title="Delete User"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

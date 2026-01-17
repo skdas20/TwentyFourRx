@@ -260,6 +260,24 @@ export class UsersService {
     });
   }
 
+  async deleteUser(id: string) {
+    const user = await this.findOne(id);
+
+    // Delete user (cascade will handle related records)
+    await this.prisma.user.delete({
+      where: { id },
+    });
+
+    return {
+      message: `User ${user.name} (${user.email}) has been deleted successfully`,
+      deletedUser: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    };
+  }
+
   async getUserDocuments(userId: string) {
     const user = await this.findOne(userId);
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, UseGuards, Query, Delete } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -33,6 +33,11 @@ export class UsersController {
   @Patch(':id/block')
   async block(@Param('id') id: string) {
     return this.usersService.blockUser(id);
+  }
+
+  @Delete(':id')
+  async deleteUser(@Param('id') id: string) {
+    return this.usersService.deleteUser(id);
   }
 
   // New endpoints for document management
