@@ -58,15 +58,30 @@ export class DeliveryRequestsService {
             throw new BadRequestException('A pending delivery request already exists for this lot');
         }
 
-        // Get the seller (owner) of this inventory lot
-        const seller = await this.prisma.user.findUnique({
-            where: { id: lot.userId },
-            select: { id: true, name: true, email: true, phone: true },
+        // Get the ORIGINAL SELLER (from the source order/listing) who should ship the medicine
+        // NOT the current inventory owner (buyer)
+        const inventoryWithOrder = await this.prisma.inventoryLot.findUnique({
+            where: { id: inventoryLotId },
+            include: {
+                sourceOrder: {
+                    include: {
+                        listing: {
+                            include: {
+                                seller: {
+                                    select: { id: true, name: true, email: true, phone: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
         });
 
-        if (!seller) {
-            throw new NotFoundException('Seller not found for this inventory');
+        if (!inventoryWithOrder?.sourceOrder?.listing?.seller) {
+            throw new NotFoundException('Original seller not found for this inventory. Cannot process delivery request.');
         }
+
+        const seller = inventoryWithOrder.sourceOrder.listing.seller;
 
         // Create the delivery request with AWAITING_SELLER status (seller needs to act first)
         const request = await this.prisma.deliveryRequest.create({
