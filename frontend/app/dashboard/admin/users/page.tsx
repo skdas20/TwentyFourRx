@@ -281,6 +281,23 @@ export default function UsersManagementPage() {
                         <XCircle className="w-5 h-5" />
                       </button>
                     </div>
+                  ) : u.status === "APPROVED" && u.hasKycDocuments ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleViewDocuments(u.id, u.name)}
+                        className="px-3 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                        title="View KYC Documents"
+                      >
+                        View Documents
+                      </button>
+                      <button
+                        onClick={() => handleDelete(u.id, u.name)}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <XCircle className="w-5 h-5" />
+                      </button>
+                    </div>
                   ) : u.status === "PENDING" && !u.hasKycDocuments ? (
                     <div className="flex gap-2 items-center">
                       <div className="text-sm text-gray-500 dark:text-gray-400 italic">
