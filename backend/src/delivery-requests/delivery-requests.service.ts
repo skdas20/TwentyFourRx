@@ -146,8 +146,18 @@ export class DeliveryRequestsService {
         return this.prisma.deliveryRequest.findMany({
             where: {
                 OR: [
+                    // As requester (buyer)
                     { requesterId: userId },
-                    { inventoryLot: { userId: userId } }
+                    // As seller (original seller from the listing)
+                    {
+                        inventoryLot: {
+                            sourceOrder: {
+                                listing: {
+                                    sellerId: userId
+                                }
+                            }
+                        }
+                    }
                 ]
             },
             include: {
@@ -157,6 +167,15 @@ export class DeliveryRequestsService {
                         medicine: {
                             include: { manufacturer: true },
                         },
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true } }
+                                    }
+                                }
+                            }
+                        }
                     },
                 },
             },
@@ -325,7 +344,7 @@ export class DeliveryRequestsService {
 
     // Mark as dispatched (admin or seller)
     // Seller confirms delivery with receipt upload (SELLER)
-    async markDispatched(requestId: string, sellerId: string, invoiceFile?: Express.Multer.File, trackingNumber?: string, deliveryPartner?: string) {
+    async markDispatched(requestId: string, sellerId: string, invoiceFile?: Express.Multer.File, packageImageFile?: Express.Multer.File, trackingNumber?: string, deliveryPartner?: string) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
@@ -333,7 +352,15 @@ export class DeliveryRequestsService {
                 inventoryLot: {
                     include: {
                         medicine: true,
-                        user: { select: { id: true } }
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true } }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
             },
@@ -343,8 +370,9 @@ export class DeliveryRequestsService {
             throw new NotFoundException('Delivery request not found');
         }
 
-        // Verify seller owns this inventory
-        if (request.inventoryLot.user.id !== sellerId) {
+        // Verify seller owns this inventory (check original seller from listing)
+        const originalSellerId = request.inventoryLot.sourceOrder?.listing?.seller?.id;
+        if (!originalSellerId || originalSellerId !== sellerId) {
             throw new BadRequestException('You can only confirm dispatch for your own inventory');
         }
 
@@ -353,10 +381,16 @@ export class DeliveryRequestsService {
         }
 
         let invoiceUrl: string | undefined;
+        let packageImageUrl: string | undefined;
 
         // Upload courier receipt/documents if provided
         if (invoiceFile) {
             invoiceUrl = await this.gcsService.uploadFile(invoiceFile, 'delivery-receipts');
+        }
+
+        // Upload package image if provided
+        if (packageImageFile) {
+            packageImageUrl = await this.gcsService.uploadFile(packageImageFile, 'package-images');
         }
 
         // Update request: Status AWAITING_SELLER → PENDING (for admin review)
@@ -364,6 +398,7 @@ export class DeliveryRequestsService {
             where: { id: requestId },
             data: {
                 invoiceUrl: invoiceUrl,
+                packageImageUrl: packageImageUrl,
                 trackingNumber: trackingNumber,
                 deliveryPartner: deliveryPartner,
                 status: 'PENDING', // Now pending admin approval
@@ -400,6 +435,7 @@ export class DeliveryRequestsService {
                  <p>Medicine: ${request.inventoryLot.medicine.name}</p>
                  <p>Quantity: ${request.qty}</p>
                  ${invoiceUrl ? `<p>Courier Receipt/Documents: <a href="${invoiceUrl}">View Documents</a></p>` : ''}
+                 ${packageImageUrl ? `<p>Package Image: <a href="${packageImageUrl}">View Package</a></p>` : ''}
                  <p>Please review and approve to generate OTP for buyer.</p>`,
             ).catch(error => {
                 console.error('Failed to send admin email:', error);

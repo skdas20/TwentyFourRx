@@ -572,6 +572,7 @@ model DeliveryRequest {
   status          DeliveryRequestStatus @default(PENDING)
   reviewerNote    String?               @map("reviewer_note")
   invoiceUrl      String?               @map("invoice_url")
+  packageImageUrl String?               @map("package_image_url") // Package photo uploaded by seller
   trackingNumber  String?               @map("tracking_number")
   deliveryPartner String?               @map("delivery_partner")
   deliveryOtp     String?               @map("delivery_otp") @db.VarChar(6)

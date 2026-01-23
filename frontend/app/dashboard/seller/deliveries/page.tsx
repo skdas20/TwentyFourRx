@@ -38,6 +38,7 @@ export default function SellerDeliveriesPage() {
   const [error, setError] = useState('');
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<{ [key: string]: File | null }>({});
+  const [selectedPackageImage, setSelectedPackageImage] = useState<{ [key: string]: File | null }>({});
   const [trackingNumber, setTrackingNumber] = useState<{ [key: string]: string }>({});
   const [deliveryPartner, setDeliveryPartner] = useState<{ [key: string]: string }>({});
 
@@ -95,8 +96,16 @@ export default function SellerDeliveriesPage() {
     }));
   };
 
+  const handlePackageImageChange = (requestId: string, file: File | null) => {
+    setSelectedPackageImage(prev => ({
+      ...prev,
+      [requestId]: file,
+    }));
+  };
+
   const handleDispatch = async (requestId: string) => {
     const file = selectedFile[requestId];
+    const packageImage = selectedPackageImage[requestId];
     const tracking = trackingNumber[requestId];
     const partner = deliveryPartner[requestId];
 
@@ -121,7 +130,10 @@ export default function SellerDeliveriesPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
       const formData = new FormData();
-      formData.append('invoice', file);
+      formData.append('files', file, 'invoice');
+      if (packageImage) {
+        formData.append('files', packageImage, 'packageImage');
+      }
       formData.append('trackingNumber', tracking.trim());
       formData.append('deliveryPartner', partner.trim());
 
@@ -141,6 +153,10 @@ export default function SellerDeliveriesPage() {
       showToast.success('Dispatch confirmed! Request sent to admin for approval.');
       await fetchMyRequests();
       setSelectedFile(prev => ({
+        ...prev,
+        [requestId]: null,
+      }));
+      setSelectedPackageImage(prev => ({
         ...prev,
         [requestId]: null,
       }));
@@ -369,6 +385,27 @@ export default function SellerDeliveriesPage() {
                                 </span>
                               </div>
                             </div>
+                          </div>
+
+                          {/* Package Image Upload */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Package Photo (Optional)
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png"
+                                onChange={(e) => handlePackageImageChange(request.id, e.target.files?.[0] || null)}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                              />
+                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {selectedPackageImage[request.id]?.name || 'Click to upload package photo'}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">Upload a photo of the packaged medicine for verification</p>
                           </div>
 
                           {/* Submit Button */}

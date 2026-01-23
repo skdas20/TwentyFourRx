@@ -272,22 +272,37 @@ export default function AdminDeliveryRequestsPage() {
                   </div>
 
                   {/* Document/Invoice Info */}
-                  {selectedRequest.invoiceUrl && (
+                  {(selectedRequest.invoiceUrl || selectedRequest.packageImageUrl) && (
                     <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Dispatch Proof</h3>
-                      <div className="text-sm">
-                        <p className="text-gray-600 dark:text-gray-400 mb-2">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Dispatch Proof</h3>
+                      <div className="text-sm space-y-3">
+                        <p className="text-gray-600 dark:text-gray-400">
                           Seller has uploaded dispatch documents. Please verify before approving.
                         </p>
-                        <a 
-                          href={selectedRequest.invoiceUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline"
-                        >
-                          <FileText className="w-4 h-4" />
-                          View Document
-                        </a>
+                        <div className="flex flex-wrap gap-3">
+                          {selectedRequest.invoiceUrl && (
+                            <a 
+                              href={selectedRequest.invoiceUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            >
+                              <FileText className="w-4 h-4" />
+                              View Invoice
+                            </a>
+                          )}
+                          {selectedRequest.packageImageUrl && (
+                            <a 
+                              href={selectedRequest.packageImageUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-green-600 hover:text-green-700 dark:text-green-400 font-medium rounded-lg border border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                            >
+                              <Package className="w-4 h-4" />
+                              View Package Photo
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
