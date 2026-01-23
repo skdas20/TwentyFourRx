@@ -1485,7 +1485,7 @@ export class ListingsService {
     }
 
     // Calculate new list price if base price or GST changes
-    let listPrice = listing.listPrice;
+    let listPrice: Decimal | null = listing.listPrice;
     if (updateData.basePrice !== undefined || updateData.gstPercentage !== undefined) {
       const basePrice = updateData.basePrice ?? Number(listing.basePrice);
       const gstPct = updateData.gstPercentage ?? Number(listing.gstPercentage);
@@ -1503,7 +1503,7 @@ export class ListingsService {
         gstAmount,
         priceWithGst,
         adminMarkupAmount,
-        finalListPrice: listPrice.toString(),
+        finalListPrice: listPrice?.toString() || 'null',
       });
     }
 
@@ -1511,7 +1511,7 @@ export class ListingsService {
       basePrice: updateData.basePrice,
       stock: updateData.stock,
       gstPercentage: updateData.gstPercentage,
-      listPrice: listPrice.toString(),
+      listPrice: listPrice?.toString() || 'null',
       productImageUrl,
     });
 
