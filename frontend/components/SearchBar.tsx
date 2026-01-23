@@ -82,11 +82,12 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
           // Process Listings (Available for Buy/Sell)
           const listingResults: SearchResult[] = listingsData.slice(0, 8).map((listing: any) => {
             const expiryDate = listing.expiryDate ? new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '';
+            const mrp = listing.medicine?.mrp ? ` • MRP: ₹${Number(listing.medicine.mrp).toFixed(2)}` : '';
             return {
               id: listing.id,
               type: "listing" as const,
               title: listing.medicine?.name || "Medicine",
-              description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units${expiryDate ? ` • Exp: ${expiryDate}` : ''}`,
+              description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units${expiryDate ? ` • Exp: ${expiryDate}` : ''}${mrp}`,
               price: listing.listPrice || listing.basePrice,
               url: `/medicines/${listing.medicineId}`,
               icon: <ShoppingCart className="w-4 h-4" />,

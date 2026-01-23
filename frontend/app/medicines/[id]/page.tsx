@@ -553,7 +553,17 @@ export default function MedicineDetailPage() {
                       {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PSE | <span className="text-xs">*Price excluding GST</span></p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">PSE | <span className="text-xs">*Price excluding GST</span></p>
+                    {medicine?.mrp && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">|</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          MRP: <span className="font-semibold text-gray-900 dark:text-white">₹{Number(medicine.mrp).toFixed(2)}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 mb-4">

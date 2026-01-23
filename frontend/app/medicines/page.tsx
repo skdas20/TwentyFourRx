@@ -388,6 +388,11 @@ export default function MedicinesPage() {
                       <div className="font-bold text-gray-900 dark:text-gray-100">
                         ₹{listing.lowestPrice?.toFixed(2) || listing.listPrice || listing.basePrice}
                       </div>
+                      {listing.medicine?.mrp && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          MRP: ₹{Number(listing.medicine.mrp).toFixed(2)}
+                        </div>
+                      )}
                     </div>
 
                     {/* 1D Change */}
@@ -477,6 +482,11 @@ export default function MedicinesPage() {
                             <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                               ₹{listing.lowestPrice?.toFixed(2) || listing.listPrice || listing.basePrice}
                             </span>
+                            {listing.medicine?.mrp && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                                MRP: ₹{Number(listing.medicine.mrp).toFixed(2)}
+                              </span>
+                            )}
                           </div>
                           <span className={`text-sm font-semibold ${isPositive ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                             {isPositive ? '+' : ''}{changePercent.toFixed(2)}%

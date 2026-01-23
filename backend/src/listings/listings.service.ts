@@ -1440,6 +1440,13 @@ export class ListingsService {
     updateData: { basePrice?: number; stock?: number; gstPercentage?: number },
     productImage?: Express.Multer.File
   ) {
+    console.log('📝 UPDATE LISTING REQUEST:', {
+      listingId,
+      sellerId,
+      updateData,
+      hasImage: !!productImage,
+    });
+
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
       include: {
@@ -1455,16 +1462,26 @@ export class ListingsService {
       throw new BadRequestException('You can only update your own listings');
     }
 
+    console.log('📋 Current listing data:', {
+      basePrice: listing.basePrice,
+      stock: listing.stock,
+      gstPercentage: listing.gstPercentage,
+      listPrice: listing.listPrice,
+    });
+
     // Handle Image Upload
     let productImageUrl: string | undefined;
     if (productImage) {
+      console.log('📸 Uploading new image...');
       productImageUrl = await this.gcsService.uploadFile(productImage, `listings/${listing.id}`);
+      console.log('✅ Image uploaded:', productImageUrl);
       
       // ALSO update the medicine's image so it shows everywhere
       await this.prisma.medicine.update({
         where: { id: listing.medicineId },
         data: { imageUrl: productImageUrl },
       });
+      console.log('✅ Medicine image updated');
     }
 
     // Calculate new list price if base price or GST changes
@@ -1478,7 +1495,25 @@ export class ListingsService {
       const priceWithGst = basePrice + gstAmount;
       const adminMarkupAmount = priceWithGst * (adminMarkup / 100);
       listPrice = new Decimal(priceWithGst + adminMarkupAmount);
+      
+      console.log('💰 Price calculation:', {
+        basePrice,
+        gstPct,
+        adminMarkup,
+        gstAmount,
+        priceWithGst,
+        adminMarkupAmount,
+        finalListPrice: listPrice.toString(),
+      });
     }
+
+    console.log('💾 Updating database with:', {
+      basePrice: updateData.basePrice,
+      stock: updateData.stock,
+      gstPercentage: updateData.gstPercentage,
+      listPrice: listPrice.toString(),
+      productImageUrl,
+    });
 
     const updated = await this.prisma.listing.update({
       where: { id: listingId },
@@ -1497,6 +1532,14 @@ export class ListingsService {
           },
         },
       },
+    });
+
+    console.log('✅ Listing updated successfully:', {
+      id: updated.id,
+      basePrice: updated.basePrice,
+      stock: updated.stock,
+      gstPercentage: updated.gstPercentage,
+      listPrice: updated.listPrice,
     });
 
     return { message: 'Listing updated successfully', listing: this.serializeListing(updated) };
