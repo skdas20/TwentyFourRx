@@ -50,16 +50,16 @@ export class UsersService {
       uploadedDocs.push(kycDoc);
     }
 
-    // CRITICAL FIX: Notify admins when KYC documents are uploaded for review
+    // Notify admins when KYC documents are uploaded for review (in-app + email)
     if (uploadedDocs.length > 0) {
       try {
         const admins = await this.prisma.user.findMany({
           where: { roleCode: 'ADMIN' },
-          select: { id: true, email: true },
+          select: { id: true, email: true, name: true },
         });
 
-        // Create in-app notifications for all admins
         for (const admin of admins) {
+          // Create in-app notification
           await this.prisma.notification.create({
             data: {
               userId: admin.id,
@@ -76,12 +76,39 @@ export class UsersService {
               sentAt: new Date(),
             },
           });
+
+          // Send email notification to admin
+          if (admin.email) {
+            const emailBody = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">New KYC Documents for Review</h2>
+                <p>Dear ${admin.name || 'Admin'},</p>
+                <p>A user has submitted KYC documents for your review:</p>
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 8px 0; color: #6b7280;">User:</td><td style="padding: 8px 0; font-weight: bold;">${user.name}</td></tr>
+                    <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0;">${user.email}</td></tr>
+                    <tr><td style="padding: 8px 0; color: #6b7280;">Documents Uploaded:</td><td style="padding: 8px 0; font-weight: bold;">${uploadedDocs.length}</td></tr>
+                  </table>
+                </div>
+                <p>Please login to the admin dashboard to review and approve/reject the documents.</p>
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/admin"
+                   style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                  Review Documents
+                </a>
+              </div>
+            `;
+            this.emailService.sendEmail(
+              admin.email,
+              `KYC Documents Submitted - ${user.name}`,
+              emailBody,
+            ).catch(err => console.error('Failed to send KYC email to admin:', err));
+          }
         }
 
         console.log(`✅ Notified ${admins.length} admin(s) about KYC document upload from ${user.email}`);
       } catch (error) {
-        console.error('⚠️ Failed to notify admins about KYC upload (non-critical):', error);
-        // Don't throw - document upload was successful
+        console.error('Failed to notify admins about KYC upload (non-critical):', error);
       }
     }
 
@@ -263,9 +290,30 @@ export class UsersService {
   async deleteUser(id: string) {
     const user = await this.findOne(id);
 
-    // Delete user (cascade will handle related records)
-    await this.prisma.user.delete({
-      where: { id },
+    // Delete all related records manually (not all have onDelete: Cascade)
+    await this.prisma.$transaction(async (tx) => {
+      // Delete inventory lots
+      await tx.inventoryLot.deleteMany({ where: { userId: id } });
+      // Delete buy proposals (as buyer)
+      await tx.buyProposal.deleteMany({ where: { buyerId: id } });
+      // Delete orders (as buyer)
+      await tx.order.deleteMany({ where: { buyerId: id } });
+      // Delete holds (as trader)
+      await tx.hold.deleteMany({ where: { traderId: id } });
+      // Delete listings (as seller)
+      await tx.listing.deleteMany({ where: { sellerId: id } });
+      // Delete medicine proposals
+      await tx.medicineProposal.deleteMany({ where: { sellerId: id } });
+      // Delete medicine contributions
+      await tx.medicineContribution.deleteMany({ where: { contributorId: id } });
+      // Delete bulk listing requests
+      await tx.bulkListingRequest.deleteMany({ where: { sellerId: id } });
+      // Delete support tickets
+      await tx.supportTicket.deleteMany({ where: { userId: id } });
+      // Delete delivery requests
+      await tx.deliveryRequest.deleteMany({ where: { requesterId: id } });
+      // Now delete the user (cascades will handle notifications, watchlists, kyc docs, alerts, tokens)
+      await tx.user.delete({ where: { id } });
     });
 
     return {

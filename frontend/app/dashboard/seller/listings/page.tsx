@@ -22,6 +22,7 @@ export default function MyListingsPage() {
     stock: "",
     gstPercentage: "",
   });
+  const [productImage, setProductImage] = useState<File | null>(null);
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -68,6 +69,7 @@ export default function MyListingsPage() {
       stock: listing.stock || "",
       gstPercentage: listing.gstPercentage || "0",
     });
+    setProductImage(null); // Reset image on open
   };
 
   const handleUpdateListing = async (e: React.FormEvent) => {
@@ -79,17 +81,21 @@ export default function MyListingsPage() {
       const token = localStorage.getItem("accessToken");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
+      const formData = new FormData();
+      formData.append('basePrice', editForm.basePrice);
+      formData.append('stock', editForm.stock);
+      formData.append('gstPercentage', editForm.gstPercentage);
+      if (productImage) {
+        formData.append('productImage', productImage);
+      }
+
       const response = await fetch(`${apiUrl}/listings/${editingListing.id}`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          // Content-Type is set automatically by browser for FormData
         },
-        body: JSON.stringify({
-          basePrice: parseFloat(editForm.basePrice),
-          stock: parseInt(editForm.stock),
-          gstPercentage: parseFloat(editForm.gstPercentage),
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -415,6 +421,45 @@ export default function MyListingsPage() {
             </div>
 
             <form onSubmit={handleUpdateListing} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Product Image (Optional)
+                </label>
+                <div className="flex items-center gap-4">
+                  {editingListing.productImageUrl && !productImage && (
+                    <img 
+                      src={editingListing.productImageUrl} 
+                      alt="Current" 
+                      className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                    />
+                  )}
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file && file.size > 5 * 1024 * 1024) {
+                        showToast.error("Image must be less than 5MB");
+                        e.target.value = '';
+                        return;
+                      }
+                      setProductImage(file || null);
+                    }}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300"
+                  />
+                </div>
+                {productImage && (
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    ✓ New image selected: {productImage.name}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Base Price (₹) <span className="text-red-500">*Must be less than current price</span>

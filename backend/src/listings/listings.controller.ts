@@ -195,13 +195,13 @@ export class ListingsController {
     @CurrentUser() user: any,
     @UploadedFiles() files: { csv?: Express.Multer.File[], document?: Express.Multer.File[] },
   ) {
-    if (!files.csv?.[0] || !files.document?.[0]) {
-      throw new BadRequestException('Both CSV and Document files are required');
+    if (!files.csv?.[0]) {
+      throw new BadRequestException('CSV file is required');
     }
     return this.listingsService.createBulkListingRequest(
       user.sub,
       files.csv[0],
-      files.document[0],
+      files.document?.[0],
     );
   }
 
@@ -325,12 +325,14 @@ export class ListingsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')
+  @UseInterceptors(FileInterceptor('productImage'))
   async updateListing(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() dto: UpdateListingDto,
+    @UploadedFile() productImage?: Express.Multer.File,
   ) {
-    return this.listingsService.updateListing(id, user.sub, dto);
+    return this.listingsService.updateListing(id, user.sub, dto, productImage);
   }
 
   // ADMIN: Update markup for a listing

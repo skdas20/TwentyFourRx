@@ -42,7 +42,7 @@ export default function UsersManagementPage() {
             const token = localStorage.getItem('accessToken');
             
             // Check if user has any KYC documents
-            const docsResponse = await fetch(`${API_URL}/users/${user.id}/documents`, {
+            const docsResponse = await fetch(`${API_URL}/admin/users/${user.id}/documents`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
               },
@@ -108,7 +108,7 @@ export default function UsersManagementPage() {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
       const token = localStorage.getItem('accessToken');
       
-      const response = await fetch(`${API_URL}/users/${userId}`, {
+      const response = await fetch(`${API_URL}/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

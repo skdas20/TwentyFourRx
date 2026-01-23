@@ -956,7 +956,7 @@ export class ListingsService {
   async createBulkListingRequest(
     sellerId: string,
     csvFile: Express.Multer.File,
-    documentFile: Express.Multer.File,
+    documentFile?: Express.Multer.File,
   ) {
     // STEP 1: Validate CSV headers IMMEDIATELY (before uploading files)
     const validationResult = await this.validateCsvHeaders(csvFile.buffer);
@@ -968,10 +968,10 @@ export class ListingsService {
 
     // STEP 2: Upload files (only if validation passed)
     const csvUrl = await this.gcsService.uploadFile(csvFile, 'bulk-listings/csv');
-    const documentUrl = await this.gcsService.uploadFile(
-      documentFile,
-      'bulk-listings/docs',
-    );
+    let documentUrl = '';
+    if (documentFile) {
+      documentUrl = await this.gcsService.uploadFile(documentFile, 'bulk-listings/docs');
+    }
 
     // STEP 3: Create request
     const request = await this.prisma.bulkListingRequest.create({
@@ -1434,9 +1434,17 @@ export class ListingsService {
   }
 
   // Update listing (seller/trader only)
-  async updateListing(listingId: string, sellerId: string, updateData: { basePrice?: number; stock?: number; gstPercentage?: number }) {
+  async updateListing(
+    listingId: string, 
+    sellerId: string, 
+    updateData: { basePrice?: number; stock?: number; gstPercentage?: number },
+    productImage?: Express.Multer.File
+  ) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
+      include: {
+        medicine: true,
+      },
     });
 
     if (!listing) {
@@ -1445,6 +1453,18 @@ export class ListingsService {
 
     if (listing.sellerId !== sellerId) {
       throw new BadRequestException('You can only update your own listings');
+    }
+
+    // Handle Image Upload
+    let productImageUrl: string | undefined;
+    if (productImage) {
+      productImageUrl = await this.gcsService.uploadFile(productImage, `listings/${listing.id}`);
+      
+      // ALSO update the medicine's image so it shows everywhere
+      await this.prisma.medicine.update({
+        where: { id: listing.medicineId },
+        data: { imageUrl: productImageUrl },
+      });
     }
 
     // Calculate new list price if base price or GST changes
@@ -1467,6 +1487,7 @@ export class ListingsService {
         stock: updateData.stock,
         gstPercentage: updateData.gstPercentage,
         listPrice,
+        ...(productImageUrl && { productImageUrl }),
       },
       include: {
         medicine: {

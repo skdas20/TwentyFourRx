@@ -282,7 +282,57 @@ export class BuyProposalsService {
         );
       } catch (error) {
         console.error('Failed to send SMS:', error);
-        // Don't fail the whole operation if SMS fails
+      }
+    }
+
+    // Notify seller about the buy proposal
+    const seller = await this.prisma.user.findUnique({
+      where: { id: proposal.listing.sellerId },
+      select: { id: true, email: true, name: true, phone: true },
+    });
+
+    if (seller) {
+      // In-app notification for seller
+      try {
+        await this.notificationsService.createNotification({
+          userId: seller.id,
+          subject: '🛒 New Buy Proposal Received',
+          body: `${proposal.buyer.name} wants to buy ${qty} units of ${proposal.listing.medicine.name}. Awaiting admin approval.`,
+          meta: {
+            type: 'BUY_PROPOSAL_RECEIVED',
+            proposalId: proposal.id,
+            buyerName: proposal.buyer.name,
+            medicineName: proposal.listing.medicine.name,
+            quantity: qty,
+          },
+        });
+      } catch (error) {
+        console.error('Failed to notify seller:', error);
+      }
+
+      // Email notification for seller
+      if (seller.email) {
+        const sellerEmailBody = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">New Buy Proposal for Your Medicine</h2>
+            <p>Dear ${seller.name},</p>
+            <p>A buyer has submitted a purchase proposal for your listed medicine:</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 8px 0; color: #6b7280;">Medicine:</td><td style="padding: 8px 0; font-weight: bold;">${proposal.listing.medicine.name}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">Buyer:</td><td style="padding: 8px 0;">${proposal.buyer.name}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">Quantity:</td><td style="padding: 8px 0; font-weight: bold;">${qty} units</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">Status:</td><td style="padding: 8px 0;">Awaiting Admin Approval</td></tr>
+              </table>
+            </div>
+            <p>You will be notified once the admin reviews this proposal.</p>
+          </div>
+        `;
+        this.emailService.sendEmail(
+          seller.email,
+          `New Buy Proposal - ${proposal.listing.medicine.name}`,
+          sellerEmailBody,
+        ).catch(err => console.error('Failed to send email to seller:', err));
       }
     }
 

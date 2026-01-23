@@ -71,7 +71,7 @@ export default function AdminDashboard() {
           .filter((u: any) => u.status === 'PENDING')
           .map(async (user: any) => {
             try {
-              const docsResponse = await fetch(`${API_URL}/users/${user.id}/documents`, {
+              const docsResponse = await fetch(`${API_URL}/admin/users/${user.id}/documents`, {
                 headers: { 'Authorization': `Bearer ${token}` },
               });
               
@@ -458,7 +458,7 @@ export default function AdminDashboard() {
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl">
                       <Users className="w-5 h-5 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Pending User Approvals</h3>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Pending KYC Approvals</h3>
                   </div>
                   <span className="px-4 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-sm font-semibold rounded-full shadow-lg">
                     {stats.pendingUsers}
@@ -468,7 +468,7 @@ export default function AdminDashboard() {
                 {pendingUsers.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No pending user approvals</p>
+                    <p className="text-gray-500">No pending KYC approvals</p>
                   </div>
                 ) : (
                   <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
