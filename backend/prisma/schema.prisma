@@ -391,6 +391,8 @@ model MedicineProposal {
   name               String
   form               String
   strength           String
+  composition        String?        // Medicine composition/salt
+  packSize           String?        @map("pack_size") // Pack size (e.g., "10 tablets", "100ml")
   manufacturerName   String         @map("manufacturer_name")
   marketerName       String?        @map("marketer_name")
   proposedMrp        Decimal?       @map("proposed_mrp") @db.Decimal(14, 2) // Proposed MRP for new medicine

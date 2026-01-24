@@ -148,6 +148,8 @@ export class ListingsService {
           name: medicineRef.name,
           form: medicineRef.form,
           strength: medicineRef.strength,
+          composition: medicineRef.composition, // Add composition from reference
+          packSize: medicineRef.packSize, // Add packSize from reference
           manufacturerName: medicineRef.manufacturer,
           marketerName: medicineRef.marketer,
           proposedMrp: proposedMrp || medicineRef.mrp,
@@ -828,6 +830,9 @@ export class ListingsService {
           name: proposal.name,
           form: proposal.form,
           strength: proposal.strength,
+          composition: proposal.composition, // Add composition from proposal
+          packSize: proposal.packSize, // Add packSize from proposal
+          mrp: proposal.proposedMrp, // Add MRP from proposal
           manufacturerId: manufacturer.id,
           ...(marketerId && { marketerId }), // Only include if marketerId exists
         },

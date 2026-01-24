@@ -172,3 +172,11 @@ start-dev.sh
 *-service-key.json
 *-storage-service-key.json
 backend/*-service-key.json
+
+# SSH Keys (sensitive)
+kiro_deploy_key
+kiro_deploy_key.pub
+*.pem
+*.key
+id_rsa
+id_ed25519
