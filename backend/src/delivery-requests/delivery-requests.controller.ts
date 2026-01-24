@@ -10,7 +10,7 @@ import {
     UploadedFile,
     UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional } from 'class-validator';
 import { DeliveryRequestsService } from './delivery-requests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -114,17 +114,19 @@ export class DeliveryRequestsController {
     // ADMIN/SELLER: Mark as dispatched with invoice and package image upload
     @Post(':id/dispatch')
     @Roles('SELLER', 'TRADER')
-    @UseInterceptors(FilesInterceptor('files', 2)) // Accept up to 2 files
+    @UseInterceptors(FileFieldsInterceptor([
+        { name: 'invoice', maxCount: 1 },
+        { name: 'packageImage', maxCount: 1 },
+    ]))
     async markDispatched(
         @Param('id') id: string,
         @CurrentUser() user: any,
-        @UploadedFiles() files: Express.Multer.File[],
+        @UploadedFiles() files: { invoice?: Express.Multer.File[], packageImage?: Express.Multer.File[] },
         @Body() dto: MarkDispatchedDto,
     ) {
-        // Extract invoice and packageImage from files array
-        // Frontend should send files with fieldnames 'invoice' and 'packageImage'
-        const invoiceFile = files?.find(f => f.fieldname === 'invoice');
-        const packageImageFile = files?.find(f => f.fieldname === 'packageImage');
+        // Extract invoice and packageImage from the fields object
+        const invoiceFile = files?.invoice?.[0];
+        const packageImageFile = files?.packageImage?.[0];
         
         return this.service.markDispatched(id, user.sub, invoiceFile, packageImageFile, dto.trackingNumber, dto.deliveryPartner);
     }

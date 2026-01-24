@@ -130,9 +130,9 @@ export default function SellerDeliveriesPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
       const formData = new FormData();
-      formData.append('files', file, 'invoice');
+      formData.append('invoice', file);
       if (packageImage) {
-        formData.append('files', packageImage, 'packageImage');
+        formData.append('packageImage', packageImage);
       }
       formData.append('trackingNumber', tracking.trim());
       formData.append('deliveryPartner', partner.trim());
