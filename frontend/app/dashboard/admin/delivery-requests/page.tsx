@@ -39,6 +39,8 @@ export default function AdminDeliveryRequestsPage() {
     try {
       setLoading(true);
       const res = await deliveryRequestsApi.getAllRequests(filter);
+      console.log('📦 Delivery Requests Response:', res.data);
+      console.log('📦 First Request:', res.data?.[0]);
       setRequests(res.data || []);
     } catch (error) {
       console.error("Failed to load delivery requests:", error);
@@ -158,7 +160,12 @@ export default function AdminDeliveryRequestsPage() {
               {requests.map((request: any) => (
                 <div
                   key={request.id}
-                  onClick={() => setSelectedRequest(request)}
+                  onClick={() => {
+                    console.log('📦 Selected Request:', request);
+                    console.log('📦 Invoice URL:', request.invoiceUrl);
+                    console.log('📦 Package Image URL:', request.packageImageUrl);
+                    setSelectedRequest(request);
+                  }}
                   className={`bg-white dark:bg-gray-800 rounded-xl p-6 border cursor-pointer transition-all ${
                     selectedRequest?.id === request.id
                       ? "border-blue-500 shadow-lg"
