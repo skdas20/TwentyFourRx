@@ -278,6 +278,31 @@ export default function AdminDeliveryRequestsPage() {
                     </div>
                   </div>
 
+                  {/* Tracking & Delivery Info */}
+                  {(selectedRequest.trackingNumber || selectedRequest.deliveryPartner) && (
+                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Shipping Information</h3>
+                      <div className="space-y-2 text-sm">
+                        {selectedRequest.trackingNumber && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Tracking Number:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {selectedRequest.trackingNumber}
+                            </span>
+                          </div>
+                        )}
+                        {selectedRequest.deliveryPartner && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Delivery Partner:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {selectedRequest.deliveryPartner}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Document/Invoice Info */}
                   {(selectedRequest.invoiceUrl || selectedRequest.packageImageUrl) && (
                     <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -309,6 +334,21 @@ export default function AdminDeliveryRequestsPage() {
                               View Package Photo
                             </a>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warning if documents missing */}
+                  {selectedRequest.status === 'PENDING' && !selectedRequest.invoiceUrl && (
+                    <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="flex items-start gap-3">
+                        <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">Missing Documents</h3>
+                          <p className="text-sm text-red-700 dark:text-red-300">
+                            Seller has not uploaded courier invoice yet. The request should be in AWAITING_SELLER status.
+                          </p>
                         </div>
                       </div>
                     </div>
