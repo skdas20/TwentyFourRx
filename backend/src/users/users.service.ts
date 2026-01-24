@@ -3,6 +3,7 @@ import { PrismaService } from '../config/prisma.service';
 import { UserStatus } from '@prisma/client';
 import { EmailService } from '../common/services/email.service';
 import { GcsService } from '../common/services/gcs.service';
+import { PdfMergeService } from '../common/services/pdf-merge.service';
 
 @Injectable()
 export class UsersService {
@@ -10,21 +11,58 @@ export class UsersService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private gcsService: GcsService,
+    private pdfMergeService: PdfMergeService,
   ) {}
 
-  async uploadKycDocuments(userId: string, documents: { [docTypeCode: string]: Express.Multer.File }) {
+  async uploadKycDocuments(userId: string, documents: { [docTypeCode: string]: Express.Multer.File | Express.Multer.File[] }) {
     const user = await this.findOne(userId);
     const uploadedDocs: any[] = [];
 
-    for (const [docTypeCode, file] of Object.entries(documents)) {
+    for (const [docTypeCode, fileOrFiles] of Object.entries(documents)) {
       const docType = await this.prisma.kycDocumentType.findUnique({
         where: { code: docTypeCode },
       });
 
       if (!docType) continue;
 
+      // Handle both single file and multiple files
+      const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+      
+      let fileToUpload: Express.Multer.File;
+      
+      // If multiple files, merge them into a PDF
+      if (files.length > 1) {
+        console.log(`📄 Merging ${files.length} files for ${docTypeCode} into PDF...`);
+        
+        // Check if all files are images
+        const allImages = files.every(f => this.pdfMergeService.isImage(f.mimetype));
+        
+        if (allImages) {
+          // Merge images into PDF
+          const pdfBuffer = await this.pdfMergeService.mergeImagesToPdf(files);
+          
+          // Create a new file object for the merged PDF
+          fileToUpload = {
+            ...files[0],
+            buffer: pdfBuffer,
+            mimetype: 'application/pdf',
+            originalname: `${docTypeCode}_merged.pdf`,
+            size: pdfBuffer.length,
+          } as Express.Multer.File;
+          
+          console.log(`✅ Merged ${files.length} images into PDF (${(pdfBuffer.length / 1024).toFixed(2)} KB)`);
+        } else {
+          // If not all images, just use the first file (fallback)
+          console.log(`⚠️  Not all files are images, using first file only`);
+          fileToUpload = files[0];
+        }
+      } else {
+        // Single file, use as is
+        fileToUpload = files[0];
+      }
+
       // Upload to GCS
-      const fileUrl = await this.gcsService.uploadFile(file, `kyc/${userId}`);
+      const fileUrl = await this.gcsService.uploadFile(fileToUpload, `kyc/${userId}`);
 
       // Upsert document (update if exists, create if not)
       const kycDoc = await this.prisma.kycDocument.upsert({

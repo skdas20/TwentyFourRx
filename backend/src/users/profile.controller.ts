@@ -45,19 +45,31 @@ export class ProfileController {
       console.log(`⚠️  WARNING: No files received in request!`);
     }
     
-    const documents: { [key: string]: Express.Multer.File } = {};
+    // Group files by fieldname (document type)
+    const documents: { [key: string]: Express.Multer.File[] } = {};
     files?.forEach((file, index) => {
       console.log(`\n📄 File ${index + 1}:`);
       console.log(`   - Field name: ${file.fieldname}`);
       console.log(`   - Original name: ${file.originalname}`);
       console.log(`   - Size: ${file.size} bytes (${(file.size / 1024).toFixed(2)} KB)`);
       console.log(`   - MIME type: ${file.mimetype}`);
-      documents[file.fieldname] = file;
+      
+      if (!documents[file.fieldname]) {
+        documents[file.fieldname] = [];
+      }
+      documents[file.fieldname].push(file);
     });
+
+    // Convert arrays to single file or keep as array
+    const documentsToUpload: { [key: string]: Express.Multer.File | Express.Multer.File[] } = {};
+    for (const [key, fileArray] of Object.entries(documents)) {
+      documentsToUpload[key] = fileArray.length === 1 ? fileArray[0] : fileArray;
+      console.log(`\n📦 Document type "${key}": ${fileArray.length} file(s)`);
+    }
 
     console.log(`\n🔄 Calling uploadKycDocuments service...`);
     try {
-      const result = await this.usersService.uploadKycDocuments(user.sub, documents);
+      const result = await this.usersService.uploadKycDocuments(user.sub, documentsToUpload);
       console.log(`✅ Upload completed successfully for user: ${user.sub}`);
       console.log(`📊 Result: ${JSON.stringify(result)}`);
       console.log(`========================================\n`);

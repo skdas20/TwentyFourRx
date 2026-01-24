@@ -22,7 +22,7 @@ const documentTypes = [
 export default function CompleteProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [documents, setDocuments] = useState<{ [key: string]: File }>({});
+  const [documents, setDocuments] = useState<{ [key: string]: File[] }>({});
   const [existingDocs, setExistingDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -55,18 +55,24 @@ export default function CompleteProfilePage() {
     }
   };
 
-  const handleFileChange = (code: string, file: File | null) => {
-    if (file) {
+  const handleFileChange = (code: string, files: FileList | null) => {
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      if (!allowedTypes.includes(file.type)) {
-        setError(`Invalid file type for ${code}. Only PDF, JPG, PNG allowed.`);
-        return;
+      
+      // Validate all files
+      for (const file of fileArray) {
+        if (!allowedTypes.includes(file.type)) {
+          setError(`Invalid file type for ${code}. Only PDF, JPG, PNG allowed.`);
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          setError(`File ${file.name} is too large. Max 10MB per file.`);
+          return;
+        }
       }
-      if (file.size > 10 * 1024 * 1024) {
-        setError(`File ${file.name} is too large. Max 10MB.`);
-        return;
-      }
-      setDocuments({ ...documents, [code]: file });
+      
+      setDocuments({ ...documents, [code]: fileArray });
       setError('');
     } else {
       const newDocs = { ...documents };
@@ -94,8 +100,10 @@ export default function CompleteProfilePage() {
 
     try {
       const formDataToSend = new FormData();
-      Object.entries(documents).forEach(([code, file]) => {
-        formDataToSend.append(code, file);
+      Object.entries(documents).forEach(([code, files]) => {
+        files.forEach(file => {
+          formDataToSend.append(code, file);
+        });
       });
 
       const token = localStorage.getItem('accessToken');
@@ -241,25 +249,30 @@ function Section({ title, docs, documents, existingDocs, onFileChange }: any) {
                 <div className="relative">
                   <input
                     type="file"
+                    multiple
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => onFileChange(doc.code, e.target.files?.[0] || null)}
+                    onChange={(e) => onFileChange(doc.code, e.target.files)}
                     accept=".pdf,.jpg,.jpeg,.png"
                   />
                   <div className={`py-3 px-4 border-2 border-dashed rounded-lg text-center transition ${
-                    documents[doc.code] ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 dark:border-gray-600'
+                    documents[doc.code] && documents[doc.code].length > 0 ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 dark:border-gray-600'
                   }`}>
-                    {documents[doc.code] ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-blue-700 font-medium truncate max-w-[150px]">{documents[doc.code].name}</span>
-                        <X className="w-4 h-4 text-red-500 cursor-pointer" onClick={(e) => {
-                          e.preventDefault();
-                          onFileChange(doc.code, null);
-                        }} />
+                    {documents[doc.code] && documents[doc.code].length > 0 ? (
+                      <div className="space-y-1">
+                        {documents[doc.code].map((file: File, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <span className="text-blue-700 font-medium truncate max-w-[120px]">{file.name}</span>
+                            <span className="text-gray-500 text-[10px]">{(file.size / 1024).toFixed(1)}KB</span>
+                          </div>
+                        ))}
+                        <div className="text-[10px] text-gray-500 mt-2">
+                          {documents[doc.code].length} file(s) • Will be merged into PDF
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1">
                         <Upload className="w-4 h-4 text-gray-400" />
-                        <span className="text-[10px] text-gray-500">Click to upload</span>
+                        <span className="text-[10px] text-gray-500">Click to upload (multiple files OK)</span>
                       </div>
                     )}
                   </div>
