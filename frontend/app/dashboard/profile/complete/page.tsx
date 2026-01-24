@@ -11,23 +11,11 @@ import Logo from "@/components/Logo";
 const documentTypes = [
   { code: 'GST_CERTIFICATE', label: 'GST Registration Certificate', required: true, section: 'basic' },
   { code: 'PAN_CARD', label: 'PAN Card', required: true, section: 'basic' },
-  { code: 'FACTORY_LICENSE', label: 'Factory License/ Panchayath/ Corporation Certificate', required: false, section: 'basic' },
-  { code: 'FSSAI_CERTIFICATE', label: 'FSSAI Certificate', required: false, section: 'basic' },
   { code: 'CANCELLED_CHEQUE', label: 'Cancelled Cheque', required: true, section: 'basic' },
   { code: 'INDEMNITY_CERTIFICATE', label: 'Indemnity Certificate', required: true, section: 'basic', downloadUrl: '/forms/Indemnity-Certificate.pdf' },
-  { code: 'COMPANY_PROFILE', label: 'Company Profile', required: false, section: 'basic' },
   { code: 'DRUG_LICENSE_1', label: '20B Drug License', required: true, section: 'basic' },
   { code: 'DRUG_LICENSE_2', label: '21B Drug Licence', required: true, section: 'basic' },
-  { code: 'DRUG_LICENSE_3', label: 'Intimation Letter', required: false, section: 'basic' },
-  { code: 'MANUFACTURER_AUTH_LETTER', label: 'Manufacturer Authorization Letter', required: false, section: 'auth' },
-  { code: 'MANUFACTURER_AGREEMENT', label: 'Agreement with Manufacturer', required: false, section: 'auth' },
-  { code: 'QUALITY_CERTIFICATIONS', label: 'Quality Certifications (FDA, CE, etc.)', required: false, section: 'auth' },
-  { code: 'INCORPORATION_CERTIFICATE', label: 'Certificate of Incorporation', required: false, section: 'auth' },
-  { code: 'MSE_CERTIFICATE', label: 'MSME Certificate', required: false, section: 'auth' },
-  { code: 'UDYOG_AADHAR', label: 'Udyog Aadhar', required: false, section: 'auth' },
-  { code: 'NSIC_CERTIFICATE', label: 'NSIC/KVIC/UAM Certificate', required: false, section: 'auth' },
   { code: 'NON_CONVICTION_CERTIFICATE', label: 'Non-Conviction Certificate', required: true, section: 'legal', downloadUrl: '/forms/Non-Conviction-Certificate.pdf' },
-  { code: 'SUPPLY_ORDER', label: 'Supply Order', required: false, section: 'legal' },
   { code: 'DECLARATION_FORM', label: 'Declaration Form', required: true, section: 'legal', downloadUrl: '/forms/Declaration-Form.pdf' },
 ];
 
@@ -177,13 +165,6 @@ export default function CompleteProfilePage() {
                   <Section 
                     title="Business Documents" 
                     docs={documentTypes.filter(d => d.section === 'basic')}
-                    documents={documents}
-                    existingDocs={existingDocs}
-                    onFileChange={handleFileChange}
-                  />
-                  <Section 
-                    title="Authorization & Quality" 
-                    docs={documentTypes.filter(d => d.section === 'auth')}
                     documents={documents}
                     existingDocs={existingDocs}
                     onFileChange={handleFileChange}
