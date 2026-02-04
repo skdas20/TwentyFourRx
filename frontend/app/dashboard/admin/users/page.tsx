@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Users, Search, Filter, CheckCircle, XCircle, Clock, ArrowLeft, LogOut } from "lucide-react";
 import { usersApi } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
+import UserDocumentsModal from "@/components/admin/UserDocumentsModal";
 
 export default function UsersManagementPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function UsersManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [selectedUserForDocs, setSelectedUserForDocs] = useState<{id: string, name: string} | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -129,8 +131,7 @@ export default function UsersManagementPage() {
   };
 
   const handleViewDocuments = (userId: string, userName: string) => {
-    // Navigate to a documents view page or open a modal
-    router.push(`/dashboard/admin/users/${userId}/documents`);
+    setSelectedUserForDocs({ id: userId, name: userName });
   };
 
   const handleLogout = () => {
@@ -326,6 +327,16 @@ export default function UsersManagementPage() {
           </div>
         )}
       </main>
+
+      {/* User Documents Modal */}
+      {selectedUserForDocs && (
+        <UserDocumentsModal
+          userId={selectedUserForDocs.id}
+          userName={selectedUserForDocs.name}
+          onClose={() => setSelectedUserForDocs(null)}
+          onDocumentReviewed={loadUsers}
+        />
+      )}
     </div>
   );
 }
