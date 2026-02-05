@@ -377,6 +377,11 @@ export default function MedicinesPage() {
                             </span>
                           )}
                         </p>
+                        {listing.medicine?.composition && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate mt-1">
+                            {listing.medicine.composition}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -473,9 +478,14 @@ export default function MedicinesPage() {
                             {listing.medicine?.name || "Medicine"}
                           </h3>
                         </Link>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                           {listing.medicine?.form} {listing.medicine?.strength && `- ${listing.medicine.strength}`}
                         </p>
+                        {listing.medicine?.composition && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 truncate">
+                            {listing.medicine.composition}
+                          </p>
+                        )}
 
                         <div className="flex items-center gap-3 mb-2">
                           <div>
