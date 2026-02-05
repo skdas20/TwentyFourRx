@@ -1311,18 +1311,29 @@ export class ListingsService {
                 // We'll quickly find/create manufacturer and medicine
                 let manufacturer = await this.prisma.manufacturer.findFirst({ where: { name: ref.manufacturer }});
                 if (!manufacturer) manufacturer = await this.prisma.manufacturer.create({ data: { name: ref.manufacturer }});
-                
+
                 const newMed = await this.prisma.medicine.create({
                   data: {
                     name: ref.name,
                     form: ref.form,
                     strength: ref.strength,
+                    composition: row['Composition'] || ref.composition || null,
                     manufacturerId: manufacturer.id,
                     mrp: ref.mrp,
                   }
                 });
                 medicineId = newMed.id;
              }
+          } else if (row.matchType === 'ACTIVE' && row['Composition']) {
+            // If matched to active medicine, update composition if it's empty
+            const existingMed = await this.prisma.medicine.findUnique({ where: { id: medicineId }});
+            if (existingMed && !existingMed.composition) {
+              await this.prisma.medicine.update({
+                where: { id: medicineId },
+                data: { composition: row['Composition'] }
+              });
+              console.log(`✅ Updated composition for medicine ${medicineId}: ${row['Composition']}`);
+            }
           }
 
           // Create Listing with markup
