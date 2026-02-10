@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
+import { RedisService } from '../config/redis.service';
 import { PricesService } from '../prices/prices.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { parse } from 'csv-parse/sync';
@@ -18,6 +19,7 @@ export class ListingsService {
   constructor(
     private prisma: PrismaService,
     private gcsService: GcsService,
+    private redisService: RedisService,
     @Inject(forwardRef(() => PricesService))
     private pricesService: PricesService,
     private notificationsService: NotificationsService,
@@ -640,7 +642,24 @@ export class ListingsService {
     }
   }
 
-  async getActiveListings(medicineId?: string, search?: string) {
+  async getActiveListings(medicineId?: string, search?: string, page: number = 1, limit: number = 100) {
+    // Create cache key
+    const cacheKey = `listings:active:${medicineId || 'all'}:${search || 'none'}:${page}:${limit}`;
+
+    // Try to get from cache
+    try {
+      const redis = this.redisService.getClient();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log(`✅ Cache HIT: ${cacheKey}`);
+        return JSON.parse(cached);
+      }
+      console.log(`❌ Cache MISS: ${cacheKey}`);
+    } catch (error) {
+      console.error('Redis error:', error);
+      // Continue without cache if Redis fails
+    }
+
     const whereClause: any = {
       status: 'ACTIVE',
       stock: { gt: 0 },
@@ -662,61 +681,56 @@ export class ListingsService {
       };
     }
 
-    const allListings = await this.prisma.listing.findMany({
-      where: whereClause,
-      include: {
-        medicine: {
-          include: {
-            manufacturer: true,
-            marketer: true,
-          },
-        },
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { listPrice: 'asc' },
-    });
+    // Use raw SQL for better performance - get lowest price per medicine
+    const lowestPriceListings = await this.prisma.$queryRaw<any[]>`
+      SELECT DISTINCT ON (l.medicine_id)
+        l.id, l.medicine_id, l.seller_id, l.base_price, l.list_price,
+        l.gst_percentage, l.stock, l.batch_no, l.expiry_date, l.status,
+        m.name as medicine_name, m.composition, m.form, m.strength, m.mrp as medicine_mrp, m.image_url,
+        mfr.id as manufacturer_id, mfr.name as manufacturer_name,
+        u.id as seller_id, u.name as seller_name, u.email as seller_email
+      FROM listings l
+      INNER JOIN medicines m ON l.medicine_id = m.id
+      INNER JOIN manufacturers mfr ON m.manufacturer_id = mfr.id
+      INNER JOIN users u ON l.seller_id = u.id
+      WHERE l.status = 'ACTIVE'
+        AND l.stock > 0
+        ${medicineId ? this.prisma.$queryRaw`AND l.medicine_id = ${medicineId}::uuid` : this.prisma.$queryRaw``}
+        ${search ? this.prisma.$queryRaw`AND (
+          m.name ILIKE ${'%' + search + '%'} OR
+          m.composition ILIKE ${'%' + search + '%'} OR
+          m.form ILIKE ${'%' + search + '%'} OR
+          m.strength ILIKE ${'%' + search + '%'} OR
+          mfr.name ILIKE ${'%' + search + '%'}
+        )` : this.prisma.$queryRaw``}
+      ORDER BY l.medicine_id, l.list_price ASC
+      LIMIT ${limit}
+      OFFSET ${(page - 1) * limit}
+    `;
 
-    // Group by medicineId and keep only the lowest price listing per medicine
-    const lowestPriceListings = new Map<string, any>();
-
-    for (const listing of allListings) {
-      const medicineId = listing.medicineId;
-      const existing = lowestPriceListings.get(medicineId);
-
-      if (!existing || Number(listing.listPrice) < Number(existing.listPrice)) {
-        lowestPriceListings.set(medicineId, listing);
-      }
-    }
-
-    const uniqueMedicineIds = Array.from(lowestPriceListings.keys());
+    // Get medicine IDs for price history
+    const medicineIds = lowestPriceListings.map(l => l.medicine_id);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Fetch history for trend calculation
-    const history = await this.prisma.priceHistory.findMany({
+    // Fetch price history in parallel
+    const history = medicineIds.length > 0 ? await this.prisma.priceHistory.findMany({
       where: {
-        medicineId: { in: uniqueMedicineIds },
+        medicineId: { in: medicineIds },
         day: { gte: thirtyDaysAgo },
       },
       orderBy: { day: 'asc' },
-    });
+    }) : [];
 
-    // Convert map to array and attach trend data
-    return Array.from(lowestPriceListings.values()).map((listing) => {
-      const serialized = this.serializeListing(listing);
-      const medHistory = history.filter((h) => h.medicineId === listing.medicineId);
+    // Transform and attach trend data
+    const result = lowestPriceListings.map((listing) => {
+      const medHistory = history.filter((h) => h.medicineId === listing.medicine_id);
 
       let change = 0;
       let changePercent = 0;
 
       if (medHistory.length > 0) {
         const oldestPrice = Number(medHistory[0].avgPrice);
-        const currentPrice = Number(listing.listPrice || listing.basePrice);
+        const currentPrice = Number(listing.list_price || listing.base_price);
 
         if (oldestPrice > 0) {
           change = currentPrice - oldestPrice;
@@ -725,11 +739,50 @@ export class ListingsService {
       }
 
       return {
-        ...serialized,
+        id: listing.id,
+        medicineId: listing.medicine_id,
+        sellerId: listing.seller_id,
+        basePrice: Number(listing.base_price),
+        listPrice: Number(listing.list_price || listing.base_price),
+        gstPercentage: Number(listing.gst_percentage),
+        stock: listing.stock,
+        batchNo: listing.batch_no,
+        expiryDate: listing.expiry_date,
+        status: listing.status,
+        medicine: {
+          id: listing.medicine_id,
+          name: listing.medicine_name,
+          composition: listing.composition,
+          form: listing.form,
+          strength: listing.strength,
+          mrp: Number(listing.medicine_mrp),
+          imageUrl: listing.image_url,
+          manufacturer: {
+            id: listing.manufacturer_id,
+            name: listing.manufacturer_name,
+          },
+        },
+        seller: {
+          id: listing.seller_id,
+          name: listing.seller_name,
+          email: listing.seller_email,
+        },
         change,
         changePercent,
+        lowestPrice: Number(listing.list_price || listing.base_price),
       };
     });
+
+    // Cache for 5 minutes
+    try {
+      const redis = this.redisService.getClient();
+      await redis.setex(cacheKey, 300, JSON.stringify(result));
+      console.log(`💾 Cached: ${cacheKey}`);
+    } catch (error) {
+      console.error('Failed to cache:', error);
+    }
+
+    return result;
   }
 
   async getListingById(id: string) {

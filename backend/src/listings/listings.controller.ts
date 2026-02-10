@@ -360,8 +360,12 @@ export class ListingsController {
   async getActiveListings(
     @Query('medicineId') medicineId?: string,
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.listingsService.getActiveListings(medicineId, search);
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 100;
+    return this.listingsService.getActiveListings(medicineId, search, pageNum, limitNum);
   }
 
   // PUBLIC: Get listing by ID
