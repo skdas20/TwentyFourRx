@@ -681,8 +681,8 @@ export class ListingsService {
       };
     }
 
-    // Use raw SQL for better performance - get lowest price per medicine
-    const lowestPriceListings = await this.prisma.$queryRaw<any[]>`
+    // Build dynamic SQL query for better performance
+    let query = `
       SELECT DISTINCT ON (l.medicine_id)
         l.id, l.medicine_id, l.seller_id, l.base_price, l.list_price,
         l.gst_percentage, l.stock, l.batch_no, l.expiry_date, l.status,
@@ -694,19 +694,35 @@ export class ListingsService {
       INNER JOIN manufacturers mfr ON m.manufacturer_id = mfr.id
       INNER JOIN users u ON l.seller_id = u.id
       WHERE l.status = 'ACTIVE'
-        AND l.stock > 0
-        ${medicineId ? this.prisma.$queryRaw`AND l.medicine_id = ${medicineId}::uuid` : this.prisma.$queryRaw``}
-        ${search ? this.prisma.$queryRaw`AND (
-          m.name ILIKE ${'%' + search + '%'} OR
-          m.composition ILIKE ${'%' + search + '%'} OR
-          m.form ILIKE ${'%' + search + '%'} OR
-          m.strength ILIKE ${'%' + search + '%'} OR
-          mfr.name ILIKE ${'%' + search + '%'}
-        )` : this.prisma.$queryRaw``}
-      ORDER BY l.medicine_id, l.list_price ASC
-      LIMIT ${limit}
-      OFFSET ${(page - 1) * limit}
-    `;
+        AND l.stock > 0`;
+
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    if (medicineId) {
+      query += ` AND l.medicine_id = $${paramIndex}::uuid`;
+      queryParams.push(medicineId);
+      paramIndex++;
+    }
+
+    if (search) {
+      const searchPattern = `%${search}%`;
+      query += ` AND (
+        m.name ILIKE $${paramIndex} OR
+        m.composition ILIKE $${paramIndex + 1} OR
+        m.form ILIKE $${paramIndex + 2} OR
+        m.strength ILIKE $${paramIndex + 3} OR
+        mfr.name ILIKE $${paramIndex + 4}
+      )`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+      paramIndex += 5;
+    }
+
+    query += ` ORDER BY l.medicine_id, l.list_price ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, (page - 1) * limit);
+
+    const lowestPriceListings = await this.prisma.$queryRawUnsafe<any[]>(query, ...queryParams);
 
     // Get medicine IDs for price history
     const medicineIds = lowestPriceListings.map(l => l.medicine_id);
