@@ -285,7 +285,14 @@ export class BuyProposalsService {
     return this.prisma.buyProposal.findMany({
       where: {
         status: {
-          in: ['PENDING', 'SELLER_CONFIRMED'], // Include both legacy and new flow
+          in: [
+            'PENDING',
+            'AWAITING_SELLER',
+            'SELLER_CONFIRMED',
+            'QUANTITY_MODIFIED',
+            'AWAITING_PAYMENT',
+            'AWAITING_SELLER_INVOICE'
+          ], // Include all active statuses (not APPROVED/REJECTED)
         },
       },
       include: {
