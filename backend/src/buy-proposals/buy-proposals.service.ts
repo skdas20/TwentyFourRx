@@ -664,17 +664,87 @@ export class BuyProposalsService {
       throw new BadRequestException('Failed to upload invoice');
     }
 
-    console.log('✅ Seller uploaded invoice, sending PI to buyer...');
+    console.log('✅ Seller uploaded invoice, creating order...');
 
     // Calculate totals
     const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
 
-    // Update proposal to AWAITING_PAYMENT (NOT APPROVED yet)
+    // Create order
+    const order = await this.prisma.order.create({
+      data: {
+        buyerId: proposal.buyerId,
+        listingId: proposal.listingId,
+        qty: proposal.qty,
+        unitPrice: totals.unitPrice,
+        amount: totals.total,
+        type: 'BUY',
+        status: 'PAID',
+        paidAt: new Date(),
+        invoiceUrl: sellerInvoiceUrl,
+      },
+    });
+
+    // Create inventory lot
+    await this.prisma.inventoryLot.create({
+      data: {
+        userId: proposal.buyerId,
+        medicineId: proposal.listing.medicineId,
+        qty: proposal.qty,
+        unitCost: totals.unitPrice,
+        sourceOrderId: order.id,
+      },
+    });
+
+    // Update proposal to APPROVED
     await this.prisma.buyProposal.update({
       where: { id: proposalId },
       data: {
-        status: 'AWAITING_PAYMENT',
+        status: 'APPROVED',
         sellerInvoiceUrl,
+        approvedOrderId: order.id,
+        reviewedAt: new Date(),
+      },
+    });
+
+    // Send Tax Invoice to buyer
+    if (proposal.buyer?.email) {
+      try {
+        await this.emailService.sendEmail(
+          proposal.buyer.email,
+          '✅ Payment Received - Tax Invoice',
+          getTaxInvoiceEmailTemplate(
+            proposal.buyer.name,
+            proposal.listing.medicine.name,
+            proposal.qty,
+            totals.unitPrice.toNumber(),
+            totals.gstPercentage,
+            totals.gstAmount.toNumber(),
+            totals.total.toNumber(),
+            order.id
+          ),
+        );
+        console.log('✅ Tax Invoice sent to buyer');
+      } catch (error) {
+        console.error('Failed to send tax invoice:', error);
+      }
+    }
+
+    return {
+      message: 'Invoice uploaded! Order created and tax invoice sent to buyer.',
+      orderId: order.id,
+    };
+  }
+
+  // Helper method to send PI to buyer
+  private async sendPItoBuyer(proposal: any) {
+    // Calculate totals
+    const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
+
+    // Update proposal status to AWAITING_PAYMENT
+    await this.prisma.buyProposal.update({
+      where: { id: proposal.id },
+      data: {
+        status: 'AWAITING_PAYMENT',
       },
     });
 
@@ -682,9 +752,9 @@ export class BuyProposalsService {
     let pdfBuffer: Buffer | null = null;
     try {
       pdfBuffer = await this.pdfService.generateQuotationPDF({
-        invoiceNo: `PI-${proposalId.substring(0, 8).toUpperCase()}`,
+        invoiceNo: `PI-${proposal.id.substring(0, 8).toUpperCase()}`,
         invoiceDate: new Date().toLocaleDateString('en-GB'),
-        orderNo: proposalId.substring(0, 8).toUpperCase(),
+        orderNo: proposal.id.substring(0, 8).toUpperCase(),
         orderDate: new Date(proposal.createdAt).toLocaleDateString('en-GB'),
         lrDate: '',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
@@ -721,11 +791,11 @@ export class BuyProposalsService {
       console.error('Failed to generate PI PDF:', error);
     }
 
-    // Send Proforma Invoice (PI) to buyer asking for payment
+    // Send Proforma Invoice (PI) to buyer
     if (proposal.buyer?.email) {
       try {
         const attachment = pdfBuffer ? {
-          filename: `Proforma_Invoice_${proposalId.substring(0, 8)}.pdf`,
+          filename: `Proforma_Invoice_${proposal.id.substring(0, 8)}.pdf`,
           content: pdfBuffer,
           contentType: 'application/pdf',
         } : undefined;
@@ -750,22 +820,18 @@ export class BuyProposalsService {
       }
     }
 
-    // Notify buyer that PI is ready and payment is required
+    // Send in-app notification to buyer
     if (proposal.buyer) {
       try {
         await this.notificationsService.notifyBuyerPIGenerated(
           proposal.buyer,
           proposal,
-          proposalId, // Use proposal ID since order not created yet
+          proposal.id,
         );
       } catch (error) {
         console.error('Failed to notify buyer:', error);
       }
     }
-
-    return {
-      message: 'Invoice uploaded successfully. PI sent to buyer - awaiting payment.',
-    };
   }
 
   async uploadReceipt(
@@ -812,76 +878,39 @@ export class BuyProposalsService {
       throw new BadRequestException('Failed to upload receipt');
     }
 
-    // Check if this is seller confirmation flow (has seller invoice)
-    if (proposal.flowType === 'SELLER_CONFIRMATION' && proposal.sellerInvoiceUrl) {
-      console.log('✅ Receipt uploaded - Auto-creating order (seller confirmation flow)');
+    // Check if this is seller confirmation flow
+    if (proposal.flowType === 'SELLER_CONFIRMATION') {
+      console.log('✅ Receipt uploaded - Notifying seller to upload invoice');
 
-      // Calculate totals
-      const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
-
-      // Create order
-      const order = await this.prisma.order.create({
-        data: {
-          buyerId: proposal.buyerId,
-          listingId: proposal.listingId,
-          qty: proposal.qty,
-          unitPrice: totals.unitPrice,
-          amount: totals.total,
-          type: 'BUY',
-          status: 'PAID',
-          paidAt: new Date(),
-          invoiceUrl: proposal.sellerInvoiceUrl,
-        },
-      });
-
-      // Create inventory lot
-      await this.prisma.inventoryLot.create({
-        data: {
-          userId: proposal.buyerId,
-          medicineId: proposal.listing.medicineId,
-          qty: proposal.qty,
-          unitCost: totals.unitPrice,
-          sourceOrderId: order.id,
-        },
-      });
-
-      // Update proposal to APPROVED
-      await this.prisma.buyProposal.update({
+      // Update proposal status to awaiting seller invoice
+      const updatedProposal = await this.prisma.buyProposal.update({
         where: { id: proposalId },
         data: {
-          status: 'APPROVED',
+          status: 'AWAITING_SELLER_INVOICE',
           receiptUrl,
-          approvedOrderId: order.id,
-          reviewedAt: new Date(),
+        },
+        include: {
+          listing: {
+            include: {
+              medicine: true,
+              seller: { select: { id: true, email: true, name: true } }
+            }
+          },
+          buyer: { select: { id: true, email: true, name: true } },
         },
       });
 
-      // Send Tax Invoice to buyer
-      if (proposal.buyer?.email) {
-        try {
-          await this.emailService.sendEmail(
-            proposal.buyer.email,
-            '✅ Payment Received - Tax Invoice',
-            getTaxInvoiceEmailTemplate(
-              proposal.buyer.name,
-              proposal.listing.medicine.name,
-              proposal.qty,
-              totals.unitPrice.toNumber(),
-              totals.gstPercentage,
-              totals.gstAmount.toNumber(),
-              totals.total.toNumber(),
-              order.id
-            ),
-          );
-          console.log('✅ Tax Invoice sent to buyer');
-        } catch (error) {
-          console.error('Failed to send tax invoice:', error);
-        }
+      // Notify seller to upload invoice
+      if (updatedProposal.listing.seller) {
+        console.log('📧 Sending upload invoice notification to seller (after buyer payment)');
+        await this.notificationsService.notifySellerUploadInvoice(
+          updatedProposal.listing.seller,
+          updatedProposal,
+        );
       }
 
       return {
-        message: 'Payment confirmed! Order created and tax invoice sent.',
-        orderId: order.id,
+        message: 'Payment receipt uploaded! Waiting for seller to upload invoice.',
       };
     }
 
@@ -1090,17 +1119,9 @@ export class BuyProposalsService {
       // Notify buyer about modified quantity
       await this.notificationsService.notifyBuyerQtyModified(proposal.buyer, updatedProposal);
     } else {
-      // Notify buyer that seller confirmed
-      await this.notificationsService.notifyBuyerSellerConfirmed(proposal.buyer, updatedProposal);
-
-      // Notify seller to upload invoice
-      if (proposal.listing.seller) {
-        console.log('📧 Sending upload invoice notification to seller (after confirmation)');
-        await this.notificationsService.notifySellerUploadInvoice(
-          proposal.listing.seller,
-          updatedProposal,
-        );
-      }
+      // Generate and send PI to buyer immediately
+      console.log('✅ Seller confirmed, sending PI to buyer immediately...');
+      await this.sendPItoBuyer(updatedProposal);
 
       // Notify admin for review
       await this.notificationsService.notifyAdminSellerConfirmed(updatedProposal);
@@ -1190,19 +1211,14 @@ export class BuyProposalsService {
         qty: proposal.confirmedQty || proposal.qty, // Update qty to confirmed qty
       },
       include: {
-        listing: { include: { medicine: true } },
-        buyer: { select: { id: true, email: true, name: true } },
+        listing: { include: { medicine: true, seller: { select: { id: true, email: true, name: true } } } },
+        buyer: { select: { id: true, email: true, name: true, phone: true } },
       },
     });
 
-    // Notify seller to upload invoice
-    if (proposal.listing.seller) {
-      console.log('📧 Sending upload invoice notification to seller (after buyer approval)');
-      await this.notificationsService.notifySellerUploadInvoice(
-        proposal.listing.seller,
-        updatedProposal,
-      );
-    }
+    // Generate and send PI to buyer immediately after qty approval
+    console.log('✅ Buyer approved qty, sending PI to buyer immediately...');
+    await this.sendPItoBuyer(updatedProposal);
 
     // Notify admin for review
     await this.notificationsService.notifyAdminSellerConfirmed(updatedProposal);

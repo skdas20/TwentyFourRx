@@ -63,6 +63,10 @@ export function getPurchaseOrderEmailTemplate(
       3. Our team will verify and process your order within 24 hours</p>
     </div>
 
+    <div class="info-box" style="background: #FEF3C7; border-left: 4px solid #F59E0B; margin: 20px 0;">
+      <p style="color: #92400E; margin: 0;"><strong>📦 Note:</strong> Delivery Charges Shall Apply</p>
+    </div>
+
     <p><strong>📎 Attached Documents:</strong></p>
     <ul style="color: #64748B; line-height: 1.8;">
       <li>Detailed Quotation (PDF)</li>

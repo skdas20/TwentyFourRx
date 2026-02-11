@@ -63,6 +63,7 @@ enum Channel {
 
 enum ProposalStatus {
   AWAITING_PAYMENT
+  AWAITING_SELLER_INVOICE  // NEW - buyer paid, awaiting seller invoice
   PENDING
   AWAITING_SELLER      // NEW - awaiting seller confirmation
   SELLER_CONFIRMED     // NEW - seller confirmed, awaiting admin
