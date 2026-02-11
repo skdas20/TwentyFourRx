@@ -6,7 +6,7 @@ Run this command from your local machine (where you have gcloud configured):
 
 ```bash
 gcloud compute instances add-metadata new24rx-server \
-    --metadata="ssh-keys=claude-24rx-deploy:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFW0QpS0BDPvg8N5eE+s2s+eQIUWFVs7hs7GZGqPUgBx github-actions-deploy@24rx" \
+    --metadata="ssh-keys=admin_24rx:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOQJ+WdhTg3SAdacMG7sTfDQ2eaOQBQ7fLktz3ckf0n3 github-actions-deploy@24rx-admin" \
     --zone=us-central1-a
 ```
 
@@ -27,10 +27,11 @@ Click **"New repository secret"** and add these **3 secrets**:
 ```
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACBVtEKUtAQz74PDeXhPrNrPnkCFFhVbO4bOxmRqj1IAcQAAAKCpArCIqQKw
-iAAAAAtzc2gtZWQyNTUxOQAAACBVtEKUtAQz74PDeXhPrNrPnkCFFhVbO4bOxmRqj1IAcQ
-AAAEC1hAdLyh6MNW3XDML37NaD9TqS0kZ8DwBkHmV6l4ey61W0QpS0BDPvg8N5eE+s2s+e
-QIUWFVs7hs7GZGqPUgBxAAAAGmdpdGh1Yi1hY3Rpb25zLWRlcGxveUAyNHJ4AQID
+QyNTUxOQAAACDkCflnYU4N0gHWnDBu7E3w0NnmjkAUO3y5Lc93JH9J9wAAAKilOrJ6pTqy
+egAAAAtzc2gtZWQyNTUxOQAAACDkCflnYU4N0gHWnDBu7E3w0NnmjkAUO3y5Lc93JH9J9w
+AAAEDu3F0FPE1o+MpiY74FKvsVBgC+US73aWfCmBLRSCMJJuQJ+WdhTg3SAdacMG7sTfDQ
+2eaOQBQ7fLktz3ckf0n3AAAAIGdpdGh1Yi1hY3Rpb25zLWRlcGxveUAyNHJ4LWFkbWluAQ
+IDBAU=
 -----END OPENSSH PRIVATE KEY-----
 ```
 
@@ -44,7 +45,7 @@ QIUWFVs7hs7GZGqPUgBxAAAAGmdpdGh1Yi1hY3Rpb25zLWRlcGxveUAyNHJ4AQID
 
 **Name:** `SERVER_USER`
 
-**Value:** `claude-24rx-deploy`
+**Value:** `admin_24rx`
 
 ## 🚀 Step 3: Push Everything and Watch It Deploy!
 
@@ -83,7 +84,7 @@ git push origin main
 ## 🔍 Current Server Status
 
 - **Server IP:** 35.225.19.249
-- **Deploy User:** claude-24rx-deploy
+- **Deploy User:** admin_24rx
 - **Project Path:** /home/admin_24rx/24rx/
 - **Backend Service:** 24rx-backend (✅ Running)
 - **Frontend Service:** 24rx-frontend (✅ Running)
@@ -95,7 +96,7 @@ If you ever need to deploy manually:
 
 ```bash
 # Backend
-ssh claude-24rx-deploy@35.225.19.249
+ssh admin_24rx@35.225.19.249
 cd /home/admin_24rx/24rx/backend
 git pull origin main
 npm install

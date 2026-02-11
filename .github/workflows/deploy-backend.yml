@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/admin_24rx/24rx/backend
+            cd ~/24rx/backend
             git pull origin main
             npm install
             npx prisma db push --skip-generate
