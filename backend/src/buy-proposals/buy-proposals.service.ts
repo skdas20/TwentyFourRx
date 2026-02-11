@@ -396,9 +396,10 @@ export class BuyProposalsService {
         hold,
       };
     } else {
-      // Upload invoice to GCS first if provided (so we can save URL in order)
-      let invoiceUrl: string | undefined;
-      if (invoice) {
+      // Use seller's uploaded invoice if available, otherwise upload admin's invoice
+      let invoiceUrl: string | undefined = proposal.sellerInvoiceUrl || undefined;
+
+      if (!invoiceUrl && invoice) {
         try {
           invoiceUrl = await this.gcsService.uploadFile(invoice, 'invoices');
         } catch (uploadError) {
@@ -671,74 +672,37 @@ export class BuyProposalsService {
       throw new BadRequestException('Failed to upload invoice');
     }
 
-    console.log('✅ Seller uploaded invoice, creating order...');
+    console.log('✅ Seller uploaded invoice, sending for admin approval...');
 
-    // Calculate totals
-    const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
-
-    // Create order
-    const order = await this.prisma.order.create({
-      data: {
-        buyerId: proposal.buyerId,
-        listingId: proposal.listingId,
-        qty: proposal.qty,
-        unitPrice: totals.unitPrice,
-        amount: totals.total,
-        type: 'BUY',
-        status: 'PAID',
-        paidAt: new Date(),
-        invoiceUrl: sellerInvoiceUrl,
-      },
-    });
-
-    // Create inventory lot
-    await this.prisma.inventoryLot.create({
-      data: {
-        userId: proposal.buyerId,
-        medicineId: proposal.listing.medicineId,
-        qty: proposal.qty,
-        unitCost: totals.unitPrice,
-        sourceOrderId: order.id,
-      },
-    });
-
-    // Update proposal to APPROVED
+    // Update proposal to SELLER_CONFIRMED (awaiting admin approval)
     await this.prisma.buyProposal.update({
       where: { id: proposalId },
       data: {
-        status: 'APPROVED',
+        status: 'SELLER_CONFIRMED',
         sellerInvoiceUrl,
-        approvedOrderId: order.id,
-        reviewedAt: new Date(),
       },
     });
 
-    // Send Tax Invoice to buyer
-    if (proposal.buyer?.email) {
-      try {
-        await this.emailService.sendEmail(
-          proposal.buyer.email,
-          '✅ Payment Received - Tax Invoice',
-          getTaxInvoiceEmailTemplate(
-            proposal.buyer.name,
-            proposal.listing.medicine.name,
-            proposal.qty,
-            totals.unitPrice.toNumber(),
-            totals.gstPercentage,
-            totals.gstAmount.toNumber(),
-            totals.total.toNumber(),
-            order.id
-          ),
-        );
-        console.log('✅ Tax Invoice sent to buyer');
-      } catch (error) {
-        console.error('Failed to send tax invoice:', error);
-      }
-    }
+    // Notify admin to review and approve
+    const admins = await this.prisma.user.findMany({
+      where: { roleCode: 'ADMIN' },
+      select: { id: true },
+    });
+
+    await Promise.all(
+      admins.map(admin =>
+        this.notificationsService.createNotification({
+          userId: admin.id,
+          channel: 'INAPP',
+          subject: '📄 Seller Invoice Uploaded - Review Required',
+          body: `Seller has uploaded invoice for ${proposal.listing.medicine.name}. Please review and approve to complete the order.`,
+          meta: { proposalId: proposal.id, type: 'SELLER_INVOICE_UPLOADED' },
+        }),
+      ),
+    ).catch(err => console.error('Failed to notify admins:', err));
 
     return {
-      message: 'Invoice uploaded! Order created and tax invoice sent to buyer.',
-      orderId: order.id,
+      message: 'Invoice uploaded successfully! Awaiting admin approval to complete the order.',
     };
   }
 
