@@ -706,13 +706,18 @@ export class ListingsService {
     }
 
     if (search) {
-      const searchPattern = `%${search}%`;
+      // Normalize search: remove special chars, extra spaces
+      const normalizedSearch = search.trim().replace(/[-\s]+/g, ''); // Remove hyphens and spaces
+      const searchPattern = `%${normalizedSearch}%`;
+
+      // Use REGEXP_REPLACE to strip special chars from DB fields for matching
+      // This matches "I-nem" when searching "i nem" or "inem"
       query += ` AND (
-        m.name ILIKE $${paramIndex} OR
-        m.composition ILIKE $${paramIndex + 1} OR
-        m.form ILIKE $${paramIndex + 2} OR
-        m.strength ILIKE $${paramIndex + 3} OR
-        mfr.name ILIKE $${paramIndex + 4}
+        REGEXP_REPLACE(m.name, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex} OR
+        REGEXP_REPLACE(m.composition, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 1} OR
+        REGEXP_REPLACE(m.form, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 2} OR
+        REGEXP_REPLACE(m.strength, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 3} OR
+        REGEXP_REPLACE(mfr.name, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 4}
       )`;
       queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
       paramIndex += 5;
