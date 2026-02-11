@@ -153,8 +153,12 @@ export default function BuyProposalsPage() {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {proposal.listing?.medicine?.name || "Unknown Medicine"}
                       </h3>
-                      <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded">
-                        PENDING
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${
+                        proposal.status === 'SELLER_CONFIRMED'
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300'
+                          : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                      }`}>
+                        {proposal.status === 'SELLER_CONFIRMED' ? 'SELLER CONFIRMED' : 'PENDING'}
                       </span>
                     </div>
 
@@ -286,6 +290,53 @@ export default function BuyProposalsPage() {
                 <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">User Notes:</p>
                   <p className="text-gray-700 dark:text-gray-300">{selectedProposal.notes}</p>
+                </div>
+              )}
+
+              {selectedProposal.status === 'SELLER_CONFIRMED' && (
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Seller Confirmation Details
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Confirmed Quantity:</p>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {selectedProposal.confirmedQty || selectedProposal.qty} units
+                      </p>
+                    </div>
+                    {selectedProposal.confirmedBatchNo && (
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Batch Number:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {selectedProposal.confirmedBatchNo}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProposal.confirmedExpiryDate && (
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Expiry Date:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {new Date(selectedProposal.confirmedExpiryDate).toLocaleDateString('en-GB')}
+                        </p>
+                      </div>
+                    )}
+                    {selectedProposal.sellerConfirmedAt && (
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Confirmed At:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {new Date(selectedProposal.sellerConfirmedAt).toLocaleString('en-GB')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {selectedProposal.sellerNote && (
+                    <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-800">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Seller Note:</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{selectedProposal.sellerNote}</p>
+                    </div>
+                  )}
                 </div>
               )}
 

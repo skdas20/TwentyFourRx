@@ -83,6 +83,23 @@ export default function NotificationsPage() {
     }
   };
 
+  const clearReadNotifications = async () => {
+    const readNotifications = notifications.filter(n => n.isRead);
+    if (readNotifications.length === 0) return;
+
+    if (!confirm(`Delete ${readNotifications.length} read notification(s)?`)) return;
+
+    try {
+      await Promise.all(
+        readNotifications.map(notif => notificationsApi.deleteNotification(notif.id))
+      );
+      setNotifications(prev => prev.filter(n => !n.isRead));
+    } catch (err: any) {
+      console.error('Error clearing read notifications:', err);
+      setError('Failed to clear notifications. Please try again.');
+    }
+  };
+
   const getNotificationIcon = (subject: string) => {
     if (subject.includes('Delivery') || subject.includes('Dispatch')) {
       return <Package className="text-blue-600 dark:text-blue-400" size={24} />;
@@ -164,14 +181,24 @@ export default function NotificationsPage() {
             </button>
           </div>
 
-          {notifications.some(n => !n.isRead) && (
-            <button
-              onClick={markAllAsRead}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
-            >
-              Mark all as read
-            </button>
-          )}
+          <div className="flex gap-3">
+            {notifications.some(n => !n.isRead) && (
+              <button
+                onClick={markAllAsRead}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
+                Mark all as read
+              </button>
+            )}
+            {notifications.some(n => n.isRead) && (
+              <button
+                onClick={clearReadNotifications}
+                className="text-sm text-red-600 dark:text-red-400 hover:underline font-medium"
+              >
+                Clear read ({notifications.filter(n => n.isRead).length})
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -283,6 +310,30 @@ export default function NotificationsPage() {
                         >
                           <FileText size={14} />
                           Upload Invoice
+                        </Link>
+                      </div>
+                    )}
+                    {(notification.meta?.type === 'PROPOSAL_SELLER_CONFIRMATION_REQUIRED' || notification.meta?.type === 'PROPOSAL_REMINDER') && (
+                      <div className="mt-3">
+                        <Link
+                          href="/dashboard/seller/proposals"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <CheckCircle size={14} />
+                          Confirm Proposal
+                        </Link>
+                      </div>
+                    )}
+                    {(notification.meta?.type === 'PROPOSAL_SELLER_CONFIRMED' || notification.meta?.type === 'PROPOSAL_PI_GENERATED' || notification.meta?.type === 'PROPOSAL_QUANTITY_MODIFIED') && (
+                      <div className="mt-3">
+                        <Link
+                          href="/dashboard/my-proposals"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText size={14} />
+                          {notification.meta?.type === 'PROPOSAL_PI_GENERATED' ? 'Complete Payment' : 'View Proposal'}
                         </Link>
                       </div>
                     )}

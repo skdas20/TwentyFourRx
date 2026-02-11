@@ -15,6 +15,8 @@ interface Notification {
   meta?: {
     type?: string;
     medicineId?: string;
+    proposalId?: string;
+    buyProposalId?: string;
   };
 }
 
@@ -47,6 +49,7 @@ export default function NotificationCenter() {
     try {
       const response = await api.get("/notifications");
       const notifs = response.data;
+      console.log("🔍 Loaded notifications:", notifs); // DEBUG
       setNotifications(notifs.slice(0, 10)); // Show latest 10
       setUnreadCount(notifs.filter((n: Notification) => !n.isRead).length);
     } catch (error) {
@@ -86,12 +89,51 @@ export default function NotificationCenter() {
       case "PRICE_ALERT":
         return <TrendingDown className="w-5 h-5 text-[var(--brand-blue)]" />;
       case "ORDER_UPDATE":
+      case "PROPOSAL_SELLER_CONFIRMATION_REQUIRED":
+      case "PROPOSAL_REMINDER":
         return <Package className="w-5 h-5 text-[var(--brand-blue)]" />;
       case "SYSTEM":
         return <AlertCircle className="w-5 h-5 text-[var(--muted)]" />;
       default:
         return <Bell className="w-5 h-5 text-[var(--muted)]" />;
     }
+  };
+
+  const getNotificationAction = (notif: Notification) => {
+    const type = notif.meta?.type;
+    console.log("🔍 Checking notification action for:", { id: notif.id, type, meta: notif.meta }); // DEBUG
+
+    if (type === "PROPOSAL_SELLER_CONFIRMATION_REQUIRED" || type === "PROPOSAL_REMINDER") {
+      console.log("✅ Found seller confirmation notification!"); // DEBUG
+      return {
+        label: "Confirm Proposal",
+        href: "/dashboard/seller/proposals",
+      };
+    }
+
+    if (type === "UPLOAD_INVOICE" && notif.meta?.buyProposalId) {
+      return {
+        label: "Upload Invoice",
+        href: `/dashboard/seller/proposals/${notif.meta.buyProposalId}`,
+      };
+    }
+
+    if (type === "PROPOSAL_QUANTITY_MODIFIED" || type === "PROPOSAL_SELLER_CONFIRMED") {
+      return {
+        label: "View Proposal",
+        href: "/dashboard/my-proposals",
+      };
+    }
+
+    if (type === "PROPOSAL_PI_GENERATED") {
+      return {
+        label: "Complete Payment",
+        href: "/dashboard/my-proposals",
+      };
+    }
+
+    console.log("❌ No action for this notification type"); // DEBUG
+    return null;
   };
 
   return (
@@ -172,9 +214,29 @@ export default function NotificationCenter() {
                       <p className="text-sm text-[var(--muted)] mb-2 line-clamp-2">
                         {notif.body}
                       </p>
-                      <p className="text-xs text-[var(--muted)]/70">
-                        {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-[var(--muted)]/70">
+                          {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+                        </p>
+                        {(() => {
+                          const action = getNotificationAction(notif);
+                          if (action) {
+                            return (
+                              <a
+                                href={action.href}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsOpen(false);
+                                }}
+                                className="text-xs font-semibold text-white bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                {action.label}
+                              </a>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>

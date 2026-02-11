@@ -143,11 +143,12 @@ export default function BuyProposalModal({
       }
 
       const data = await response.json();
-      // Store the proposal ID for receipt upload
-      setProposalId(data.proposal?.id || '');
 
-      // Move to step 2
-      setStep(2);
+      // Show success message - seller confirmation flow
+      showToast.success(data.message || 'Proposal created successfully! Awaiting seller confirmation.');
+
+      // Close modal
+      onClose();
     } catch (err: any) {
       console.error("Failed to send invoice:", err);
       setError(err.message || "Failed to send invoice");

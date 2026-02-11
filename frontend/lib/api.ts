@@ -247,6 +247,14 @@ export const buyProposalsApi = {
   },
   rejectProposal: (id: string, reviewerNote: string) =>
     api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
+  // NEW: Seller confirmation flow
+  getSellerPendingProposals: () => api.get('/buy-proposals/seller/pending'),
+  sellerConfirmProposal: (id: string, data: { confirmedQty: number; batchNo: string; expiryDate: string; note?: string }) =>
+    api.patch(`/buy-proposals/${id}/seller-confirm`, data),
+  buyerApproveModifiedQty: (id: string) =>
+    api.patch(`/buy-proposals/${id}/buyer-approve-qty`, {}),
+  buyerRejectModifiedQty: (id: string, reason?: string) =>
+    api.patch(`/buy-proposals/${id}/buyer-reject-qty`, { reason }),
 }
 
 // Delivery Requests API

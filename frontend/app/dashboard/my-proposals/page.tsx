@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, Clock, CheckCircle, XCircle, Download, ArrowLeft, PlayCircle } from "lucide-react";
 import { buyProposalsApi } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import BuyProposalModal from "@/components/BuyProposalModal";
 
@@ -65,6 +66,27 @@ export default function MyProposalsPage() {
             Payment Pending
           </span>
         );
+      case "AWAITING_SELLER":
+        return (
+          <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-xs font-medium rounded flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Awaiting Seller
+          </span>
+        );
+      case "SELLER_CONFIRMED":
+        return (
+          <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Awaiting Seller Invoice
+          </span>
+        );
+      case "QUANTITY_MODIFIED":
+        return (
+          <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 text-xs font-medium rounded flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Action Required
+          </span>
+        );
       case "PENDING":
         return (
           <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-medium rounded flex items-center gap-1">
@@ -72,11 +94,18 @@ export default function MyProposalsPage() {
             Approval Pending
           </span>
         );
+      case "AWAITING_PAYMENT":
+        return (
+          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium rounded flex items-center gap-1">
+            <FileText className="w-3 h-3" />
+            PI Sent - Payment Required
+          </span>
+        );
       case "APPROVED":
         return (
           <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium rounded flex items-center gap-1">
             <CheckCircle className="w-3 h-3" />
-            Approved
+            Completed
           </span>
         );
       case "REJECTED":
@@ -88,6 +117,31 @@ export default function MyProposalsPage() {
         );
       default:
         return null;
+    }
+  };
+
+  const handleApproveQty = async (proposalId: string) => {
+    try {
+      await buyProposalsApi.buyerApproveModifiedQty(proposalId);
+      showToast.success("Quantity approved! The proposal will proceed to admin review.");
+      loadProposals();
+    } catch (error: any) {
+      console.error("Failed to approve quantity:", error);
+      showToast.error(error.response?.data?.message || "Failed to approve quantity");
+    }
+  };
+
+  const handleRejectQty = async (proposalId: string) => {
+    const reason = prompt("Please enter rejection reason (optional):");
+    if (reason === null) return; // User cancelled
+
+    try {
+      await buyProposalsApi.buyerRejectModifiedQty(proposalId, reason || undefined);
+      showToast.success("Proposal rejected successfully.");
+      loadProposals();
+    } catch (error: any) {
+      console.error("Failed to reject proposal:", error);
+      showToast.error(error.response?.data?.message || "Failed to reject proposal");
     }
   };
 
@@ -240,10 +294,99 @@ export default function MyProposalsPage() {
                   </div>
                 )}
 
+                {proposal.status === "QUANTITY_MODIFIED" && (
+                  <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm font-semibold text-orange-900 dark:text-orange-100 mb-2">
+                      ⚠️ Seller Modified Quantity
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Requested:</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{proposal.qty} units</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Available:</p>
+                        <p className="font-medium text-green-600 dark:text-green-400">{proposal.confirmedQty} units</p>
+                      </div>
+                      {proposal.confirmedBatchNo && (
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Batch No:</p>
+                          <p className="font-medium text-gray-900 dark:text-white">{proposal.confirmedBatchNo}</p>
+                        </div>
+                      )}
+                      {proposal.confirmedExpiryDate && (
+                        <div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Expiry Date:</p>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {new Date(proposal.confirmedExpiryDate).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {proposal.sellerNote && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        <span className="font-medium">Note:</span> {proposal.sellerNote}
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApproveQty(proposal.id)}
+                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
+                      >
+                        Approve Modified Qty
+                      </button>
+                      <button
+                        onClick={() => handleRejectQty(proposal.id)}
+                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors text-sm"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {proposal.sellerNote && proposal.status !== "QUANTITY_MODIFIED" && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Seller Note:</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{proposal.sellerNote}</p>
+                  </div>
+                )}
+
                 {proposal.reviewerNote && (
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Admin Review:</p>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{proposal.reviewerNote}</p>
+                  </div>
+                )}
+
+                {/* Complete Payment Section for AWAITING_PAYMENT proposals */}
+                {proposal.status === "AWAITING_PAYMENT" && (
+                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      📄 Proforma Invoice Sent
+                    </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                      Check your email for the PI. Complete payment and upload receipt to proceed.
+                    </p>
+                    <button
+                      onClick={() => handleResumeDraft(proposal)}
+                      className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Upload Payment Receipt
+                    </button>
+                  </div>
+                )}
+
+                {/* Order Completed Section for APPROVED proposals */}
+                {proposal.status === "APPROVED" && (
+                  <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
+                      ✅ Order Completed
+                    </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Payment received. Tax invoice sent to your email. Delivery will be arranged soon.
+                    </p>
                   </div>
                 )}
 

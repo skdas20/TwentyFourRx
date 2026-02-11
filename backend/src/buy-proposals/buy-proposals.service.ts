@@ -7,6 +7,7 @@ import { PdfService } from '../common/services/pdf.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SmsService } from '../common/services/sms.service';
 import { getPurchaseOrderEmailTemplate, getTaxInvoiceEmailTemplate } from '../common/email-templates';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class BuyProposalsService {
@@ -65,7 +66,10 @@ export class BuyProposalsService {
     // Validate listing exists and has stock
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
-      include: { medicine: true },
+      include: {
+        medicine: true,
+        seller: { select: { id: true, email: true, name: true } }
+      },
     });
 
     if (!listing) {
@@ -80,7 +84,9 @@ export class BuyProposalsService {
       throw new BadRequestException(`Only ${listing.stock} units available`);
     }
 
-    // Create buy proposal with delivery type (default for invoice)
+    // Create buy proposal with seller confirmation flow
+    const sellerTimeoutAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours from now
+
     const proposal = await this.prisma.buyProposal.create({
       data: {
         buyerId,
@@ -88,12 +94,15 @@ export class BuyProposalsService {
         qty,
         orderType: 'delivery',
         notes,
-        status: 'AWAITING_PAYMENT',
+        status: 'AWAITING_SELLER', // Changed from AWAITING_PAYMENT
+        flowType: 'SELLER_CONFIRMATION',
+        sellerTimeoutAt,
       },
       include: {
         listing: {
           include: {
             medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
           },
         },
         buyer: {
@@ -101,110 +110,32 @@ export class BuyProposalsService {
             id: true,
             name: true,
             email: true,
+            phone: true,
           },
         },
       },
     });
 
-    // Notify Seller to upload invoice
-    await this.notificationsService.createNotification({
-      userId: listing.sellerId,
-      channel: 'INAPP',
-      subject: '📦 New Buy Request - Action Required',
-      body: `A buyer has requested ${qty} units of ${listing.medicine.name}. Please upload your invoice to proceed.`,
-      meta: { buyProposalId: proposal.id, type: 'UPLOAD_INVOICE' },
-    });
+    // Notify seller about new proposal (seller confirmation required)
+    if (listing.seller) {
+      await this.notificationsService.notifySellerNewProposal(listing.seller, proposal);
+    }
 
-    // Send purchase order (PO) email to buyer
-    const totals = this.calculateTotalsWithGst(listing, qty);
-    const totalCost = totals.total.toNumber();
-    const buyer = await this.prisma.user.findUnique({
-      where: { id: buyerId },
-      select: {
-        email: true,
-        name: true,
-        phone: true,
-        dlNumber: true,
-        gstin: true,
-        address: true,
-      },
-    });
-
-    if (buyer && buyer.email) {
-      // Generate and send email asynchronously (non-blocking)
-      (async () => {
-        try {
-          const invoiceNo = `QT${Date.now().toString().slice(-6)}`;
-          const currentDate = new Date().toLocaleDateString('en-GB');
-
-          const quotationData = {
-            invoiceNo: invoiceNo,
-            invoiceDate: currentDate,
-            orderNo: proposal.id.substring(0, 8),
-            orderDate: currentDate,
-            lrDate: currentDate,
-            dueDate: currentDate,
-            partyName: buyer.name || 'Customer',
-            partyAddress: (buyer.address || 'As per records').replace(/[\r\n]+/g, ', '),
-            partyPhone: buyer.phone || '',
-            partyGSTIN: buyer.gstin || '',
-            partyDLNo: buyer.dlNumber || '',
-            items: [
-              {
-                hsn: '',
-                productName: listing.medicine.name,
-                pack: '1*1',
-                qty: qty,
-                batch: listing.batchNo || '',
-                mfg: '',
-                exp: listing.expiryDate ? new Date(listing.expiryDate).toLocaleDateString('en-GB') : '',
-                mrp: totals.unitPrice.toNumber(),
-                rate: totals.unitPrice.toNumber(),
-                dis: 0,
-                sgst: totals.gstPercentage / 2,
-                sgstValue: totals.gstAmount.toNumber() / 2,
-                cgst: totals.gstPercentage / 2,
-                cgstValue: totals.gstAmount.toNumber() / 2,
-                amount: totals.total.toNumber(),
-              },
-            ],
-            totalSGST: totals.gstAmount.toNumber() / 2,
-            totalCGST: totals.gstAmount.toNumber() / 2,
-            grandTotal: totals.total.toNumber(),
-            totalItems: 1,
-            totalQty: qty,
-          };
-
-          const pdfBuffer = await this.pdfService.generateQuotationPDF(quotationData);
-
-          await this.emailService.sendEmail(
-            buyer.email,
-            '📋 Buy Proposal - Purchase Order & Quotation',
-            getPurchaseOrderEmailTemplate(
-              buyer.name,
-              listing.medicine.name,
-              qty,
-              totals.unitPrice.toNumber(),
-              totals.gstPercentage,
-              totals.gstAmount.toNumber(),
-              totalCost,
-            ),
-            [
-              {
-                filename: `Quotation_${invoiceNo}.pdf`,
-                content: pdfBuffer,
-                contentType: 'application/pdf',
-              },
-            ]
-          );
-        } catch (error) {
-          console.error('Failed to send PO email:', error);
-        }
-      })();
+    // Notify buyer that proposal is awaiting seller confirmation
+    if (proposal.buyer && proposal.buyer.phone) {
+      try {
+        await this.smsService.sendBuyProposalCreatedSms(
+          proposal.buyer.phone,
+          listing.medicine.name,
+          proposal.id.substring(0, 8),
+        );
+      } catch (error) {
+        console.error('Failed to send SMS:', error);
+      }
     }
 
     return {
-      message: 'Purchase Order sent successfully',
+      message: 'Buy proposal created. Awaiting seller confirmation. You will receive the invoice once the seller confirms stock availability.',
       proposal,
     };
   }
@@ -325,6 +256,14 @@ export class BuyProposalsService {
                 <tr><td style="padding: 8px 0; color: #6b7280;">Status:</td><td style="padding: 8px 0;">Awaiting Admin Approval</td></tr>
               </table>
             </div>
+            <div style="background-color: #dbeafe; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
+              <p style="margin: 0; color: #1e40af; font-weight: 600;">Invoice Details (for your reference):</p>
+              <p style="margin: 5px 0 0 0; color: #1e40af; font-size: 14px;">
+                <strong>D.L. No:</strong> JH-RNS-15350015301<br>
+                <strong>GSTIN:</strong> 20GAKPK4400G1Z7<br>
+                <strong>E-Mail:</strong> 24rxmedicalsupply@gmail.com
+              </p>
+            </div>
             <p>You will be notified once the admin reviews this proposal.</p>
           </div>
         `;
@@ -344,7 +283,11 @@ export class BuyProposalsService {
 
   async getPendingProposals() {
     return this.prisma.buyProposal.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: {
+          in: ['PENDING', 'SELLER_CONFIRMED'], // Include both legacy and new flow
+        },
+      },
       include: {
         listing: {
           include: {
@@ -408,8 +351,9 @@ export class BuyProposalsService {
       throw new NotFoundException('Proposal not found');
     }
 
-    if (proposal.status !== 'PENDING') {
-      throw new BadRequestException('Proposal already processed');
+    // Support both legacy PENDING and new SELLER_CONFIRMED status
+    if (proposal.status !== 'PENDING' && proposal.status !== 'SELLER_CONFIRMED') {
+      throw new BadRequestException('Proposal already processed or not ready for approval');
     }
 
     // Create order based on order type
@@ -607,24 +551,16 @@ export class BuyProposalsService {
         }
       }
 
-      // Create Notification for Seller
-      if (proposal.listing.seller && proposal.listing.seller.id) {
+      // Send notification to buyer (PI generated, upload payment confirmation)
+      if (proposal.buyer) {
         try {
-          await this.notificationsService.createNotification({
-            userId: proposal.listing.seller.id,
-            subject: '💰 Sale Confirmed',
-            body: `Your ${proposal.listing.medicine.name} (${proposal.qty} units) has been sold for ₹${totals.total.toNumber().toFixed(2)}. The buyer will request delivery soon.`,
-            meta: {
-              type: 'SALE_CONFIRMED',
-              orderId: order.id,
-              medicineId: proposal.listing.medicineId,
-              medicineName: proposal.listing.medicine.name,
-              quantity: proposal.qty,
-              amount: totals.total.toNumber(),
-            },
-          });
+          await this.notificationsService.notifyBuyerPIGenerated(
+            proposal.buyer,
+            proposal,
+            order.id,
+          );
         } catch (error) {
-          console.error('Failed to create notification for seller:', error);
+          console.error('Failed to send notification to buyer:', error);
         }
       }
 
@@ -701,7 +637,13 @@ export class BuyProposalsService {
     const proposal = await this.prisma.buyProposal.findUnique({
       where: { id: proposalId },
       include: {
-        listing: true,
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { id: true, email: true, name: true, phone: true } },
       },
     });
 
@@ -722,13 +664,108 @@ export class BuyProposalsService {
       throw new BadRequestException('Failed to upload invoice');
     }
 
-    // Update proposal
-    const updated = await this.prisma.buyProposal.update({
+    console.log('✅ Seller uploaded invoice, sending PI to buyer...');
+
+    // Calculate totals
+    const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
+
+    // Update proposal to AWAITING_PAYMENT (NOT APPROVED yet)
+    await this.prisma.buyProposal.update({
       where: { id: proposalId },
-      data: { sellerInvoiceUrl },
+      data: {
+        status: 'AWAITING_PAYMENT',
+        sellerInvoiceUrl,
+      },
     });
 
-    return { message: 'Invoice uploaded successfully', proposal: updated };
+    // Generate PI PDF
+    let pdfBuffer: Buffer | null = null;
+    try {
+      pdfBuffer = await this.pdfService.generateQuotationPDF({
+        invoiceNo: `PI-${proposalId.substring(0, 8).toUpperCase()}`,
+        invoiceDate: new Date().toLocaleDateString('en-GB'),
+        orderNo: proposalId.substring(0, 8).toUpperCase(),
+        orderDate: new Date(proposal.createdAt).toLocaleDateString('en-GB'),
+        lrDate: '',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+        partyName: proposal.buyer.name,
+        partyAddress: '', // Add if available
+        partyPhone: proposal.buyer.phone || '',
+        partyGSTIN: '', // Add if available
+        partyDLNo: '', // Add if available
+        items: [{
+          hsn: '', // HSN code not in schema
+          productName: proposal.listing.medicine.name,
+          pack: proposal.listing.medicine.packSize || '1',
+          qty: proposal.qty,
+          batch: proposal.confirmedBatchNo || 'TBD',
+          mfg: new Date().toLocaleDateString('en-GB'), // Use current date
+          exp: new Date(proposal.confirmedExpiryDate || Date.now()).toLocaleDateString('en-GB'),
+          mrp: proposal.listing.medicine.mrp?.toNumber() || 0,
+          rate: totals.unitPrice.toNumber(),
+          dis: 0,
+          sgst: totals.gstPercentage / 2,
+          sgstValue: (totals.gstAmount.toNumber() / 2),
+          cgst: totals.gstPercentage / 2,
+          cgstValue: (totals.gstAmount.toNumber() / 2),
+          amount: totals.total.toNumber(),
+        }],
+        totalSGST: totals.gstAmount.toNumber() / 2,
+        totalCGST: totals.gstAmount.toNumber() / 2,
+        grandTotal: totals.total.toNumber(),
+        totalItems: 1,
+        totalQty: proposal.qty,
+      });
+      console.log('✅ PI PDF generated');
+    } catch (error) {
+      console.error('Failed to generate PI PDF:', error);
+    }
+
+    // Send Proforma Invoice (PI) to buyer asking for payment
+    if (proposal.buyer?.email) {
+      try {
+        const attachment = pdfBuffer ? {
+          filename: `Proforma_Invoice_${proposalId.substring(0, 8)}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        } : undefined;
+
+        await this.emailService.sendEmail(
+          proposal.buyer.email,
+          '📄 Proforma Invoice - Payment Required',
+          getPurchaseOrderEmailTemplate(
+            proposal.buyer.name,
+            proposal.listing.medicine.name,
+            proposal.qty,
+            totals.unitPrice.toNumber(),
+            totals.gstPercentage,
+            totals.gstAmount.toNumber(),
+            totals.total.toNumber(),
+          ),
+          attachment ? [attachment] : undefined,
+        );
+        console.log('✅ Proforma Invoice (PI) email with PDF sent to buyer');
+      } catch (error) {
+        console.error('Failed to send PI to buyer:', error);
+      }
+    }
+
+    // Notify buyer that PI is ready and payment is required
+    if (proposal.buyer) {
+      try {
+        await this.notificationsService.notifyBuyerPIGenerated(
+          proposal.buyer,
+          proposal,
+          proposalId, // Use proposal ID since order not created yet
+        );
+      } catch (error) {
+        console.error('Failed to notify buyer:', error);
+      }
+    }
+
+    return {
+      message: 'Invoice uploaded successfully. PI sent to buyer - awaiting payment.',
+    };
   }
 
   async uploadReceipt(
@@ -763,7 +800,7 @@ export class BuyProposalsService {
     }
 
     if (proposal.status !== 'PENDING' && proposal.status !== 'AWAITING_PAYMENT') {
-      throw new BadRequestException('Proposal already processed');
+      throw new BadRequestException(`Proposal already processed. Current status: ${proposal.status}`);
     }
 
     // Upload receipt to GCS
@@ -775,12 +812,85 @@ export class BuyProposalsService {
       throw new BadRequestException('Failed to upload receipt');
     }
 
-    // Update proposal with receipt URL
+    // Check if this is seller confirmation flow (has seller invoice)
+    if (proposal.flowType === 'SELLER_CONFIRMATION' && proposal.sellerInvoiceUrl) {
+      console.log('✅ Receipt uploaded - Auto-creating order (seller confirmation flow)');
+
+      // Calculate totals
+      const totals = this.calculateTotalsWithGst(proposal.listing, proposal.qty);
+
+      // Create order
+      const order = await this.prisma.order.create({
+        data: {
+          buyerId: proposal.buyerId,
+          listingId: proposal.listingId,
+          qty: proposal.qty,
+          unitPrice: totals.unitPrice,
+          amount: totals.total,
+          type: 'BUY',
+          status: 'PAID',
+          paidAt: new Date(),
+          invoiceUrl: proposal.sellerInvoiceUrl,
+        },
+      });
+
+      // Create inventory lot
+      await this.prisma.inventoryLot.create({
+        data: {
+          userId: proposal.buyerId,
+          medicineId: proposal.listing.medicineId,
+          qty: proposal.qty,
+          unitCost: totals.unitPrice,
+          sourceOrderId: order.id,
+        },
+      });
+
+      // Update proposal to APPROVED
+      await this.prisma.buyProposal.update({
+        where: { id: proposalId },
+        data: {
+          status: 'APPROVED',
+          receiptUrl,
+          approvedOrderId: order.id,
+          reviewedAt: new Date(),
+        },
+      });
+
+      // Send Tax Invoice to buyer
+      if (proposal.buyer?.email) {
+        try {
+          await this.emailService.sendEmail(
+            proposal.buyer.email,
+            '✅ Payment Received - Tax Invoice',
+            getTaxInvoiceEmailTemplate(
+              proposal.buyer.name,
+              proposal.listing.medicine.name,
+              proposal.qty,
+              totals.unitPrice.toNumber(),
+              totals.gstPercentage,
+              totals.gstAmount.toNumber(),
+              totals.total.toNumber(),
+              order.id
+            ),
+          );
+          console.log('✅ Tax Invoice sent to buyer');
+        } catch (error) {
+          console.error('Failed to send tax invoice:', error);
+        }
+      }
+
+      return {
+        message: 'Payment confirmed! Order created and tax invoice sent.',
+        orderId: order.id,
+      };
+    }
+
+    // Legacy flow: Update proposal and notify admin
     const updatedProposal = await this.prisma.buyProposal.update({
       where: { id: proposalId },
-      data: { 
+      data: {
         receiptUrl,
-        status: 'PENDING' // Update status to PENDING for admin approval
+        status: 'PENDING',
       },
       include: {
         listing: {
@@ -798,7 +908,7 @@ export class BuyProposalsService {
       },
     });
 
-    // Notify all admins about new pending buy proposal
+    // Notify admins
     const admins = await this.prisma.user.findMany({
       where: { roleCode: 'ADMIN' },
       select: { id: true },
@@ -815,8 +925,464 @@ export class BuyProposalsService {
     }
 
     return {
-      message: 'Receipt uploaded successfully',
+      message: 'Receipt uploaded successfully. Awaiting admin approval.',
       proposal: updatedProposal,
     };
+  }
+
+  // NEW: Create proposal with seller confirmation flow
+  async createProposalWithSellerFlow(
+    buyerId: string,
+    listingId: string,
+    qty: number,
+    orderType: string,
+    receipt?: Express.Multer.File,
+  ) {
+    // Validate listing exists and has stock
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      include: {
+        medicine: true,
+        seller: { select: { id: true, email: true, name: true } }
+      },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.status !== 'ACTIVE') {
+      throw new BadRequestException('Listing is not active');
+    }
+
+    if (listing.stock < qty) {
+      throw new BadRequestException(`Only ${listing.stock} units available`);
+    }
+
+    // Upload receipt if provided
+    let receiptUrl: string | undefined;
+    if (receipt) {
+      try {
+        receiptUrl = await this.gcsService.uploadFile(receipt, 'buy-receipts');
+      } catch (error) {
+        console.error('Failed to upload receipt:', error);
+        throw new BadRequestException('Failed to upload receipt');
+      }
+    }
+
+    // Create buy proposal with seller flow
+    const sellerTimeoutAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours from now
+
+    const proposal = await this.prisma.buyProposal.create({
+      data: {
+        buyerId,
+        listingId,
+        qty,
+        orderType,
+        receiptUrl,
+        status: 'AWAITING_SELLER',
+        flowType: 'SELLER_CONFIRMATION',
+        sellerTimeoutAt,
+      },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    // Notify seller about new proposal
+    if (listing.seller) {
+      await this.notificationsService.notifySellerNewProposal(listing.seller, proposal);
+    }
+
+    // Notify buyer that proposal is created
+    if (proposal.buyer && proposal.buyer.phone) {
+      try {
+        await this.smsService.sendBuyProposalCreatedSms(
+          proposal.buyer.phone,
+          proposal.listing.medicine.name,
+          proposal.id.substring(0, 8),
+        );
+      } catch (error) {
+        console.error('Failed to send SMS:', error);
+      }
+    }
+
+    return {
+      message: 'Buy proposal created. Awaiting seller confirmation.',
+      proposal,
+    };
+  }
+
+  // NEW: Seller confirms the proposal
+  async confirmProposalBySeller(
+    proposalId: string,
+    sellerId: string,
+    confirmedQty: number,
+    batchNo: string,
+    expiryDate: Date,
+    note?: string,
+  ) {
+    const proposal = await this.prisma.buyProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { id: true, email: true, name: true, phone: true } },
+      },
+    });
+
+    if (!proposal) {
+      throw new NotFoundException('Proposal not found');
+    }
+
+    if (proposal.listing.sellerId !== sellerId) {
+      throw new BadRequestException('You are not the seller of this listing');
+    }
+
+    if (proposal.status !== 'AWAITING_SELLER') {
+      throw new BadRequestException('Proposal is not awaiting seller confirmation');
+    }
+
+    // Check if quantity was modified
+    const qtyModified = confirmedQty < proposal.qty;
+    const newStatus = qtyModified ? 'QUANTITY_MODIFIED' : 'SELLER_CONFIRMED';
+
+    const updatedProposal = await this.prisma.buyProposal.update({
+      where: { id: proposalId },
+      data: {
+        status: newStatus,
+        sellerConfirmedAt: new Date(),
+        sellerNote: note,
+        confirmedQty,
+        confirmedBatchNo: batchNo,
+        confirmedExpiryDate: expiryDate,
+      },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    // Notify based on quantity modification
+    if (qtyModified) {
+      // Notify buyer about modified quantity
+      await this.notificationsService.notifyBuyerQtyModified(proposal.buyer, updatedProposal);
+    } else {
+      // Notify buyer that seller confirmed
+      await this.notificationsService.notifyBuyerSellerConfirmed(proposal.buyer, updatedProposal);
+
+      // Notify seller to upload invoice
+      if (proposal.listing.seller) {
+        console.log('📧 Sending upload invoice notification to seller (after confirmation)');
+        await this.notificationsService.notifySellerUploadInvoice(
+          proposal.listing.seller,
+          updatedProposal,
+        );
+      }
+
+      // Notify admin for review
+      await this.notificationsService.notifyAdminSellerConfirmed(updatedProposal);
+    }
+
+    // Mark the seller's confirmation notification as read
+    try {
+      console.log('📖 Marking seller notification as read for proposal:', proposalId);
+      const notifications = await this.prisma.notification.findMany({
+        where: {
+          userId: sellerId,
+          isRead: false,
+        },
+      });
+
+      console.log(`Found ${notifications.length} unread notifications for seller`);
+
+      // Filter by meta fields and mark as read
+      let markedCount = 0;
+      for (const notif of notifications) {
+        const meta = notif.meta as any;
+        if (
+          meta?.proposalId === proposalId &&
+          (meta?.type === 'PROPOSAL_SELLER_CONFIRMATION_REQUIRED' ||
+           meta?.type === 'PROPOSAL_REMINDER')
+        ) {
+          await this.prisma.notification.update({
+            where: { id: notif.id },
+            data: { isRead: true },
+          });
+          markedCount++;
+          console.log(`✅ Marked notification ${notif.id} as read`);
+        }
+      }
+
+      if (markedCount === 0) {
+        console.log('⚠️ No matching notifications found to mark as read');
+      }
+    } catch (error) {
+      console.error('❌ Failed to mark notification as read:', error);
+    }
+
+    return {
+      message: qtyModified
+        ? 'Quantity modified. Awaiting buyer approval.'
+        : 'Proposal confirmed. Awaiting admin approval.',
+      proposal: updatedProposal,
+    };
+  }
+
+  // NEW: Buyer approves modified quantity
+  async buyerApproveModifiedQty(proposalId: string, buyerId: string) {
+    console.log('🔍 Buyer approve request:', { proposalId, buyerId });
+
+    const proposal = await this.prisma.buyProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    if (!proposal) {
+      throw new NotFoundException('Proposal not found');
+    }
+
+    if (proposal.buyerId !== buyerId) {
+      throw new BadRequestException('You are not the buyer of this proposal');
+    }
+
+    if (proposal.status !== 'QUANTITY_MODIFIED') {
+      console.error(`❌ Buyer approve failed: Expected QUANTITY_MODIFIED but got ${proposal.status}`);
+      throw new BadRequestException(`Proposal is not awaiting buyer approval. Current status: ${proposal.status}`);
+    }
+
+    console.log('✅ Buyer approving modified quantity for proposal:', proposalId);
+
+    const updatedProposal = await this.prisma.buyProposal.update({
+      where: { id: proposalId },
+      data: {
+        status: 'SELLER_CONFIRMED',
+        qty: proposal.confirmedQty || proposal.qty, // Update qty to confirmed qty
+      },
+      include: {
+        listing: { include: { medicine: true } },
+        buyer: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    // Notify seller to upload invoice
+    if (proposal.listing.seller) {
+      console.log('📧 Sending upload invoice notification to seller (after buyer approval)');
+      await this.notificationsService.notifySellerUploadInvoice(
+        proposal.listing.seller,
+        updatedProposal,
+      );
+    }
+
+    // Notify admin for review
+    await this.notificationsService.notifyAdminSellerConfirmed(updatedProposal);
+
+    return {
+      message: 'Modified quantity approved. Awaiting admin approval.',
+      proposal: updatedProposal,
+    };
+  }
+
+  // NEW: Buyer rejects modified quantity
+  async buyerRejectModifiedQty(proposalId: string, buyerId: string, reason?: string) {
+    const proposal = await this.prisma.buyProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    if (!proposal) {
+      throw new NotFoundException('Proposal not found');
+    }
+
+    if (proposal.buyerId !== buyerId) {
+      throw new BadRequestException('You are not the buyer of this proposal');
+    }
+
+    if (proposal.status !== 'QUANTITY_MODIFIED') {
+      throw new BadRequestException('Proposal is not awaiting buyer approval');
+    }
+
+    const updatedProposal = await this.prisma.buyProposal.update({
+      where: { id: proposalId },
+      data: {
+        status: 'REJECTED',
+        reviewerNote: reason || 'Buyer rejected modified quantity',
+        reviewedAt: new Date(),
+      },
+    });
+
+    // Notify both seller and buyer
+    await this.notificationsService.notifyBuyerProposalRejected(proposal.buyer, updatedProposal, 'buyer_rejected');
+
+    if (proposal.listing.seller) {
+      await this.notificationsService.createNotification({
+        userId: proposal.listing.seller.id,
+        subject: '❌ Buy Proposal Rejected by Buyer',
+        body: `The buyer rejected the modified quantity for ${proposal.listing.medicine.name}. Reason: ${reason || 'Not specified'}`,
+        meta: {
+          type: 'PROPOSAL_REJECTED_BY_BUYER',
+          proposalId: proposal.id,
+          reason,
+        },
+      });
+    }
+
+    return {
+      message: 'Proposal rejected successfully.',
+      proposal: updatedProposal,
+    };
+  }
+
+  // NEW: Get seller's pending proposals
+  async getSellerPendingProposals(sellerId: string) {
+    return this.prisma.buyProposal.findMany({
+      where: {
+        status: 'AWAITING_SELLER',
+        listing: {
+          sellerId,
+        },
+      },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  // NEW: Cron job to check proposal timeouts
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkProposalTimeouts() {
+    const now = new Date();
+
+    // 24-hour reminders
+    const reminderTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const needsReminder = await this.prisma.buyProposal.findMany({
+      where: {
+        status: 'AWAITING_SELLER',
+        sellerReminderSentAt: null,
+        createdAt: { lte: reminderTime },
+      },
+      include: {
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        },
+        buyer: { select: { name: true } }
+      },
+    });
+
+    for (const proposal of needsReminder) {
+      if (proposal.listing.seller) {
+        await this.notificationsService.notifySellerReminder(
+          proposal.listing.seller,
+          proposal
+        );
+
+        await this.prisma.buyProposal.update({
+          where: { id: proposal.id },
+          data: { sellerReminderSentAt: now },
+        });
+      }
+    }
+
+    // 48-hour auto-reject
+    const expired = await this.prisma.buyProposal.findMany({
+      where: {
+        status: 'AWAITING_SELLER',
+        createdAt: { lte: new Date(now.getTime() - 48 * 60 * 60 * 1000) },
+      },
+      include: {
+        buyer: { select: { id: true, email: true, name: true } },
+        listing: {
+          include: {
+            medicine: true,
+            seller: { select: { id: true, email: true, name: true } }
+          }
+        }
+      },
+    });
+
+    for (const proposal of expired) {
+      await this.prisma.buyProposal.update({
+        where: { id: proposal.id },
+        data: {
+          status: 'REJECTED',
+          reviewerNote: 'Auto-rejected: Seller did not respond within 48 hours',
+          reviewedAt: now,
+        },
+      });
+
+      // Notify both parties
+      await this.notificationsService.notifyBuyerProposalRejected(
+        proposal.buyer,
+        proposal,
+        'timeout'
+      );
+
+      if (proposal.listing.seller) {
+        await this.notificationsService.createNotification({
+          userId: proposal.listing.seller.id,
+          subject: '⏰ Buy Proposal Auto-Rejected',
+          body: `Your proposal for ${proposal.listing.medicine.name} was auto-rejected due to timeout (48 hours).`,
+          meta: {
+            type: 'PROPOSAL_AUTO_REJECTED',
+            proposalId: proposal.id,
+          },
+        });
+      }
+    }
+
+    console.log(`Processed ${needsReminder.length} reminders and ${expired.length} auto-rejections`);
   }
 }

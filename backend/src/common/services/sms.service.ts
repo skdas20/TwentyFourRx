@@ -100,7 +100,7 @@ export class SmsService {
     medicineName: string,
     uploadLink: string,
   ): Promise<boolean> {
-    const message = `You have a new buy request for ${medicineName} on 24Rx. Please upload invoice to proceed: ${uploadLink} - 24Rx`;
+    const message = `You have a new buy request for ${medicineName} on 24Rx. Please upload invoice (DL: JH-RNS-15350015301, GSTIN: 20GAKPK4400G1Z7) to proceed: ${uploadLink} - 24Rx`;
     return this.sendSms(phoneNumber, message);
   }
 

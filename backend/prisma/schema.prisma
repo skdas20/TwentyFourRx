@@ -64,6 +64,9 @@ enum Channel {
 enum ProposalStatus {
   AWAITING_PAYMENT
   PENDING
+  AWAITING_SELLER      // NEW - awaiting seller confirmation
+  SELLER_CONFIRMED     // NEW - seller confirmed, awaiting admin
+  QUANTITY_MODIFIED    // NEW - seller reduced qty, awaiting buyer approval
   APPROVED
   REJECTED
 }
@@ -554,6 +557,20 @@ model BuyProposal {
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   reviewedAt      DateTime?      @map("reviewed_at") @db.Timestamptz(6)
   approvedOrderId String?        @unique @map("approved_order_id") @db.Uuid
+
+  // NEW: Seller confirmation fields
+  sellerConfirmedAt    DateTime?  @map("seller_confirmed_at") @db.Timestamptz(6)
+  sellerNote           String?    @map("seller_note")
+  confirmedQty         Int?       @map("confirmed_qty")
+  confirmedBatchNo     String?    @map("confirmed_batch_no")
+  confirmedExpiryDate  DateTime?  @map("confirmed_expiry_date") @db.Date
+
+  // NEW: Timeout tracking
+  sellerReminderSentAt DateTime?  @map("seller_reminder_sent_at") @db.Timestamptz(6)
+  sellerTimeoutAt      DateTime?  @map("seller_timeout_at") @db.Timestamptz(6)
+
+  // NEW: Flow type identifier
+  flowType             String     @default("LEGACY") @map("flow_type") // "LEGACY" or "SELLER_CONFIRMATION"
 
   buyer         User     @relation(fields: [buyerId], references: [id])
   listing       Listing  @relation(fields: [listingId], references: [id])

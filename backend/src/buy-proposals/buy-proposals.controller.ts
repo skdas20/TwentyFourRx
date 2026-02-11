@@ -10,8 +10,8 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsString, IsPositive, IsInt, IsOptional } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsString, IsPositive, IsInt, IsOptional, IsDateString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { BuyProposalsService } from './buy-proposals.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -55,6 +55,29 @@ export class ReviewProposalDto {
   reviewerNote?: string;
 }
 
+export class SellerConfirmProposalDto {
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @IsPositive()
+  confirmedQty: number;
+
+  @IsString()
+  batchNo: string;
+
+  @IsDateString()
+  expiryDate: string;
+
+  @IsString()
+  @IsOptional()
+  note?: string;
+}
+
+export class BuyerRejectQtyDto {
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}
+
 @Controller('buy-proposals')
 export class BuyProposalsController {
   constructor(private buyProposalsService: BuyProposalsService) {}
@@ -83,7 +106,8 @@ export class BuyProposalsController {
     @Body() dto: CreateBuyProposalDto,
     @UploadedFile() receipt?: Express.Multer.File,
   ) {
-    return this.buyProposalsService.createProposal(
+    // All new proposals use seller confirmation flow
+    return this.buyProposalsService.createProposalWithSellerFlow(
       user.sub,
       dto.listingId,
       dto.qty,
@@ -164,5 +188,55 @@ export class BuyProposalsController {
       throw new Error('Invoice file is required');
     }
     return this.buyProposalsService.uploadSellerInvoice(id, user.sub, invoice);
+  }
+
+  // NEW: Seller confirms proposal
+  @Patch(':id/seller-confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
+  @Roles('SELLER', 'TRADER')
+  async sellerConfirmProposal(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: SellerConfirmProposalDto,
+  ) {
+    return this.buyProposalsService.confirmProposalBySeller(
+      id,
+      user.sub,
+      dto.confirmedQty,
+      dto.batchNo,
+      new Date(dto.expiryDate),
+      dto.note,
+    );
+  }
+
+  // NEW: Buyer approves modified quantity
+  @Patch(':id/buyer-approve-qty')
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
+  @Roles('TRADER', 'SELLER')
+  async buyerApproveModifiedQty(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.buyProposalsService.buyerApproveModifiedQty(id, user.sub);
+  }
+
+  // NEW: Buyer rejects modified quantity
+  @Patch(':id/buyer-reject-qty')
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
+  @Roles('TRADER', 'SELLER')
+  async buyerRejectModifiedQty(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: BuyerRejectQtyDto,
+  ) {
+    return this.buyProposalsService.buyerRejectModifiedQty(id, user.sub, dto.reason);
+  }
+
+  // NEW: Get seller's pending proposals
+  @Get('seller/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard, ApprovedUserGuard)
+  @Roles('SELLER', 'TRADER')
+  async getSellerPendingProposals(@CurrentUser() user: any) {
+    return this.buyProposalsService.getSellerPendingProposals(user.sub);
   }
 }
