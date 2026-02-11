@@ -1197,6 +1197,15 @@ export class BuyProposalsService {
       throw new BadRequestException('You are not the buyer of this proposal');
     }
 
+    // Allow idempotent approval - if already approved (AWAITING_PAYMENT or SELLER_CONFIRMED), return success
+    if (proposal.status === 'AWAITING_PAYMENT' || proposal.status === 'SELLER_CONFIRMED') {
+      console.log('⚠️ Proposal already approved (idempotent request), returning success');
+      return {
+        message: 'Quantity already approved. PI has been sent.',
+        proposal,
+      };
+    }
+
     if (proposal.status !== 'QUANTITY_MODIFIED') {
       console.error(`❌ Buyer approve failed: Expected QUANTITY_MODIFIED but got ${proposal.status}`);
       throw new BadRequestException(`Proposal is not awaiting buyer approval. Current status: ${proposal.status}`);
