@@ -158,4 +158,44 @@ export class DeliveryRequestsController {
     ) {
         return this.service.confirmDelivery(id, user.sub, dto.otp);
     }
+
+    // COURIER: Get my assigned deliveries
+    @Get('courier/my')
+    @Roles('COURIER')
+    async getCourierDeliveries(@CurrentUser() user: any) {
+        return this.service.getCourierDeliveries(user.sub);
+    }
+
+    // COURIER: Update delivery status
+    @Post('courier/:id/status')
+    @Roles('COURIER')
+    async updateCourierStatus(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @Body() dto: { status: string; notes?: string },
+    ) {
+        return this.service.updateCourierStatus(id, user.sub, dto.status, dto.notes);
+    }
+
+    // COURIER: Upload delivery proof
+    @Post('courier/:id/proof')
+    @Roles('COURIER')
+    @UseInterceptors(FileInterceptor('proof'))
+    async uploadDeliveryProof(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File,
+    ) {
+        return this.service.uploadDeliveryProof(id, user.sub, file);
+    }
+
+    // ADMIN: Assign courier to delivery
+    @Post(':id/assign-courier')
+    @Roles('ADMIN')
+    async assignCourier(
+        @Param('id') id: string,
+        @Body() dto: { courierId: string },
+    ) {
+        return this.service.assignCourier(id, dto.courierId);
+    }
 }

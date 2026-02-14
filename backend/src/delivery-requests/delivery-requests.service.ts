@@ -871,3 +871,192 @@ export class DeliveryRequestsService {
     `;
     }
 }
+
+    // ===== COURIER METHODS =====
+
+    // Get deliveries assigned to courier
+    async getCourierDeliveries(courierId: string) {
+        return this.prisma.deliveryRequest.findMany({
+            where: {
+                assignedCourierId: courierId,
+            },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: {
+                            include: { manufacturer: true },
+                        },
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // Update delivery status by courier
+    async updateCourierStatus(requestId: string, courierId: string, newStatus: string, notes?: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: true,
+                    },
+                },
+            },
+        });
+
+        if (!request) {
+            throw new NotFoundException('Delivery request not found');
+        }
+
+        if (request.assignedCourierId !== courierId) {
+            throw new BadRequestException('You are not assigned to this delivery');
+        }
+
+        const updateData: any = {
+            status: newStatus as any,
+        };
+
+        if (notes) {
+            updateData.courierNotes = notes;
+        }
+
+        // Handle specific status transitions
+        if (newStatus === 'IN_TRANSIT' && request.status === 'AWAITING_COURIER_PICKUP') {
+            updateData.courierPickupAt = new Date();
+        }
+
+        if (newStatus === 'PENDING_OTP_VERIFICATION') {
+            // Generate OTP when courier marks as delivered
+            const otp = generateOtp();
+            const otpExpiry = generateOtpExpiry(24);
+            
+            updateData.deliveryOtp = otp;
+            updateData.otpExpiresAt = otpExpiry;
+            updateData.dispatchedAt = new Date();
+
+            // Send OTP to buyer
+            this.emailService.sendEmail(
+                request.requester.email,
+                '🔐 Delivery Confirmation OTP',
+                this.getOtpEmailTemplate(request, otp),
+            ).catch(error => {
+                console.error('Failed to send OTP email:', error);
+            });
+
+            // Notify buyer
+            await this.prisma.notification.create({
+                data: {
+                    userId: request.requesterId,
+                    channel: 'INAPP',
+                    subject: '📦 Package Delivered - Confirm with OTP',
+                    body: `Your package of ${request.qty} units of ${request.inventoryLot.medicine.name} has been delivered! Check your email for the OTP to confirm receipt.`,
+                    meta: { deliveryRequestId: request.id },
+                },
+            });
+        }
+
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: updateData,
+            include: {
+                requester: { select: { name: true, email: true } },
+                inventoryLot: { include: { medicine: true } },
+            },
+        });
+
+        return {
+            message: 'Status updated successfully',
+            request: updated,
+        };
+    }
+
+    // Upload delivery proof photo
+    async uploadDeliveryProof(requestId: string, courierId: string, file: Express.Multer.File) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+        });
+
+        if (!request) {
+            throw new NotFoundException('Delivery request not found');
+        }
+
+        if (request.assignedCourierId !== courierId) {
+            throw new BadRequestException('You are not assigned to this delivery');
+        }
+
+        const proofUrl = await this.gcsService.uploadFile(file, 'delivery-proofs');
+
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                deliveryProofUrl: proofUrl,
+            },
+        });
+
+        return {
+            message: 'Delivery proof uploaded successfully',
+            proofUrl,
+            request: updated,
+        };
+    }
+
+    // Assign courier to delivery (admin only)
+    async assignCourier(requestId: string, courierId: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                inventoryLot: { include: { medicine: true } },
+            },
+        });
+
+        if (!request) {
+            throw new NotFoundException('Delivery request not found');
+        }
+
+        // Verify courier exists and has COURIER role
+        const courier = await this.prisma.user.findUnique({
+            where: { id: courierId },
+        });
+
+        if (!courier || courier.roleCode !== 'COURIER') {
+            throw new BadRequestException('Invalid courier ID');
+        }
+
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                assignedCourierId: courierId,
+                status: 'AWAITING_COURIER_PICKUP',
+            },
+        });
+
+        // Notify courier
+        await this.prisma.notification.create({
+            data: {
+                userId: courierId,
+                channel: 'INAPP',
+                subject: '📦 New Delivery Assigned',
+                body: `You have been assigned a delivery for ${request.qty} units of ${request.inventoryLot.medicine.name}. Please check your courier dashboard.`,
+                meta: { deliveryRequestId: request.id },
+            },
+        });
+
+        return {
+            message: 'Courier assigned successfully',
+            request: updated,
+        };
+    }
+}

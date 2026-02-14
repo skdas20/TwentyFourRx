@@ -73,12 +73,18 @@ enum ProposalStatus {
 }
 
 enum DeliveryRequestStatus {
-  AWAITING_SELLER  // Seller needs to upload receipt and confirm
-  PENDING          // Admin needs to approve
-  APPROVED         // (Legacy - not used in new flow)
+  AWAITING_SELLER           // Seller needs to upload receipt and confirm
+  AWAITING_COURIER_PICKUP   // Courier needs to pick up
+  IN_TRANSIT                // Courier has picked up, in transit
+  OUT_FOR_DELIVERY          // Courier is out for delivery
+  DELIVERY_ATTEMPTED        // Delivery was attempted but failed
+  PENDING                   // Admin needs to approve
+  APPROVED                  // (Legacy - not used in new flow)
   REJECTED
-  DISPATCHED       // OTP sent to buyer
-  DELIVERED        // Buyer confirmed with OTP
+  DISPATCHED                // OTP sent to buyer (legacy)
+  PENDING_OTP_VERIFICATION  // Waiting for buyer OTP confirmation
+  DELIVERED                 // Buyer confirmed with OTP
+  CANCELLED                 // Delivery cancelled
 }
 
 enum ContributionStatus {
@@ -124,6 +130,7 @@ model User {
   priceAlerts             PriceAlert[]
   passwordResetTokens     PasswordResetToken[]
   deliveryRequests        DeliveryRequest[]
+  courierDeliveries       DeliveryRequest[]      @relation("CourierDeliveries")
   contributedMedicines    MedicineContribution[] @relation("ContributedMedicines")
   reviewedContributions   MedicineContribution[] @relation("ReviewedContributions")
   supportTickets          SupportTicket[]
@@ -585,31 +592,41 @@ model BuyProposal {
 
 // Physical delivery requests from sellers/traders for their inventory
 model DeliveryRequest {
-  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  requesterId     String                @map("requester_id") @db.Uuid
-  inventoryLotId  String                @map("inventory_lot_id") @db.Uuid
-  qty             Int
-  status          DeliveryRequestStatus @default(PENDING)
-  reviewerNote    String?               @map("reviewer_note")
-  invoiceUrl      String?               @map("invoice_url")
-  packageImageUrl String?               @map("package_image_url") // Package photo uploaded by seller
-  trackingNumber  String?               @map("tracking_number")
-  deliveryPartner String?               @map("delivery_partner")
-  deliveryOtp     String?               @map("delivery_otp") @db.VarChar(6)
-  otpExpiresAt    DateTime?             @map("otp_expires_at") @db.Timestamptz(6)
-  otpVerifiedAt   DateTime?             @map("otp_verified_at") @db.Timestamptz(6)
-  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  reviewedAt      DateTime?             @map("reviewed_at") @db.Timestamptz(6)
-  dispatchedAt    DateTime?             @map("dispatched_at") @db.Timestamptz(6)
-  deliveredAt     DateTime?             @map("delivered_at") @db.Timestamptz(6)
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId         String                @map("requester_id") @db.Uuid
+  inventoryLotId      String                @map("inventory_lot_id") @db.Uuid
+  qty                 Int
+  status              DeliveryRequestStatus @default(PENDING)
+  reviewerNote        String?               @map("reviewer_note")
+  invoiceUrl          String?               @map("invoice_url")
+  packageImageUrl     String?               @map("package_image_url") // Package photo uploaded by seller
+  trackingNumber      String?               @map("tracking_number")
+  deliveryPartner     String?               @map("delivery_partner")
+  deliveryOtp         String?               @map("delivery_otp") @db.VarChar(6)
+  otpExpiresAt        DateTime?             @map("otp_expires_at") @db.Timestamptz(6)
+  otpVerifiedAt       DateTime?             @map("otp_verified_at") @db.Timestamptz(6)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedAt          DateTime?             @map("reviewed_at") @db.Timestamptz(6)
+  dispatchedAt        DateTime?             @map("dispatched_at") @db.Timestamptz(6)
+  deliveredAt         DateTime?             @map("delivered_at") @db.Timestamptz(6)
+  
+  // NEW: Courier system fields
+  assignedCourierId   String?               @map("assigned_courier_id") @db.Uuid
+  courierPickupAt     DateTime?             @map("courier_pickup_at") @db.Timestamptz(6)
+  estimatedDeliveryAt DateTime?             @map("estimated_delivery_at") @db.Timestamptz(6)
+  deliveryProofUrl    String?               @map("delivery_proof_url") // Photo at delivery
+  courierNotes        String?               @map("courier_notes") @db.Text
 
-  requester     User          @relation(fields: [requesterId], references: [id])
-  inventoryLot  InventoryLot  @relation(fields: [inventoryLotId], references: [id])
-  supportTickets SupportTicket[]
+  requester       User              @relation(fields: [requesterId], references: [id])
+  inventoryLot    InventoryLot      @relation(fields: [inventoryLotId], references: [id])
+  assignedCourier User?             @relation("CourierDeliveries", fields: [assignedCourierId], references: [id])
+  supportTickets  SupportTicket[]
 
   @@index([requesterId])
   @@index([inventoryLotId])
   @@index([status])
+  @@index([assignedCourierId])
+  @@index([status, assignedCourierId])
   @@map("delivery_requests")
 }
 

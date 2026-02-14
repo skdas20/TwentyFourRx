@@ -1,0 +1,57 @@
+name: Deploy Courier Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'courier/**'
+      - '.github/workflows/deploy-courier.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Create courier directory if it doesn't exist
+            mkdir -p ~/24rx/courier
+            
+            # Copy courier files
+            cd ~/24rx
+            git pull origin main
+            
+            # Set proper permissions
+            sudo chown -R www-data:www-data ~/24rx/courier
+            sudo chmod -R 755 ~/24rx/courier
+            
+            # Reload nginx
+            sudo nginx -t && sudo systemctl reload nginx
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Checking courier dashboard files..."
+            ls -la ~/24rx/courier/
+            echo "Nginx status:"
+            sudo systemctl status nginx --no-pager | head -n 10
+
+      - name: Notify Success
+        if: success()
+        run: echo "✅ Courier dashboard deployed successfully!"
+
+      - name: Notify Failure
+        if: failure()
+        run: echo "❌ Courier dashboard deployment failed!"
