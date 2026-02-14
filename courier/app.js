@@ -1,5 +1,6 @@
 // Configuration
-const API_BASE_URL = 'https://api.24rxexchange.com/api/v1';
+// Using main domain as proxy to backend
+const API_BASE_URL = 'https://24rxexchange.com/api/v1';
 
 // State
 let currentUser = null;
