@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'http://35.225.19.249:8080/api/v1';
+const API_BASE_URL = 'https://api.24rxexchange.com/api/v1';
 
 // State
 let currentUser = null;
@@ -8,11 +8,11 @@ let filteredDeliveries = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Show loading screen for 0.3 seconds (just enough for smooth transition)
+    // Show loading screen for 2 seconds to showcase the animation
     setTimeout(() => {
         hideLoadingScreen();
         checkAuth();
-    }, 300);
+    }, 2000);
     
     // Setup event listeners
     setupEventListeners();

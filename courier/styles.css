@@ -6,11 +6,11 @@
 }
 
 :root {
-    --brand-blue: #3B82F6;
-    --brand-blue-light: #93C5FD;
-    --brand-blue-dark: #1D4ED8;
-    --brand-red: #EF4444;
-    --brand-red-light: #FCA5A5;
+    --brand-blue: #1E40AF;
+    --brand-blue-light: #3B82F6;
+    --brand-blue-dark: #1E3A8A;
+    --brand-red: #DC2626;
+    --brand-red-light: #EF4444;
     
     --gray-50: #F9FAFB;
     --gray-100: #F3F4F6;
@@ -47,48 +47,123 @@ body {
 .loading-screen {
     position: fixed;
     inset: 0;
-    background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 50%, #60A5FA 100%);
+    background: linear-gradient(135deg, #0A1F44 0%, #1E3A8A 25%, #1E40AF 50%, #2563EB 75%, #1E3A8A 100%);
+    background-size: 400% 400%;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    animation: fadeIn 0.3s ease-in;
-    transition: opacity 0.3s ease-out;
+    animation: gradientShift 8s ease infinite;
+    transition: opacity 0.5s ease-out;
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .loading-content {
     text-align: center;
-    animation: slideUp 0.5s ease-out;
-    padding: 2rem;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 1rem;
-    backdrop-filter: blur(10px);
+    animation: floatIn 1s ease-out;
+    padding: 3rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2rem;
+    backdrop-filter: blur(20px);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.loading-content::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(255, 255, 255, 0.03),
+        transparent
+    );
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+@keyframes floatIn {
+    from {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .loading-logo {
-    width: 120px;
+    width: 180px;
     height: auto;
-    margin-bottom: 1.5rem;
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+    margin-bottom: 2rem;
+    filter: drop-shadow(0 15px 35px rgba(37, 99, 235, 0.6));
+    animation: logoFloat 3s ease-in-out infinite, logoPulse 2s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-15px) rotate(2deg); }
+}
+
+@keyframes logoPulse {
+    0%, 100% { filter: drop-shadow(0 15px 35px rgba(37, 99, 235, 0.6)); }
+    50% { filter: drop-shadow(0 20px 50px rgba(59, 130, 246, 0.9)); }
 }
 
 .loading-text {
-    font-size: 1.125rem;
-    font-weight: 600;
+    font-size: 1.5rem;
+    font-weight: 700;
     color: white;
-    margin-bottom: 1.5rem;
-    letter-spacing: 0.5px;
+    margin-bottom: 2rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     opacity: 0.95;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    animation: textGlow 2s ease-in-out infinite;
+}
+
+@keyframes textGlow {
+    0%, 100% { 
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
+                     0 0 20px rgba(59, 130, 246, 0.3);
+    }
+    50% { 
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5),
+                     0 0 40px rgba(96, 165, 250, 0.6),
+                     0 0 60px rgba(147, 197, 253, 0.4);
+    }
 }
 
 .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    border-top-color: white;
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #3B82F6;
+    border-right-color: #60A5FA;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
     margin: 0 auto;
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
@@ -118,7 +193,9 @@ body {
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 50%, #60A5FA 100%);
+    background: linear-gradient(135deg, #0A1F44 0%, #1E3A8A 25%, #1E40AF 50%, #2563EB 75%, #1E3A8A 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
 }
 
 .login-card {
@@ -349,8 +426,8 @@ body {
 }
 
 .stat-icon-blue {
-    background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-    color: var(--brand-blue);
+    background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%);
+    color: white;
 }
 
 .stat-icon-orange {
@@ -515,7 +592,7 @@ body {
 
 .status-awaiting { background: #FEF3C7; color: #92400E; }
 .status-transit { background: #DDD6FE; color: #5B21B6; }
-.status-out { background: #DBEAFE; color: #1E40AF; }
+.status-out { background: #1E40AF; color: white; font-weight: 700; }
 .status-attempted { background: #FED7AA; color: #9A3412; }
 .status-pending-otp { background: #FCE7F3; color: #831843; }
 .status-delivered { background: #D1FAE5; color: #065F46; }
