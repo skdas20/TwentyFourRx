@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'https://api.24rxexchange.in';
+const API_BASE_URL = 'https://api.24rxexchange.com';
 
 // State
 let currentUser = null;
