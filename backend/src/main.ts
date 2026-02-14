@@ -20,7 +20,8 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'https://24rxexchange.com',
-      'https://www.24rxexchange.com'
+      'https://www.24rxexchange.com',
+      'https://track.24rxexchange.com'
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
