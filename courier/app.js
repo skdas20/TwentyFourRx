@@ -8,11 +8,11 @@ let filteredDeliveries = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    // Show loading screen for 2 seconds
+    // Show loading screen for 0.3 seconds (just enough for smooth transition)
     setTimeout(() => {
         hideLoadingScreen();
         checkAuth();
-    }, 2000);
+    }, 300);
     
     // Setup event listeners
     setupEventListeners();
