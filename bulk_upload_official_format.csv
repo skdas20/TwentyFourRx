@@ -1,6 +1,6 @@
-Sl No,Brand Name,Composition,Name of Manufacturer,BATCH NO.,EXPIRY,Packing Unit,GST %,MRP(incl of tax),Unit Rate to 24RX (excl of tax),Unit Rate to 24RX (incl of tax),HSN Code
-1,Dolo 650,Paracetamol 650mg,Micro Labs Ltd,B12345,2026-12-31,Tablet 15s,12,30.00,25.00,28.00,3004
-2,Amoxiclav 625,Amoxicillin + Clavulanic Acid,Abbott,B67890,2025-06-30,Tablet 10s,12,150.00,120.00,134.40,3004
-3,Cetirizine 10,Cetirizine Hydrochloride,GSK,B11223,2027-01-15,Tablet 10s,12,20.00,15.00,16.80,3004
-4,Azithral 500,Azithromycin,Alembic,B44556,2026-03-20,Tablet 5s,12,120.00,95.00,106.40,3004
-5,Pantocid 40,Pantoprazole,Sun Pharma,B77889,2025-11-10,Tablet 15s,12,110.00,85.00,95.20,3004
+Sl No,Brand Name,Composition,Name of Manufacturer,Packing Unit,GST %,MRP(incl of tax),Unit Rate to 24RX (excl of tax),Unit Rate to 24RX (incl of tax),HSN Code
+1,Dolo 650,Paracetamol 650mg,Micro Labs Ltd,Tablet 15s,12,30.00,25.00,28.00,3004
+2,Amoxiclav 625,Amoxicillin + Clavulanic Acid,Abbott,Tablet 10s,12,150.00,120.00,134.40,3004
+3,Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet 10s,12,20.00,15.00,16.80,3004
+4,Azithral 500,Azithromycin,Alembic,Tablet 5s,12,120.00,95.00,106.40,3004
+5,Pantocid 40,Pantoprazole,Sun Pharma,Tablet 15s,12,110.00,85.00,95.20,3004

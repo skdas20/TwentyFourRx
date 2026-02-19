@@ -353,10 +353,10 @@ function NewListingContent() {
   };
 
   const downloadSampleCSV = () => {
-    const csvContent = `Brand Name,Composition,Manufacturer,Form,Strength,Batch No,Expiry Date,Stock,GST %,MRP,List Price
-Dolo 650,Paracetamol 650mg,Micro Labs Ltd,Tablet,650mg,B12345,2026-12-31,1000,12,30.00,25.00
-Amoxiclav 625,Amoxicillin + Clavulanic Acid,Abbott,Tablet,625mg,B67890,2025-06-30,500,12,150.00,120.00
-Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12,20.00,15.00`;
+    const csvContent = `Brand Name,Composition,Manufacturer,Form,Strength,Stock,GST %,MRP,List Price
+Dolo 650,Paracetamol 650mg,Micro Labs Ltd,Tablet,650mg,1000,12,30.00,25.00
+Amoxiclav 625,Amoxicillin + Clavulanic Acid,Abbott,Tablet,625mg,500,12,150.00,120.00
+Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -422,7 +422,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,B11223,2027-01-15,2000,12
                       Upload a CSV file containing your inventory details.
                     </p>
                     <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
-                      <p>Required Columns: Brand Name, Composition, Manufacturer, Form, Strength, MRP, List Price, Stock, Expiry Date, Batch No, GST %</p>
+                      <p>Required Columns: Brand Name, Composition, Manufacturer, Form, Strength, MRP, List Price, Stock, GST %</p>
                     </div>
                   </div>
                   <button

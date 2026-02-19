@@ -87,7 +87,7 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
               id: listing.id,
               type: "listing" as const,
               title: listing.medicine?.name || "Medicine",
-              description: `${listing.medicine?.manufacturer?.name || 'Unknown'} • ${listing.stock} units${expiryDate ? ` • Exp: ${expiryDate}` : ''}${mrp}`,
+              description: `${listing.medicine?.manufacturer?.name || 'Unknown'}${expiryDate ? ` • Exp: ${expiryDate}` : ''}${mrp}`,
               price: listing.listPrice || listing.basePrice,
               url: `/medicines/${listing.medicineId}`,
               icon: <ShoppingCart className="w-4 h-4" />,

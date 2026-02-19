@@ -68,22 +68,15 @@ These are needed when admin approves the listing:
    - Maximum Retail Price (including tax)
    - Example: `65.00`, `150.00`
 
-9. **Batch No** (or `BATCH NO.`)
-   - Batch number of the stock
-   - Example: `BT001234`
-
-10. **Expiry Date** (or `EXPIRY`)
-    - Expiration date
-    - Format: Any standard date format (e.g., `2025-12-31`, `31/12/2025`)
 
 ### 🎨 **OPTIONAL (For New Medicines)**
 Only needed if creating a completely new medicine:
 
-11. **Composition** (or `composition`)
+9. **Composition** (or `composition`)
     - Chemical composition
     - Example: `Paracetamol 500mg`
 
-12. **Packing Unit** (or `packing unit`)
+10. **Packing Unit** (or `packing unit`)
     - Packaging information
     - Example: `10 Tablets`, `100ml Bottle`
 
@@ -151,25 +144,22 @@ The system categorizes each row as:
 | Stock | ✅ YES | Will default to 0 (listing will show out of stock) |
 | GST % | ✅ YES | Will default to 0 |
 | MRP | ✅ YES | Will default to 0 |
-| Batch No | ✅ YES | Will be null |
-| Expiry Date | ✅ YES | Will be null |
 | Composition | ✅ YES | Will default to 'N/A' for new medicines |
 
 ### ⚠️ Best Practice
 While many fields CAN be empty, it's **highly recommended** to fill:
 - **Strength**: For accurate medicine matching
 - **List Price, Stock, GST, MRP**: For creating functional listings
-- **Batch No, Expiry Date**: For compliance and tracking
 
 ---
 
 ## Sample CSV Structure
 
 ```csv
-Brand Name,Form,Strength,Manufacturer,List Price,Stock,GST %,MRP,Batch No,Expiry Date
-Dolo 650,Tablet,650mg,Micro Labs,45.50,100,12,65.00,BT001234,2025-12-31
-Crocin Advance,Tablet,500mg,GSK,38.00,200,12,50.00,BT001235,2025-11-30
-Azithral 500,Tablet,500mg,Alembic Pharma,85.00,50,12,120.00,BT001236,2025-10-31
+Brand Name,Form,Strength,Manufacturer,List Price,Stock,GST %,MRP
+Dolo 650,Tablet,650mg,Micro Labs,45.50,100,12,65.00
+Crocin Advance,Tablet,500mg,GSK,38.00,200,12,50.00
+Azithral 500,Tablet,500mg,Alembic Pharma,85.00,50,12,120.00
 ```
 
 ---
@@ -234,3 +224,4 @@ If you encounter any issues:
 
 **Last Updated**: January 10, 2026  
 **Version**: 3.0 (Performance Optimized + Enhanced Features)
+

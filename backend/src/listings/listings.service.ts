@@ -1041,7 +1041,7 @@ export class ListingsService {
     const validationResult = await this.validateCsvHeaders(csvFile.buffer);
     if (!validationResult.isValid) {
       throw new BadRequestException(
-        `Invalid CSV format: ${validationResult.error}\n\nRequired columns: Brand Name, Form, Manufacturer\nOptional columns: Strength, Composition, Batch No, Expiry Date, Stock, GST %, MRP, List Price`
+        `Invalid CSV format: ${validationResult.error}\n\nRequired columns: Brand Name, Form, Manufacturer\nOptional columns: Strength, Composition, Stock, GST %, MRP, List Price`
       );
     }
 
@@ -1360,8 +1360,6 @@ export class ListingsService {
         const stock = parseInt(row['Stock'] || '0');
         const gst = parseFloat(row['GST %'] || '0');
         const proposedMrp = parseFloat(row['MRP'] || row['MRP(incl of tax)'] || '0');
-        const batchNo = row['Batch No'] || row['BATCH NO.'];
-        const expiryDate = row['Expiry Date'] || row['EXPIRY'];
 
         // Calculate final price based on markup type
         let finalPrice: number;
@@ -1422,8 +1420,8 @@ export class ListingsService {
               stock,
               gstPercentage: gst,
               proposedMrp,
-              batchNo,
-              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              batchNo: null,
+              expiryDate: null,
               status: 'ACTIVE',
               approvedAt: new Date(),
               activatedAt: new Date(),
@@ -1477,8 +1475,8 @@ export class ListingsService {
               stock,
               gstPercentage: gst,
               proposedMrp,
-              batchNo,
-              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              batchNo: null,
+              expiryDate: null,
               status: 'ACTIVE',
               approvedAt: new Date(),
               activatedAt: new Date(),
