@@ -98,13 +98,6 @@ export const listingsApi = {
     api.patch(`/listings/proposals/${id}/approve`, { adminMarkupPct }),
   rejectMedicineProposal: (id: string, reviewerNote: string) =>
     api.patch(`/listings/proposals/${id}/reject`, { reviewerNote }),
-  uploadMedicineImage: (listingId: string, image: File) => {
-    const formData = new FormData();
-    formData.append('image', image);
-    return api.post(`/listings/${listingId}/upload-image`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
   // Bulk Listings
   createBulkListing: (data: FormData) =>
     api.post('/listings/bulk', data, {
@@ -247,14 +240,6 @@ export const buyProposalsApi = {
   },
   rejectProposal: (id: string, reviewerNote: string) =>
     api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
-  // NEW: Seller confirmation flow
-  getSellerPendingProposals: () => api.get('/buy-proposals/seller/pending'),
-  sellerConfirmProposal: (id: string, data: { confirmedQty: number; batchNo: string; expiryDate: string; note?: string }) =>
-    api.patch(`/buy-proposals/${id}/seller-confirm`, data),
-  buyerApproveModifiedQty: (id: string) =>
-    api.patch(`/buy-proposals/${id}/buyer-approve-qty`, {}),
-  buyerRejectModifiedQty: (id: string, reason?: string) =>
-    api.patch(`/buy-proposals/${id}/buyer-reject-qty`, { reason }),
 }
 
 // Delivery Requests API

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Package, CheckCircle, Clock, XCircle, Pill, FileText, Upload, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Package, CheckCircle, Clock, XCircle, Pill, FileText } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { listingsApi } from "@/lib/api";
 import { showToast } from "@/lib/toast";
@@ -23,9 +23,6 @@ export default function AdminAllListingsPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [itemType, setItemType] = useState<'listing' | 'proposal'>('listing');
-  
-  // Image upload state
-  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -130,37 +127,6 @@ export default function AdminAllListingsPage() {
       loadListings();
     } catch (error: any) {
       showToast.error(error.response?.data?.message || 'Failed to reject proposal');
-    }
-  };
-
-  const handleImageUpload = async (listingId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      showToast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast.error('Image size must be less than 5MB');
-      return;
-    }
-
-    try {
-      setUploadingImage(listingId);
-      await listingsApi.uploadMedicineImage(listingId, file);
-      showToast.success('Medicine image uploaded successfully!');
-      loadListings(); // Refresh to show new image
-    } catch (error: any) {
-      console.error('Failed to upload image:', error);
-      showToast.error(error.response?.data?.message || 'Failed to upload image');
-    } finally {
-      setUploadingImage(null);
-      // Reset the input
-      event.target.value = '';
     }
   };
 
@@ -309,36 +275,9 @@ export default function AdminAllListingsPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex gap-4 flex-1">
-                    {/* Medicine Image/Icon */}
-                    <div className="relative w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden group">
-                      {item.medicine?.imageUrl || (item.itemType === 'proposal' && item.imageUrl) ? (
-                        <img 
-                          src={item.medicine?.imageUrl || item.imageUrl} 
-                          alt={item.itemType === 'proposal' ? item.name : item.medicine?.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Pill className="w-10 h-10 text-blue-600 dark:text-blue-400" />
-                      )}
-                      {/* Upload button overlay */}
-                      <label 
-                        htmlFor={`image-upload-${item.id}`}
-                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
-                      >
-                        {uploadingImage === item.id ? (
-                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
-                        ) : (
-                          <Upload className="w-6 h-6 text-white" />
-                        )}
-                      </label>
-                      <input
-                        id={`image-upload-${item.id}`}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImageUpload(item.id, e)}
-                        disabled={uploadingImage === item.id}
-                      />
+                    {/* Medicine Icon */}
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Pill className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                     </div>
 
                     {/* Medicine Info */}

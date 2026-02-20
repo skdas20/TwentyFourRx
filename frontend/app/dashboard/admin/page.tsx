@@ -26,9 +26,9 @@ export default function AdminDashboard() {
     pendingBuyProposals: 0,
     pendingDeliveries: 0,
   });
-  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
-  const [pendingListings, setPendingListings] = useState<any[]>([]);
-  const [pendingProposals, setPendingProposals] = useState<any[]>([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [pendingListings, setPendingListings] = useState([]);
+  const [pendingProposals, setPendingProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserForDocs, setSelectedUserForDocs] = useState<{id: string, name: string} | null>(null);
   
@@ -61,44 +61,7 @@ export default function AdminDashboard() {
       // Load users data
       const usersResponse = await usersApi.getUsers();
       const allUsers = usersResponse.data;
-      
-      // For each PENDING user, check if they have uploaded KYC documents
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-      const token = localStorage.getItem('accessToken');
-      
-      const pendingUsersWithDocs = await Promise.all(
-        allUsers
-          .map(async (user: any) => {
-            try {
-              const docsResponse = await fetch(`${API_URL}/admin/users/${user.id}/documents`, {
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-
-              if (docsResponse.ok) {
-                const docsData = await docsResponse.json();
-                const hasPendingDocs = docsData.documents && docsData.documents.some((doc: any) => doc.status === 'PENDING');
-                return {
-                  ...user,
-                  hasPendingKycDocuments: hasPendingDocs,
-                  kycDocumentsCount: docsData.documents?.length || 0,
-                  pendingDocsCount: docsData.documents?.filter((doc: any) => doc.status === 'PENDING').length || 0,
-                };
-              }
-            } catch (error) {
-              console.error(`Failed to load KYC status for user ${user.id}:`, error);
-            }
-
-            return {
-              ...user,
-              hasPendingKycDocuments: false,
-              kycDocumentsCount: 0,
-              pendingDocsCount: 0,
-            };
-          })
-      );
-
-      // Show users who have PENDING documents (regardless of user approval status)
-      const pendingUsersData = pendingUsersWithDocs.filter((u: any) => u.hasPendingKycDocuments);
+      const pendingUsersData = allUsers.filter((u: any) => u.status === 'PENDING');
       
       // Load listings data
       const listingsResponse = await listingsApi.getPendingListings();
@@ -460,7 +423,7 @@ export default function AdminDashboard() {
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl">
                       <Users className="w-5 h-5 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Pending KYC Approvals</h3>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Pending User Approvals</h3>
                   </div>
                   <span className="px-4 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-sm font-semibold rounded-full shadow-lg">
                     {stats.pendingUsers}
@@ -470,7 +433,7 @@ export default function AdminDashboard() {
                 {pendingUsers.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No pending KYC approvals</p>
+                    <p className="text-gray-500">No pending user approvals</p>
                   </div>
                 ) : (
                   <div className="max-h-[400px] overflow-y-auto space-y-4 pr-2">
@@ -480,16 +443,6 @@ export default function AdminDashboard() {
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
-                            <div className="flex gap-2 mt-1">
-                              <span className="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs font-medium rounded">
-                                {user.pendingDocsCount} pending docs
-                              </span>
-                              {user.status === 'APPROVED' && (
-                                <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded">
-                                  User Approved
-                                </span>
-                              )}
-                            </div>
                           </div>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
                             {user.roleCode}
@@ -503,28 +456,24 @@ export default function AdminDashboard() {
                             <button
                               onClick={() => setSelectedUserForDocs({id: user.id, name: user.name})}
                               className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-                              title="View & Review Documents"
+                              title="View Documents"
                             >
                               <FileText className="w-4 h-4" />
                             </button>
-                            {user.status === 'PENDING' && (
-                              <>
-                                <button
-                                  onClick={() => handleApproveUser(user.id)}
-                                  className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
-                                  title="Approve User"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleRejectUser(user.id)}
-                                  className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
-                                  title="Reject User"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
+                            <button
+                              onClick={() => handleApproveUser(user.id)}
+                              className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+                              title="Approve User"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRejectUser(user.id)}
+                              className="p-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors"
+                              title="Reject User"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -691,7 +640,24 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Quick Actions</h3>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+                <Link
+                  href="/medicines"
+                  className="group relative p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20
+                           hover:from-blue-500/20 hover:to-blue-600/20 dark:hover:from-blue-500/30 dark:hover:to-blue-600/30
+                           rounded-2xl border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500
+                           transition-all text-center hover:scale-105 hover:shadow-lg"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
+                  <div className="relative">
+                    <div className="w-14 h-14 mx-auto mb-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                      <Pill className="w-7 h-7 text-white" />
+                    </div>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Medicines</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Browse catalog</p>
+                  </div>
+                </Link>
+
                 <Link
                   href="/dashboard/admin/news"
                   className="group p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 

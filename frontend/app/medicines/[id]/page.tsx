@@ -528,14 +528,6 @@ export default function MedicineDetailPage() {
                         <span>{medicine?.form || "N/A"}</span>
                         <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
                         <span>{medicine?.strength || "N/A"}</span>
-                        {selectedListing?.expiryDate && (
-                          <>
-                            <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></span>
-                            <span className="text-orange-600 dark:text-orange-400 font-medium">
-                              Exp: {new Date(selectedListing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                            </span>
-                          </>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -553,17 +545,7 @@ export default function MedicineDetailPage() {
                       {priceChange > 0 ? "▲" : "▼"} {priceChange >= 0 ? "+" : ""}₹{priceChange.toFixed(2)} ({priceChangePercent > 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 mt-2">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">PSE | <span className="text-xs">*Price excluding GST</span></p>
-                    {medicine?.mrp && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">|</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          MRP: <span className="font-semibold text-gray-900 dark:text-white">₹{Number(medicine.mrp).toFixed(2)}</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">PSE | <span className="text-xs">*Price excluding GST</span></p>
                 </div>
               </div>
               <div className="flex items-center gap-2 mb-4">
@@ -602,6 +584,7 @@ export default function MedicineDetailPage() {
                       {userHolding ? (
                         <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
                           <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
+                          <p className="text-sm text-green-700 dark:text-green-300">Available: <span className="font-bold">{userHolding.totalQty} units</span></p>
                           <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
                         </div>
                       ) : holdingsLoaded && (
@@ -633,11 +616,6 @@ export default function MedicineDetailPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">{listing.medicine?.name}</h3>
-                    {listing.expiryDate && (
-                      <p className="text-xs text-orange-600 dark:text-orange-400">
-                        Exp: {new Date(listing.expiryDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                      </p>
-                    )}
                     <div className="flex items-baseline gap-2 mt-2">
                       <span className="text-xl font-bold text-blue-600 dark:text-blue-400">₹{listing.listPrice || listing.basePrice}</span>
                     </div>
