@@ -225,7 +225,12 @@ export const buyProposalsApi = {
     api.post(`/buy-proposals/${proposalId}/seller-invoice`, data, {
       headers: { 'Content-Type': undefined },
     }),
+  sellerConfirmProposal: (
+    proposalId: string,
+    data: { confirmedQty: number; batchNo: string; expiryDate: string; note?: string },
+  ) => api.patch(`/buy-proposals/${proposalId}/seller-confirm`, data),
   getMyProposals: () => api.get('/buy-proposals/my'),
+  getSellerPendingProposals: () => api.get('/buy-proposals/seller/pending'),
   getProposal: (id: string) => api.get(`/buy-proposals/${id}`),
   getPendingProposals: () => api.get('/buy-proposals/pending'),
   approveProposal: (id: string, data: FormData | { reviewerNote?: string }) => {
@@ -240,6 +245,10 @@ export const buyProposalsApi = {
   },
   rejectProposal: (id: string, reviewerNote: string) =>
     api.patch(`/buy-proposals/${id}/reject`, { reviewerNote }),
+  buyerApproveModifiedQty: (id: string) =>
+    api.patch(`/buy-proposals/${id}/buyer-approve-qty`),
+  buyerRejectModifiedQty: (id: string, reason?: string) =>
+    api.patch(`/buy-proposals/${id}/buyer-reject-qty`, { reason }),
 }
 
 // Delivery Requests API
