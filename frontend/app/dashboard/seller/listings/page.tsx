@@ -462,26 +462,16 @@ export default function MyListingsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Base Price (₹) <span className="text-red-500">*Must be less than current price</span>
+                  Base Price (₹)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={editForm.basePrice}
                   onChange={(e) => setEditForm({ ...editForm, basePrice: e.target.value })}
-                  max={parseFloat(editingListing.basePrice) - 0.01}
-                  className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 ${
-                    parseFloat(editForm.basePrice) >= parseFloat(editingListing.basePrice)
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500'
-                  }`}
+                  className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
                   required
                 />
-                {parseFloat(editForm.basePrice) >= parseFloat(editingListing.basePrice) && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                    ⚠️ New price must be lower than current price (₹{editingListing.basePrice})
-                  </p>
-                )}
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Current price: ₹{editingListing.basePrice}
                 </p>
@@ -527,7 +517,7 @@ export default function MyListingsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={updating || parseFloat(editForm.basePrice) >= parseFloat(editingListing.basePrice)}
+                  disabled={updating}
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updating ? "Updating..." : "Update"}
