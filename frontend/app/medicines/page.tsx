@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pill, Search, Filter, Package, Bookmark, ShoppingCart, TrendingUp, TrendingDown } from "lucide-react";
+import { Pill, Search, Filter, Bookmark, ShoppingCart, TrendingUp, TrendingDown } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import SearchBar from "@/components/SearchBar";
@@ -329,8 +329,7 @@ export default function MedicinesPage() {
           <div className="col-span-3">Medicine</div>
           <div className="col-span-2 text-center">Market Price</div>
           <div className="col-span-2 text-center">30D Change</div>
-          <div className="col-span-2 text-center">Stock</div>
-          <div className="col-span-3 text-right">Actions</div>
+          <div className="col-span-5 text-right">Actions</div>
         </div>
 
         {/* Medicines List */}
@@ -397,23 +396,8 @@ export default function MedicinesPage() {
                       )}
                     </div>
 
-                    {/* Stock */}
-                    <div className="col-span-2 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Package className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-gray-100">
-                          {listing.stock?.toLocaleString() || 0}
-                        </span>
-                      </div>
-                      {listing.sellerCount > 1 && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {listing.sellerCount} sellers
-                        </div>
-                      )}
-                    </div>
-
                     {/* Actions */}
-                    <div className="col-span-3 flex items-center justify-end gap-2">
+                    <div className="col-span-5 flex items-center justify-end gap-2">
                       <button
                         onClick={(e) => toggleWatchlist(medicineId, e)}
                         className={`p-2 rounded-lg transition-colors ${
@@ -479,10 +463,7 @@ export default function MedicinesPage() {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                            <Package className="w-3 h-3" />
-                            {listing.stock?.toLocaleString() || 0} units
-                          </div>
+                          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"></div>
 
                           <div className="flex items-center gap-2">
                             <button

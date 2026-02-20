@@ -584,7 +584,6 @@ export default function MedicineDetailPage() {
                       {userHolding ? (
                         <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
                           <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
-                          <p className="text-sm text-green-700 dark:text-green-300">Available: <span className="font-bold">{userHolding.totalQty} units</span></p>
                           <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
                         </div>
                       ) : holdingsLoaded && (
