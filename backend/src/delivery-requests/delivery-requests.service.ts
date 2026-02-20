@@ -870,7 +870,6 @@ export class DeliveryRequestsService {
       </div>
     `;
     }
-}
 
     // ===== COURIER METHODS =====
 

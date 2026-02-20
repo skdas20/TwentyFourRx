@@ -8,8 +8,9 @@ import {
     UseGuards,
     UseInterceptors,
     UploadedFile,
+    UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional } from 'class-validator';
 import { DeliveryRequestsService } from './delivery-requests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -110,17 +111,24 @@ export class DeliveryRequestsController {
         return this.service.rejectRequest(id, dto.reviewerNote);
     }
 
-    // ADMIN/SELLER: Mark as dispatched with invoice upload
+    // ADMIN/SELLER: Mark as dispatched with invoice and package image upload
     @Post(':id/dispatch')
     @Roles('SELLER', 'TRADER')
-    @UseInterceptors(FileInterceptor('invoice'))
+    @UseInterceptors(FileFieldsInterceptor([
+        { name: 'invoice', maxCount: 1 },
+        { name: 'packageImage', maxCount: 1 },
+    ]))
     async markDispatched(
         @Param('id') id: string,
         @CurrentUser() user: any,
-        @UploadedFile() file: Express.Multer.File,
+        @UploadedFiles() files: { invoice?: Express.Multer.File[], packageImage?: Express.Multer.File[] },
         @Body() dto: MarkDispatchedDto,
     ) {
-        return this.service.markDispatched(id, user.sub, file, dto.trackingNumber, dto.deliveryPartner);
+        // Extract invoice and packageImage from the fields object
+        const invoiceFile = files?.invoice?.[0];
+        const packageImageFile = files?.packageImage?.[0];
+        
+        return this.service.markDispatched(id, user.sub, invoiceFile, packageImageFile, dto.trackingNumber, dto.deliveryPartner);
     }
 
     // ADMIN: Get pending invoice verifications
@@ -149,5 +157,45 @@ export class DeliveryRequestsController {
         @Body() dto: ConfirmDeliveryDto,
     ) {
         return this.service.confirmDelivery(id, user.sub, dto.otp);
+    }
+
+    // COURIER: Get my assigned deliveries
+    @Get('courier/my')
+    @Roles('COURIER')
+    async getCourierDeliveries(@CurrentUser() user: any) {
+        return this.service.getCourierDeliveries(user.sub);
+    }
+
+    // COURIER: Update delivery status
+    @Post('courier/:id/status')
+    @Roles('COURIER')
+    async updateCourierStatus(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @Body() dto: { status: string; notes?: string },
+    ) {
+        return this.service.updateCourierStatus(id, user.sub, dto.status, dto.notes);
+    }
+
+    // COURIER: Upload delivery proof
+    @Post('courier/:id/proof')
+    @Roles('COURIER')
+    @UseInterceptors(FileInterceptor('proof'))
+    async uploadDeliveryProof(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File,
+    ) {
+        return this.service.uploadDeliveryProof(id, user.sub, file);
+    }
+
+    // ADMIN: Assign courier to delivery
+    @Post(':id/assign-courier')
+    @Roles('ADMIN')
+    async assignCourier(
+        @Param('id') id: string,
+        @Body() dto: { courierId: string },
+    ) {
+        return this.service.assignCourier(id, dto.courierId);
     }
 }

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../config/prisma.service';
 import { GcsService } from '../common/services/gcs.service';
+import { RedisService } from '../config/redis.service';
 import { PricesService } from '../prices/prices.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { parse } from 'csv-parse/sync';
@@ -18,6 +19,7 @@ export class ListingsService {
   constructor(
     private prisma: PrismaService,
     private gcsService: GcsService,
+    private redisService: RedisService,
     @Inject(forwardRef(() => PricesService))
     private pricesService: PricesService,
     private notificationsService: NotificationsService,
@@ -148,6 +150,8 @@ export class ListingsService {
           name: medicineRef.name,
           form: medicineRef.form,
           strength: medicineRef.strength,
+          composition: medicineRef.composition, // Add composition from reference
+          packSize: medicineRef.packSize, // Add packSize from reference
           manufacturerName: medicineRef.manufacturer,
           marketerName: medicineRef.marketer,
           proposedMrp: proposedMrp || medicineRef.mrp,
@@ -600,7 +604,62 @@ export class ListingsService {
     return { message: 'Listing rejected', listing: updated };
   }
 
-  async getActiveListings(medicineId?: string, search?: string) {
+  async uploadMedicineImage(listingId: string, image: Express.Multer.File) {
+    // Find the listing
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      include: { medicine: true },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (!listing.medicine) {
+      throw new BadRequestException('Listing has no associated medicine');
+    }
+
+    try {
+      // Upload image with watermark
+      console.log('📤 Uploading medicine image:', image.originalname);
+      const imageUrl = await this.gcsService.uploadImageWithWatermark(image, 'medicine-images');
+      console.log('✅ Medicine image uploaded (watermarked):', imageUrl);
+
+      // Update the medicine's image URL
+      await this.prisma.medicine.update({
+        where: { id: listing.medicineId },
+        data: { imageUrl },
+      });
+
+      return { 
+        message: 'Medicine image uploaded successfully', 
+        imageUrl,
+        medicineId: listing.medicineId,
+      };
+    } catch (error) {
+      console.error('❌ Failed to upload medicine image:', error);
+      throw new BadRequestException('Failed to upload medicine image');
+    }
+  }
+
+  async getActiveListings(medicineId?: string, search?: string, page: number = 1, limit: number = 100) {
+    // Create cache key
+    const cacheKey = `listings:active:${medicineId || 'all'}:${search || 'none'}:${page}:${limit}`;
+
+    // Try to get from cache
+    try {
+      const redis = this.redisService.getClient();
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log(`✅ Cache HIT: ${cacheKey}`);
+        return JSON.parse(cached);
+      }
+      console.log(`❌ Cache MISS: ${cacheKey}`);
+    } catch (error) {
+      console.error('Redis error:', error);
+      // Continue without cache if Redis fails
+    }
+
     const whereClause: any = {
       status: 'ACTIVE',
       stock: { gt: 0 },
@@ -622,61 +681,77 @@ export class ListingsService {
       };
     }
 
-    const allListings = await this.prisma.listing.findMany({
-      where: whereClause,
-      include: {
-        medicine: {
-          include: {
-            manufacturer: true,
-            marketer: true,
-          },
-        },
-        seller: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { listPrice: 'asc' },
-    });
+    // Build dynamic SQL query for better performance
+    let query = `
+      SELECT DISTINCT ON (l.medicine_id)
+        l.id, l.medicine_id, l.seller_id, l.base_price, l.list_price,
+        l.gst_percentage, l.stock, l.batch_no, l.expiry_date, l.status,
+        m.name as medicine_name, m.composition, m.form, m.strength, m.mrp as medicine_mrp, m.image_url,
+        mfr.id as manufacturer_id, mfr.name as manufacturer_name,
+        u.id as seller_id, u.name as seller_name, u.email as seller_email
+      FROM listings l
+      INNER JOIN medicines m ON l.medicine_id = m.id
+      INNER JOIN manufacturers mfr ON m.manufacturer_id = mfr.id
+      INNER JOIN users u ON l.seller_id = u.id
+      WHERE l.status = 'ACTIVE'
+        AND l.stock > 0`;
 
-    // Group by medicineId and keep only the lowest price listing per medicine
-    const lowestPriceListings = new Map<string, any>();
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
-    for (const listing of allListings) {
-      const medicineId = listing.medicineId;
-      const existing = lowestPriceListings.get(medicineId);
-
-      if (!existing || Number(listing.listPrice) < Number(existing.listPrice)) {
-        lowestPriceListings.set(medicineId, listing);
-      }
+    if (medicineId) {
+      query += ` AND l.medicine_id = $${paramIndex}::uuid`;
+      queryParams.push(medicineId);
+      paramIndex++;
     }
 
-    const uniqueMedicineIds = Array.from(lowestPriceListings.keys());
+    if (search) {
+      // Normalize search: remove special chars, extra spaces
+      const normalizedSearch = search.trim().replace(/[-\s]+/g, ''); // Remove hyphens and spaces
+      const searchPattern = `%${normalizedSearch}%`;
+
+      // Use REGEXP_REPLACE to strip special chars from DB fields for matching
+      // This matches "I-nem" when searching "i nem" or "inem"
+      query += ` AND (
+        REGEXP_REPLACE(m.name, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex} OR
+        REGEXP_REPLACE(m.composition, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 1} OR
+        REGEXP_REPLACE(m.form, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 2} OR
+        REGEXP_REPLACE(m.strength, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 3} OR
+        REGEXP_REPLACE(mfr.name, '[^a-zA-Z0-9]', '', 'gi') ILIKE $${paramIndex + 4}
+      )`;
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+      paramIndex += 5;
+    }
+
+    query += ` ORDER BY l.medicine_id, l.list_price ASC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, (page - 1) * limit);
+
+    const lowestPriceListings = await this.prisma.$queryRawUnsafe<any[]>(query, ...queryParams);
+
+    // Get medicine IDs for price history
+    const medicineIds = lowestPriceListings.map(l => l.medicine_id);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    // Fetch history for trend calculation
-    const history = await this.prisma.priceHistory.findMany({
+    // Fetch price history in parallel
+    const history = medicineIds.length > 0 ? await this.prisma.priceHistory.findMany({
       where: {
-        medicineId: { in: uniqueMedicineIds },
+        medicineId: { in: medicineIds },
         day: { gte: thirtyDaysAgo },
       },
       orderBy: { day: 'asc' },
-    });
+    }) : [];
 
-    // Convert map to array and attach trend data
-    return Array.from(lowestPriceListings.values()).map((listing) => {
-      const serialized = this.serializeListing(listing);
-      const medHistory = history.filter((h) => h.medicineId === listing.medicineId);
+    // Transform and attach trend data
+    const result = lowestPriceListings.map((listing) => {
+      const medHistory = history.filter((h) => h.medicineId === listing.medicine_id);
 
       let change = 0;
       let changePercent = 0;
 
       if (medHistory.length > 0) {
         const oldestPrice = Number(medHistory[0].avgPrice);
-        const currentPrice = Number(listing.listPrice || listing.basePrice);
+        const currentPrice = Number(listing.list_price || listing.base_price);
 
         if (oldestPrice > 0) {
           change = currentPrice - oldestPrice;
@@ -685,11 +760,50 @@ export class ListingsService {
       }
 
       return {
-        ...serialized,
+        id: listing.id,
+        medicineId: listing.medicine_id,
+        sellerId: listing.seller_id,
+        basePrice: Number(listing.base_price),
+        listPrice: Number(listing.list_price || listing.base_price),
+        gstPercentage: Number(listing.gst_percentage),
+        stock: listing.stock,
+        batchNo: listing.batch_no,
+        expiryDate: listing.expiry_date,
+        status: listing.status,
+        medicine: {
+          id: listing.medicine_id,
+          name: listing.medicine_name,
+          composition: listing.composition,
+          form: listing.form,
+          strength: listing.strength,
+          mrp: Number(listing.medicine_mrp),
+          imageUrl: listing.image_url,
+          manufacturer: {
+            id: listing.manufacturer_id,
+            name: listing.manufacturer_name,
+          },
+        },
+        seller: {
+          id: listing.seller_id,
+          name: listing.seller_name,
+          email: listing.seller_email,
+        },
         change,
         changePercent,
+        lowestPrice: Number(listing.list_price || listing.base_price),
       };
     });
+
+    // Cache for 5 minutes
+    try {
+      const redis = this.redisService.getClient();
+      await redis.setex(cacheKey, 300, JSON.stringify(result));
+      console.log(`💾 Cached: ${cacheKey}`);
+    } catch (error) {
+      console.error('Failed to cache:', error);
+    }
+
+    return result;
   }
 
   async getListingById(id: string) {
@@ -790,6 +904,9 @@ export class ListingsService {
           name: proposal.name,
           form: proposal.form,
           strength: proposal.strength,
+          composition: proposal.composition, // Add composition from proposal
+          packSize: proposal.packSize, // Add packSize from proposal
+          mrp: proposal.proposedMrp, // Add MRP from proposal
           manufacturerId: manufacturer.id,
           ...(marketerId && { marketerId }), // Only include if marketerId exists
         },
@@ -918,22 +1035,22 @@ export class ListingsService {
   async createBulkListingRequest(
     sellerId: string,
     csvFile: Express.Multer.File,
-    documentFile: Express.Multer.File,
+    documentFile?: Express.Multer.File,
   ) {
     // STEP 1: Validate CSV headers IMMEDIATELY (before uploading files)
     const validationResult = await this.validateCsvHeaders(csvFile.buffer);
     if (!validationResult.isValid) {
       throw new BadRequestException(
-        `Invalid CSV format: ${validationResult.error}\n\nRequired columns: Brand Name, Form, Manufacturer\nOptional columns: Strength, Composition, Batch No, Expiry Date, Stock, GST %, MRP, List Price`
+        `Invalid CSV format: ${validationResult.error}\n\nRequired columns: Brand Name, Form, Manufacturer\nOptional columns: Strength, Composition, Stock, GST %, MRP, List Price`
       );
     }
 
     // STEP 2: Upload files (only if validation passed)
     const csvUrl = await this.gcsService.uploadFile(csvFile, 'bulk-listings/csv');
-    const documentUrl = await this.gcsService.uploadFile(
-      documentFile,
-      'bulk-listings/docs',
-    );
+    let documentUrl = '';
+    if (documentFile) {
+      documentUrl = await this.gcsService.uploadFile(documentFile, 'bulk-listings/docs');
+    }
 
     // STEP 3: Create request
     const request = await this.prisma.bulkListingRequest.create({
@@ -1243,8 +1360,6 @@ export class ListingsService {
         const stock = parseInt(row['Stock'] || '0');
         const gst = parseFloat(row['GST %'] || '0');
         const proposedMrp = parseFloat(row['MRP'] || row['MRP(incl of tax)'] || '0');
-        const batchNo = row['Batch No'] || row['BATCH NO.'];
-        const expiryDate = row['Expiry Date'] || row['EXPIRY'];
 
         // Calculate final price based on markup type
         let finalPrice: number;
@@ -1268,18 +1383,29 @@ export class ListingsService {
                 // We'll quickly find/create manufacturer and medicine
                 let manufacturer = await this.prisma.manufacturer.findFirst({ where: { name: ref.manufacturer }});
                 if (!manufacturer) manufacturer = await this.prisma.manufacturer.create({ data: { name: ref.manufacturer }});
-                
+
                 const newMed = await this.prisma.medicine.create({
                   data: {
                     name: ref.name,
                     form: ref.form,
                     strength: ref.strength,
+                    composition: row['Composition'] || ref.composition || null,
                     manufacturerId: manufacturer.id,
                     mrp: ref.mrp,
                   }
                 });
                 medicineId = newMed.id;
              }
+          } else if (row.matchType === 'ACTIVE' && row['Composition']) {
+            // If matched to active medicine, update composition if it's empty
+            const existingMed = await this.prisma.medicine.findUnique({ where: { id: medicineId }});
+            if (existingMed && !existingMed.composition) {
+              await this.prisma.medicine.update({
+                where: { id: medicineId },
+                data: { composition: row['Composition'] }
+              });
+              console.log(`✅ Updated composition for medicine ${medicineId}: ${row['Composition']}`);
+            }
           }
 
           // Create Listing with markup
@@ -1294,8 +1420,8 @@ export class ListingsService {
               stock,
               gstPercentage: gst,
               proposedMrp,
-              batchNo,
-              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              batchNo: null,
+              expiryDate: null,
               status: 'ACTIVE',
               approvedAt: new Date(),
               activatedAt: new Date(),
@@ -1317,6 +1443,7 @@ export class ListingsService {
               name: row['Brand Name'],
               form: row['Form'] || row['Packing Unit']?.split(' ')[0] || 'Tablet', // Fallback parsing
               strength: row['Strength'] || 'N/A',
+              composition: row['Composition'] || null,
               manufacturerId: manufacturer.id,
               mrp: proposedMrp,
             }
@@ -1348,8 +1475,8 @@ export class ListingsService {
               stock,
               gstPercentage: gst,
               proposedMrp,
-              batchNo,
-              expiryDate: expiryDate ? new Date(expiryDate) : null,
+              batchNo: null,
+              expiryDate: null,
               status: 'ACTIVE',
               approvedAt: new Date(),
               activatedAt: new Date(),
@@ -1395,9 +1522,24 @@ export class ListingsService {
   }
 
   // Update listing (seller/trader only)
-  async updateListing(listingId: string, sellerId: string, updateData: { basePrice?: number; stock?: number; gstPercentage?: number }) {
+  async updateListing(
+    listingId: string, 
+    sellerId: string, 
+    updateData: { basePrice?: number; stock?: number; gstPercentage?: number },
+    productImage?: Express.Multer.File
+  ) {
+    console.log('📝 UPDATE LISTING REQUEST:', {
+      listingId,
+      sellerId,
+      updateData,
+      hasImage: !!productImage,
+    });
+
     const listing = await this.prisma.listing.findUnique({
       where: { id: listingId },
+      include: {
+        medicine: true,
+      },
     });
 
     if (!listing) {
@@ -1408,8 +1550,30 @@ export class ListingsService {
       throw new BadRequestException('You can only update your own listings');
     }
 
+    console.log('📋 Current listing data:', {
+      basePrice: listing.basePrice,
+      stock: listing.stock,
+      gstPercentage: listing.gstPercentage,
+      listPrice: listing.listPrice,
+    });
+
+    // Handle Image Upload
+    let productImageUrl: string | undefined;
+    if (productImage) {
+      console.log('📸 Uploading new image...');
+      productImageUrl = await this.gcsService.uploadFile(productImage, `listings/${listing.id}`);
+      console.log('✅ Image uploaded:', productImageUrl);
+      
+      // ALSO update the medicine's image so it shows everywhere
+      await this.prisma.medicine.update({
+        where: { id: listing.medicineId },
+        data: { imageUrl: productImageUrl },
+      });
+      console.log('✅ Medicine image updated');
+    }
+
     // Calculate new list price if base price or GST changes
-    let listPrice = listing.listPrice;
+    let listPrice: Decimal | null = listing.listPrice;
     if (updateData.basePrice !== undefined || updateData.gstPercentage !== undefined) {
       const basePrice = updateData.basePrice ?? Number(listing.basePrice);
       const gstPct = updateData.gstPercentage ?? Number(listing.gstPercentage);
@@ -1419,7 +1583,25 @@ export class ListingsService {
       const priceWithGst = basePrice + gstAmount;
       const adminMarkupAmount = priceWithGst * (adminMarkup / 100);
       listPrice = new Decimal(priceWithGst + adminMarkupAmount);
+      
+      console.log('💰 Price calculation:', {
+        basePrice,
+        gstPct,
+        adminMarkup,
+        gstAmount,
+        priceWithGst,
+        adminMarkupAmount,
+        finalListPrice: listPrice?.toString() || 'null',
+      });
     }
+
+    console.log('💾 Updating database with:', {
+      basePrice: updateData.basePrice,
+      stock: updateData.stock,
+      gstPercentage: updateData.gstPercentage,
+      listPrice: listPrice?.toString() || 'null',
+      productImageUrl,
+    });
 
     const updated = await this.prisma.listing.update({
       where: { id: listingId },
@@ -1428,6 +1610,7 @@ export class ListingsService {
         stock: updateData.stock,
         gstPercentage: updateData.gstPercentage,
         listPrice,
+        ...(productImageUrl && { productImageUrl }),
       },
       include: {
         medicine: {
@@ -1437,6 +1620,14 @@ export class ListingsService {
           },
         },
       },
+    });
+
+    console.log('✅ Listing updated successfully:', {
+      id: updated.id,
+      basePrice: updated.basePrice,
+      stock: updated.stock,
+      gstPercentage: updated.gstPercentage,
+      listPrice: updated.listPrice,
     });
 
     return { message: 'Listing updated successfully', listing: this.serializeListing(updated) };
