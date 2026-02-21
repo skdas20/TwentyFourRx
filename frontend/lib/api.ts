@@ -267,6 +267,9 @@ export const deliveryRequestsApi = {
   // Admin: Reject delivery request
   rejectRequest: (id: string, reviewerNote: string) =>
     api.post(`/delivery-requests/${id}/reject`, { reviewerNote }),
+  // Admin: Assign courier and destination
+  assignCourier: (id: string, courierId: string, destinationAddress: string) =>
+    api.post(`/delivery-requests/${id}/assign-courier`, { courierId, destinationAddress }),
   // Admin/Seller: Mark as dispatched
   markDispatched: (id: string) =>
     api.post(`/delivery-requests/${id}/dispatch`),

@@ -112,7 +112,7 @@ export class SmsService {
     medicineName: string,
     uploadLink: string,
   ): Promise<boolean> {
-    const message = `Delivery requested for ${medicineName} on 24Rx. Please upload courier invoice: ${uploadLink} - 24Rx`;
+    const message = `Delivery requested for ${medicineName} on 24Rx. Please keep stock ready for courier pickup. Track details: ${uploadLink} - 24Rx`;
     return this.sendSms(phoneNumber, message);
   }
 }

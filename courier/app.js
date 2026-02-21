@@ -246,6 +246,7 @@ function renderDeliveries() {
             <td>
                 <div style="font-weight: 600; color: var(--gray-900);">#${delivery.id.slice(0, 8)}</div>
                 ${delivery.trackingNumber ? `<div style="font-size: 0.75rem; color: var(--gray-500);">Track: ${delivery.trackingNumber}</div>` : ''}
+                ${(delivery.sourceAddress || delivery.destinationAddress) ? `<div style="font-size: 0.75rem; color: var(--gray-500);">Route: ${delivery.sourceAddress || 'NA'} → ${delivery.destinationAddress || 'NA'}</div>` : ''}
             </td>
             <td>
                 <div style="font-weight: 600; color: var(--gray-900);">${delivery.inventoryLot?.medicine?.name || 'N/A'}</div>
@@ -365,6 +366,20 @@ function openDeliveryModal(deliveryId) {
                         <span style="color: var(--gray-600); font-weight: 600;">Created:</span>
                         <span style="color: var(--gray-900);">${new Date(delivery.createdAt).toLocaleString('en-IN')}</span>
                     </div>
+                    <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem;">
+                        <span style="color: var(--gray-600); font-weight: 600;">Source:</span>
+                        <span style="color: var(--gray-900);">${delivery.sourceAddress || 'Not provided'}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem;">
+                        <span style="color: var(--gray-600); font-weight: 600;">Destination:</span>
+                        <span style="color: var(--gray-900);">${delivery.destinationAddress || 'Not provided'}</span>
+                    </div>
+                    ${delivery.courierBillAmount ? `
+                    <div style="display: grid; grid-template-columns: 140px 1fr; gap: 0.5rem;">
+                        <span style="color: var(--gray-600); font-weight: 600;">Courier Charge:</span>
+                        <span style="color: var(--gray-900);">INR ${Number(delivery.courierBillAmount).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
             
@@ -426,13 +441,18 @@ function openDeliveryModal(deliveryId) {
             </div>
             
             <!-- Documents -->
-            ${delivery.invoiceUrl || delivery.packageImageUrl ? `
+            ${delivery.medicineInvoiceUrl || delivery.courierInvoiceUrl || delivery.packageImageUrl ? `
             <div>
                 <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 1rem; color: var(--gray-900);">Documents</h3>
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    ${delivery.invoiceUrl ? `
-                        <a href="${delivery.invoiceUrl}" target="_blank" class="btn btn-secondary">
-                            View Invoice
+                    ${delivery.medicineInvoiceUrl ? `
+                        <a href="${delivery.medicineInvoiceUrl}" target="_blank" class="btn btn-secondary">
+                            Medicine Invoice
+                        </a>
+                    ` : ''}
+                    ${delivery.courierInvoiceUrl ? `
+                        <a href="${delivery.courierInvoiceUrl}" target="_blank" class="btn btn-secondary">
+                            Courier Invoice
                         </a>
                     ` : ''}
                     ${delivery.packageImageUrl ? `
@@ -455,29 +475,86 @@ function openDeliveryModal(deliveryId) {
 }
 
 function getActionButtons(delivery) {
-    // This will be expanded with actual update functionality
-    let buttons = '';
-    
     if (delivery.status === 'AWAITING_COURIER_PICKUP') {
-        buttons += `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'IN_TRANSIT')">Mark as Picked Up</button>`;
-    } else if (delivery.status === 'IN_TRANSIT') {
-        buttons += `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'OUT_FOR_DELIVERY')">Mark Out for Delivery</button>`;
-    } else if (delivery.status === 'OUT_FOR_DELIVERY') {
-        buttons += `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'PENDING_OTP_VERIFICATION')">Mark as Delivered</button>`;
+        return `
+            <div style="display: grid; gap: 0.75rem; width: 100%; max-width: 520px;">
+                <input id="billAmount-${delivery.id}" type="number" min="0" step="0.01" placeholder="Courier Bill Amount (INR)" style="padding: 0.75rem; border: 1px solid var(--gray-300); border-radius: 0.5rem;" />
+                <input id="trackingNumber-${delivery.id}" type="text" placeholder="Tracking Number (Optional)" style="padding: 0.75rem; border: 1px solid var(--gray-300); border-radius: 0.5rem;" />
+                <input id="deliveryPartner-${delivery.id}" type="text" placeholder="Delivery Partner Name (Optional)" style="padding: 0.75rem; border: 1px solid var(--gray-300); border-radius: 0.5rem;" />
+                <input id="courierInvoice-${delivery.id}" type="file" accept=".pdf,.jpg,.jpeg,.png" style="padding: 0.5rem;" />
+                <textarea id="courierNote-${delivery.id}" placeholder="Dispatch note (Optional)" rows="2" style="padding: 0.75rem; border: 1px solid var(--gray-300); border-radius: 0.5rem;"></textarea>
+                <button class="btn btn-primary" onclick="acceptDelivery('${delivery.id}')">Accept & Start Delivery</button>
+            </div>
+        `;
     }
-    
-    return buttons || '<p style="color: var(--gray-600);">No actions available for this status.</p>';
+
+    if (delivery.status === 'IN_TRANSIT') {
+        return `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'OUT_FOR_DELIVERY')">Mark Out for Delivery</button>`;
+    }
+
+    if (delivery.status === 'OUT_FOR_DELIVERY') {
+        return `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'PENDING_OTP_VERIFICATION')">Mark as Delivered</button>`;
+    }
+
+    return '<p style="color: var(--gray-600);">No actions available for this status.</p>';
 }
 
 function closeDeliveryModal() {
     document.getElementById('deliveryModal').style.display = 'none';
 }
 
+async function acceptDelivery(deliveryId) {
+    const billAmount = document.getElementById(`billAmount-${deliveryId}`)?.value;
+    const trackingNumber = document.getElementById(`trackingNumber-${deliveryId}`)?.value || '';
+    const deliveryPartner = document.getElementById(`deliveryPartner-${deliveryId}`)?.value || '';
+    const notes = document.getElementById(`courierNote-${deliveryId}`)?.value || '';
+    const invoiceFile = document.getElementById(`courierInvoice-${deliveryId}`)?.files?.[0];
+
+    if (!billAmount || Number(billAmount) < 0) {
+        alert('Please enter a valid courier bill amount.');
+        return;
+    }
+
+    if (!invoiceFile) {
+        alert('Please upload courier invoice.');
+        return;
+    }
+
+    const token = localStorage.getItem('courier_token');
+    const formData = new FormData();
+    formData.append('billAmount', String(billAmount));
+    formData.append('invoice', invoiceFile);
+    if (trackingNumber) formData.append('trackingNumber', trackingNumber);
+    if (deliveryPartner) formData.append('deliveryPartner', deliveryPartner);
+    if (notes) formData.append('notes', notes);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/delivery-requests/courier/${deliveryId}/accept`, {
+            method: 'POST',
+            headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: formData,
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to accept delivery');
+        }
+
+        alert('Delivery accepted successfully.');
+        closeDeliveryModal();
+        loadDeliveries();
+    } catch (error) {
+        alert('Failed to accept delivery: ' + error.message);
+    }
+}
+
 // Update Delivery Status (placeholder - will be implemented with backend)
 async function updateDeliveryStatus(deliveryId, newStatus) {
     try {
         await apiCall(`/delivery-requests/courier/${deliveryId}/status`, {
-            method: 'PATCH',
+            method: 'POST',
             body: JSON.stringify({ status: newStatus }),
         });
         

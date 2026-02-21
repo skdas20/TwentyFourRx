@@ -3,6 +3,7 @@ import { PrismaService } from '../config/prisma.service';
 import { EmailService } from '../common/services/email.service';
 import { GcsService } from '../common/services/gcs.service';
 import { SmsService } from '../common/services/sms.service';
+import { PdfService } from '../common/services/pdf.service';
 import { generateOtp, generateOtpExpiry, validateOtp } from '../common/utils/otp.util';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class DeliveryRequestsService {
         private emailService: EmailService,
         private gcsService: GcsService,
         private smsService: SmsService,
+        private pdfService: PdfService,
     ) { }
 
     // Create a delivery request for an inventory lot
@@ -46,16 +48,25 @@ export class DeliveryRequestsService {
             throw new BadRequestException(`Requested quantity exceeds available stock (${lot.qty})`);
         }
 
-        // Check for existing pending request
+        // Block duplicate active requests for the same lot
         const existingRequest = await this.prisma.deliveryRequest.findFirst({
             where: {
                 inventoryLotId,
-                status: 'PENDING',
+                status: {
+                    in: [
+                        'PENDING',
+                        'AWAITING_COURIER_PICKUP',
+                        'IN_TRANSIT',
+                        'OUT_FOR_DELIVERY',
+                        'PENDING_OTP_VERIFICATION',
+                        'DISPATCHED',
+                    ],
+                },
             },
         });
 
         if (existingRequest) {
-            throw new BadRequestException('A pending delivery request already exists for this lot');
+            throw new BadRequestException('An active delivery request already exists for this lot');
         }
 
         // Get the ORIGINAL SELLER (from the source order/listing) who should ship the medicine
@@ -83,13 +94,13 @@ export class DeliveryRequestsService {
 
         const seller = inventoryWithOrder.sourceOrder.listing.seller;
 
-        // Create the delivery request with AWAITING_SELLER status (seller needs to act first)
+        // Create the delivery request with PENDING status (admin-first assignment flow)
         const request = await this.prisma.deliveryRequest.create({
             data: {
                 requesterId,
                 inventoryLotId,
                 qty,
-                status: 'AWAITING_SELLER',
+                status: 'PENDING',
             },
             include: {
                 requester: { select: { name: true, email: true, phone: true } },
@@ -102,11 +113,10 @@ export class DeliveryRequestsService {
                 },
             },
         });
-
-        // Send email to SELLER (not admin) - asynchronously
+        // Notify seller to prepare stock only (courier handles dispatch proof/invoice)
         this.emailService.sendEmail(
             seller.email,
-            '📦 Physical Delivery Request - Action Required',
+            'Physical Delivery Request Received - Prepare Stock',
             this.getSellerDeliveryRequestTemplate(request, seller),
         ).catch(error => {
             console.error('Failed to send seller notification email:', error);
@@ -117,11 +127,37 @@ export class DeliveryRequestsService {
             data: {
                 userId: seller.id,
                 channel: 'INAPP',
-                subject: '📦 Delivery Request Received',
-                body: `${request.requester.name} has requested physical delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Please upload courier receipt and confirm dispatch.`,
+                subject: 'Delivery Request Received',
+                body: `${request.requester.name} requested physical delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Please prepare stock; courier assignment will be handled by admin.`,
                 meta: { deliveryRequestId: request.id },
             },
         });
+
+        // Notify admins to assign destination and courier
+        const admins = await this.prisma.user.findMany({
+            where: { roleCode: 'ADMIN' },
+            select: { id: true, email: true },
+        });
+
+        for (const admin of admins) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    channel: 'INAPP',
+                    subject: 'New Delivery Request',
+                    body: `${request.requester.name} requested delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Assign destination and courier.`,
+                    meta: { deliveryRequestId: request.id },
+                },
+            });
+
+            this.emailService.sendEmail(
+                admin.email,
+                'New Delivery Request Awaiting Courier Assignment',
+                this.getAdminNotificationTemplate(request),
+            ).catch(error => {
+                console.error('Failed to send admin notification email:', error);
+            });
+        }
 
         // Send SMS to SELLER - asynchronously
         if (seller.phone) {
@@ -136,7 +172,7 @@ export class DeliveryRequestsService {
         }
 
         return {
-            message: 'Delivery request submitted successfully. The seller will be notified to process your request.',
+            message: 'Delivery request submitted successfully. Admin will assign destination and courier.',
             request,
         };
     }
@@ -171,7 +207,7 @@ export class DeliveryRequestsService {
                             include: {
                                 listing: {
                                     include: {
-                                        seller: { select: { id: true, name: true, email: true } }
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } }
                                     }
                                 }
                             }
@@ -187,10 +223,11 @@ export class DeliveryRequestsService {
     async getAllRequests(status?: string) {
         const where = status ? { status: status as any } : {};
 
-        return this.prisma.deliveryRequest.findMany({
+        const requests = await this.prisma.deliveryRequest.findMany({
             where,
             include: {
                 requester: { select: { id: true, name: true, email: true, phone: true } },
+                assignedCourier: { select: { id: true, name: true, email: true, phone: true } },
                 inventoryLot: {
                     include: {
                         medicine: {
@@ -200,7 +237,7 @@ export class DeliveryRequestsService {
                             include: {
                                 listing: {
                                     include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true } },
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
                                     },
                                 },
                             },
@@ -209,6 +246,18 @@ export class DeliveryRequestsService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+        });
+
+        return requests.map((request) => {
+            const meta = this.parseCourierMeta(request.courierNotes);
+            return {
+                ...request,
+                sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
+                destinationAddress: meta.destinationAddress || '',
+                courierBillAmount: Number(meta.courierBillAmount || 0),
+                medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
+                courierInvoiceUrl: request.invoiceUrl || null,
+            };
         });
     }
 
@@ -669,8 +718,8 @@ export class DeliveryRequestsService {
             throw new BadRequestException('You can only confirm your own deliveries');
         }
 
-        // Verify delivery request is in DISPATCHED status
-        if (request.status !== 'DISPATCHED') {
+        // Verify delivery request is in a confirmable status
+        if (!['DISPATCHED', 'PENDING_OTP_VERIFICATION'].includes(request.status)) {
             throw new BadRequestException('Delivery must be dispatched before confirmation');
         }
 
@@ -749,7 +798,7 @@ export class DeliveryRequestsService {
             <p style="margin: 5px 0;"><strong>Quantity:</strong> ${request.qty} units</p>
           </div>
           
-          <p style="font-size: 14px; color: #6B7280;">Please review and approve/reject this request from the admin dashboard.</p>
+          <p style="font-size: 14px; color: #6B7280;">Please define destination details and assign a courier from the admin dashboard.</p>
           
           <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/admin/delivery-requests" 
              style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">
@@ -780,11 +829,11 @@ export class DeliveryRequestsService {
 
           <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px;">
             <p style="margin: 0; color: #92400E; font-size: 14px;">
-              <strong>⚠️ Action Required:</strong> Please upload courier receipt/shipping documents and confirm dispatch in your seller dashboard.
+              <strong>⚠️ Action Required:</strong> Please keep the stock packed and ready. Admin will assign courier for pickup.
             </p>
           </div>
 
-          <p style="font-size: 14px; color: #6B7280;">Once you confirm, the request will be sent to admin for final approval and OTP generation.</p>
+          <p style="font-size: 14px; color: #6B7280;">Courier partner will handle dispatch details and courier invoice upload after admin assignment.</p>
 
           <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/seller/deliveries"
              style="display: inline-block; background: #F59E0B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">
@@ -875,7 +924,7 @@ export class DeliveryRequestsService {
 
     // Get deliveries assigned to courier
     async getCourierDeliveries(courierId: string) {
-        return this.prisma.deliveryRequest.findMany({
+        const deliveries = await this.prisma.deliveryRequest.findMany({
             where: {
                 assignedCourierId: courierId,
             },
@@ -890,7 +939,7 @@ export class DeliveryRequestsService {
                             include: {
                                 listing: {
                                     include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true } },
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
                                     },
                                 },
                             },
@@ -899,6 +948,18 @@ export class DeliveryRequestsService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+        });
+
+        return deliveries.map((request) => {
+            const meta = this.parseCourierMeta(request.courierNotes);
+            return {
+                ...request,
+                sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
+                destinationAddress: meta.destinationAddress || '',
+                courierBillAmount: Number(meta.courierBillAmount || 0),
+                medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
+                courierInvoiceUrl: request.invoiceUrl || null,
+            };
         });
     }
 
@@ -924,13 +985,24 @@ export class DeliveryRequestsService {
             throw new BadRequestException('You are not assigned to this delivery');
         }
 
-        const updateData: any = {
-            status: newStatus as any,
+        const allowedTransitions: Record<string, string[]> = {
+            AWAITING_COURIER_PICKUP: ['IN_TRANSIT'],
+            IN_TRANSIT: ['OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED'],
+            OUT_FOR_DELIVERY: ['PENDING_OTP_VERIFICATION', 'DELIVERY_ATTEMPTED'],
         };
 
-        if (notes) {
-            updateData.courierNotes = notes;
+        const allowedNext = allowedTransitions[request.status] || [];
+        if (!allowedNext.includes(newStatus)) {
+            throw new BadRequestException(`Invalid status transition from ${request.status} to ${newStatus}`);
         }
+
+        const existingMeta = this.parseCourierMeta(request.courierNotes);
+        const updateData: any = {
+            status: newStatus as any,
+            courierNotes: notes
+                ? JSON.stringify({ ...existingMeta, courierProgressNote: notes })
+                : request.courierNotes,
+        };
 
         // Handle specific status transitions
         if (newStatus === 'IN_TRANSIT' && request.status === 'AWAITING_COURIER_PICKUP') {
@@ -1011,13 +1083,34 @@ export class DeliveryRequestsService {
             request: updated,
         };
     }
-
-    // Assign courier to delivery (admin only)
-    async assignCourier(requestId: string, courierId: string) {
+    // Courier accepts assigned delivery and uploads courier invoice + charge
+    async courierAcceptDelivery(
+        requestId: string,
+        courierId: string,
+        billAmount: number,
+        invoiceFile?: Express.Multer.File,
+        trackingNumber?: string,
+        deliveryPartner?: string,
+        notes?: string,
+    ) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
-                inventoryLot: { include: { medicine: true } },
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: true,
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         });
 
@@ -1025,7 +1118,116 @@ export class DeliveryRequestsService {
             throw new NotFoundException('Delivery request not found');
         }
 
-        // Verify courier exists and has COURIER role
+        if (request.assignedCourierId !== courierId) {
+            throw new BadRequestException('You are not assigned to this delivery');
+        }
+
+        if (request.status !== 'AWAITING_COURIER_PICKUP') {
+            throw new BadRequestException('Only assigned pickup requests can be accepted');
+        }
+
+        if (!billAmount || Number.isNaN(Number(billAmount)) || Number(billAmount) < 0) {
+            throw new BadRequestException('Valid courier bill amount is required');
+        }
+
+        let courierInvoiceUrl: string | undefined;
+        if (invoiceFile) {
+            courierInvoiceUrl = await this.gcsService.uploadFile(invoiceFile, 'courier-invoices');
+        }
+
+        const meta = this.parseCourierMeta(request.courierNotes);
+        const updatedMeta = {
+            ...meta,
+            courierBillAmount: Number(billAmount),
+            destinationAddress: meta.destinationAddress || '',
+            courierAcceptedAt: new Date().toISOString(),
+            courierAcceptanceNote: notes || meta.courierAcceptanceNote || '',
+        };
+
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                status: 'IN_TRANSIT',
+                courierPickupAt: new Date(),
+                invoiceUrl: courierInvoiceUrl || request.invoiceUrl,
+                trackingNumber: trackingNumber || request.trackingNumber,
+                deliveryPartner: deliveryPartner || request.deliveryPartner,
+                courierNotes: JSON.stringify(updatedMeta),
+            },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: true,
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        await this.sendDeliveryChargePI(updated, Number(billAmount)).catch(error => {
+            console.error('Failed to send delivery charge PI:', error);
+        });
+
+        await this.prisma.notification.create({
+            data: {
+                userId: request.requesterId,
+                channel: 'INAPP',
+                subject: 'Delivery Charge Added',
+                body: `Courier accepted your delivery for ${request.inventoryLot.medicine.name}. Delivery charge PI has been sent to your email.`,
+                meta: { deliveryRequestId: request.id, courierBillAmount: Number(billAmount) },
+            },
+        });
+
+        return {
+            message: 'Delivery accepted and moved to in-transit. Delivery charge PI sent to buyer.',
+            request: updated,
+        };
+    }
+
+    // Assign courier to delivery (admin only)
+    async assignCourier(requestId: string, courierId: string, destinationAddress: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                inventoryLot: {
+                    include: {
+                        medicine: true,
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+            },
+        });
+
+        if (!request) {
+            throw new NotFoundException('Delivery request not found');
+        }
+
+        if (request.status !== 'PENDING') {
+            throw new BadRequestException(`Request must be PENDING for courier assignment. Current status: ${request.status}`);
+        }
+
+        if (!destinationAddress?.trim()) {
+            throw new BadRequestException('Destination address is required');
+        }
+
         const courier = await this.prisma.user.findUnique({
             where: { id: courierId },
         });
@@ -1034,22 +1236,30 @@ export class DeliveryRequestsService {
             throw new BadRequestException('Invalid courier ID');
         }
 
+        const existingMeta = this.parseCourierMeta(request.courierNotes);
+        const meta = {
+            ...existingMeta,
+            destinationAddress: destinationAddress.trim(),
+            sourceAddress: request.inventoryLot.sourceOrder?.listing?.seller?.address || '',
+            assignedByAdminAt: new Date().toISOString(),
+        };
+
         const updated = await this.prisma.deliveryRequest.update({
             where: { id: requestId },
             data: {
                 assignedCourierId: courierId,
                 status: 'AWAITING_COURIER_PICKUP',
+                courierNotes: JSON.stringify(meta),
             },
         });
 
-        // Notify courier
         await this.prisma.notification.create({
             data: {
                 userId: courierId,
                 channel: 'INAPP',
-                subject: '📦 New Delivery Assigned',
-                body: `You have been assigned a delivery for ${request.qty} units of ${request.inventoryLot.medicine.name}. Please check your courier dashboard.`,
-                meta: { deliveryRequestId: request.id },
+                subject: 'New Delivery Assigned',
+                body: `You have been assigned a delivery for ${request.qty} units of ${request.inventoryLot.medicine.name}.`,
+                meta: { deliveryRequestId: request.id, destinationAddress: destinationAddress.trim() },
             },
         });
 
@@ -1057,5 +1267,82 @@ export class DeliveryRequestsService {
             message: 'Courier assigned successfully',
             request: updated,
         };
+    }
+
+    private parseCourierMeta(notes?: string | null): any {
+        if (!notes) return {};
+        try {
+            return JSON.parse(notes);
+        } catch {
+            return { notes };
+        }
+    }
+
+    private async sendDeliveryChargePI(request: any, deliveryCharge: number) {
+        const medicine = request.inventoryLot?.medicine;
+        const sourceOrder = request.inventoryLot?.sourceOrder;
+        const baseAmount = Number(sourceOrder?.amount || 0);
+        const total = baseAmount + Number(deliveryCharge || 0);
+
+        let pdfBuffer: Buffer | null = null;
+        try {
+            pdfBuffer = await this.pdfService.generateQuotationPDF({
+                invoiceNo: `DPI-${request.id.substring(0, 8).toUpperCase()}`,
+                invoiceDate: new Date().toLocaleDateString('en-GB'),
+                orderNo: request.id.substring(0, 8).toUpperCase(),
+                orderDate: new Date(request.createdAt).toLocaleDateString('en-GB'),
+                lrDate: '',
+                dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+                partyName: request.requester?.name || 'Buyer',
+                partyAddress: '',
+                partyPhone: request.requester?.phone || '',
+                partyGSTIN: '',
+                partyDLNo: '',
+                items: [{
+                    hsn: '',
+                    productName: `Delivery Charge - ${medicine?.name || 'Medicine Order'}`,
+                    pack: 'Service',
+                    qty: 1,
+                    batch: '-',
+                    mfg: '-',
+                    exp: '-',
+                    mrp: Number(deliveryCharge || 0),
+                    rate: Number(deliveryCharge || 0),
+                    dis: 0,
+                    sgst: 0,
+                    sgstValue: 0,
+                    cgst: 0,
+                    cgstValue: 0,
+                    amount: Number(deliveryCharge || 0),
+                }],
+                totalSGST: 0,
+                totalCGST: 0,
+                grandTotal: Number(deliveryCharge || 0),
+                totalItems: 1,
+                totalQty: 1,
+            });
+        } catch (error) {
+            console.error('Failed to generate delivery charge PI PDF:', error);
+        }
+
+        const attachment = pdfBuffer ? [{
+            filename: `Delivery_Charge_PI_${request.id.substring(0, 8)}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+        }] : undefined;
+
+        if (request.requester?.email) {
+            await this.emailService.sendEmail(
+                request.requester.email,
+                'Delivery Charge PI - Payment Advice',
+                `<p>Hello ${request.requester?.name || 'User'},</p>
+                 <p>Your delivery request for <strong>${medicine?.name || 'medicine'}</strong> has been accepted by courier.</p>
+                 <p><strong>Order Amount:</strong> INR ${baseAmount.toFixed(2)}</p>
+                 <p><strong>Delivery Charge:</strong> INR ${Number(deliveryCharge || 0).toFixed(2)}</p>
+                 <p><strong>Total (Order + Delivery):</strong> INR ${total.toFixed(2)}</p>
+                 <p>The delivery charge PI is attached for your reference.</p>`,
+                attachment,
+            );
+        }
     }
 }

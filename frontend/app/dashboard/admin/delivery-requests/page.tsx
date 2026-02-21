@@ -7,7 +7,7 @@ import { ArrowLeft, Truck, CheckCircle, XCircle, Package, User, Calendar, MapPin
 import ThemeToggle from "@/components/ThemeToggle";
 import Logo from "@/components/Logo";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import { deliveryRequestsApi } from "@/lib/api";
+import { deliveryRequestsApi, usersApi } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 
 export default function AdminDeliveryRequestsPage() {
@@ -19,6 +19,9 @@ export default function AdminDeliveryRequestsPage() {
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [couriers, setCouriers] = useState<any[]>([]);
+  const [selectedCourierId, setSelectedCourierId] = useState("");
+  const [destinationAddress, setDestinationAddress] = useState("");
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -33,6 +36,7 @@ export default function AdminDeliveryRequestsPage() {
     }
     setUser(parsed);
     loadRequests();
+    loadCouriers();
   }, [router, filter]);
 
   const loadRequests = async () => {
@@ -51,20 +55,40 @@ export default function AdminDeliveryRequestsPage() {
   };
 
   const handleApprove = async (requestId: string) => {
-    if (!confirm("Approve this delivery request?")) return;
+    if (!selectedCourierId) {
+      showToast.error("Please select a courier");
+      return;
+    }
+    if (!destinationAddress.trim()) {
+      showToast.error("Please enter destination address");
+      return;
+    }
+    if (!confirm("Assign courier for this delivery request?")) return;
 
     try {
       setProcessing(true);
-      await deliveryRequestsApi.approveRequest(requestId, reviewNote);
-      showToast.success("Delivery request approved successfully!");
+      await deliveryRequestsApi.assignCourier(requestId, selectedCourierId, destinationAddress.trim());
+      showToast.success("Courier assigned successfully!");
       setSelectedRequest(null);
       setReviewNote("");
+      setSelectedCourierId("");
+      setDestinationAddress("");
       loadRequests();
     } catch (error: any) {
-      console.error("Failed to approve:", error);
-      showToast.error(error.response?.data?.message || "Failed to approve request");
+      console.error("Failed to assign courier:", error);
+      showToast.error(error.response?.data?.message || "Failed to assign courier");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const loadCouriers = async () => {
+    try {
+      const res = await usersApi.getUsers({ roleCode: "COURIER", status: "APPROVED" });
+      setCouriers(res.data || []);
+    } catch (error) {
+      console.error("Failed to load couriers:", error);
+      setCouriers([]);
     }
   };
 
@@ -94,9 +118,11 @@ export default function AdminDeliveryRequestsPage() {
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-      APPROVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      AWAITING_COURIER_PICKUP: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+      IN_TRANSIT: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+      PENDING_OTP_VERIFICATION: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
+      DELIVERED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
       REJECTED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-      DISPATCHED: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     };
     return styles[status as keyof typeof styles] || styles.PENDING;
   };
@@ -128,7 +154,7 @@ export default function AdminDeliveryRequestsPage() {
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Filter Tabs */}
         <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-          {["PENDING", "APPROVED", "REJECTED", "DISPATCHED"].map((status) => (
+          {["PENDING", "AWAITING_COURIER_PICKUP", "IN_TRANSIT", "PENDING_OTP_VERIFICATION", "DELIVERED", "REJECTED"].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
@@ -165,6 +191,8 @@ export default function AdminDeliveryRequestsPage() {
                     console.log('📦 Invoice URL:', request.invoiceUrl);
                     console.log('📦 Package Image URL:', request.packageImageUrl);
                     setSelectedRequest(request);
+                    setSelectedCourierId(request.assignedCourierId || "");
+                    setDestinationAddress(request.destinationAddress || "");
                   }}
                   className={`bg-white dark:bg-gray-800 rounded-xl p-6 border cursor-pointer transition-all ${
                     selectedRequest?.id === request.id
@@ -278,6 +306,35 @@ export default function AdminDeliveryRequestsPage() {
                     </div>
                   </div>
 
+                  {/* Route Info */}
+                  {(selectedRequest.sourceAddress || selectedRequest.destinationAddress) && (
+                    <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Delivery Route</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-600 dark:text-gray-400">Source (Seller):</span>
+                          <span className="font-medium text-gray-900 dark:text-white text-right">
+                            {selectedRequest.sourceAddress || "Not available"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-600 dark:text-gray-400">Destination:</span>
+                          <span className="font-medium text-gray-900 dark:text-white text-right">
+                            {selectedRequest.destinationAddress || "Not set"}
+                          </span>
+                        </div>
+                        {selectedRequest.assignedCourier && (
+                          <div className="flex justify-between gap-4">
+                            <span className="text-gray-600 dark:text-gray-400">Assigned Courier:</span>
+                            <span className="font-medium text-gray-900 dark:text-white text-right">
+                              {selectedRequest.assignedCourier.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tracking & Delivery Info */}
                   {(selectedRequest.trackingNumber || selectedRequest.deliveryPartner) && (
                     <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
@@ -299,28 +356,44 @@ export default function AdminDeliveryRequestsPage() {
                             </span>
                           </div>
                         )}
+                        {selectedRequest.courierBillAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Courier Charge:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              ₹{Number(selectedRequest.courierBillAmount).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* Document/Invoice Info */}
-                  {(selectedRequest.invoiceUrl || selectedRequest.packageImageUrl) && (
+                  {(selectedRequest.medicineInvoiceUrl || selectedRequest.courierInvoiceUrl || selectedRequest.packageImageUrl) && (
                     <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Dispatch Proof</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Invoices & Proof</h3>
                       <div className="text-sm space-y-3">
-                        <p className="text-gray-600 dark:text-gray-400">
-                          Seller has uploaded dispatch documents. Please verify before approving.
-                        </p>
                         <div className="flex flex-wrap gap-3">
-                          {selectedRequest.invoiceUrl && (
+                          {selectedRequest.medicineInvoiceUrl && (
                             <a 
-                              href={selectedRequest.invoiceUrl} 
+                              href={selectedRequest.medicineInvoiceUrl} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                             >
                               <FileText className="w-4 h-4" />
-                              View Invoice
+                              Medicine Invoice
+                            </a>
+                          )}
+                          {selectedRequest.courierInvoiceUrl && (
+                            <a 
+                              href={selectedRequest.courierInvoiceUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium rounded-lg border border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Courier Invoice
                             </a>
                           )}
                           {selectedRequest.packageImageUrl && (
@@ -339,33 +412,45 @@ export default function AdminDeliveryRequestsPage() {
                     </div>
                   )}
 
-                  {/* Warning if documents missing */}
-                  {selectedRequest.status === 'PENDING' && !selectedRequest.invoiceUrl && (
-                    <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                      <div className="flex items-start gap-3">
-                        <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">Missing Documents</h3>
-                          <p className="text-sm text-red-700 dark:text-red-300">
-                            Seller has not uploaded courier invoice yet. The request should be in AWAITING_SELLER status.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Review Note */}
+                  {/* Courier Assignment */}
                   {selectedRequest.status === "PENDING" && (
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Review Note {selectedRequest.status === "PENDING" && "(Optional for approval, required for rejection)"}
+                        Assign Courier <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={selectedCourierId}
+                        onChange={(e) => setSelectedCourierId(e.target.value)}
+                        className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Select courier partner</option>
+                        {couriers.map((courier: any) => (
+                          <option key={courier.id} value={courier.id}>
+                            {courier.name} {courier.phone ? `(${courier.phone})` : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Destination Address <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={destinationAddress}
+                        onChange={(e) => setDestinationAddress(e.target.value)}
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter full delivery destination defined by admin"
+                      />
+
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4 mb-2">
+                        Rejection Note (only if rejecting)
                       </label>
                       <textarea
                         value={reviewNote}
                         onChange={(e) => setReviewNote(e.target.value)}
-                        rows={3}
+                        rows={2}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Add a note about this request..."
+                        placeholder="Reason for rejection"
                       />
                     </div>
                   )}
@@ -391,11 +476,11 @@ export default function AdminDeliveryRequestsPage() {
                       </button>
                       <button
                         onClick={() => handleApprove(selectedRequest.id)}
-                        disabled={processing}
+                        disabled={processing || !selectedCourierId || !destinationAddress.trim()}
                         className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                       >
                         <CheckCircle className="w-5 h-5" />
-                        Approve
+                        Assign Courier
                       </button>
                     </div>
                   )}
@@ -413,3 +498,4 @@ export default function AdminDeliveryRequestsPage() {
     </div>
   );
 }
+

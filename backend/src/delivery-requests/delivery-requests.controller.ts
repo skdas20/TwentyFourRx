@@ -10,7 +10,7 @@ import {
     UploadedFile,
     UploadedFiles,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional } from 'class-validator';
 import { DeliveryRequestsService } from './delivery-requests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -56,6 +56,34 @@ class MarkDispatchedDto {
     @IsString()
     @IsNotEmpty()
     deliveryPartner: string;
+}
+
+class AssignCourierDto {
+    @IsString()
+    @IsNotEmpty()
+    courierId: string;
+
+    @IsString()
+    @IsNotEmpty()
+    destinationAddress: string;
+}
+
+class CourierAcceptDeliveryDto {
+    @IsString()
+    @IsNotEmpty()
+    billAmount: string;
+
+    @IsString()
+    @IsOptional()
+    trackingNumber?: string;
+
+    @IsString()
+    @IsOptional()
+    deliveryPartner?: string;
+
+    @IsString()
+    @IsOptional()
+    notes?: string;
 }
 
 @Controller('delivery-requests')
@@ -177,6 +205,27 @@ export class DeliveryRequestsController {
         return this.service.updateCourierStatus(id, user.sub, dto.status, dto.notes);
     }
 
+    // COURIER: Accept assigned delivery and submit dispatch details
+    @Post('courier/:id/accept')
+    @Roles('COURIER')
+    @UseInterceptors(FileInterceptor('invoice'))
+    async courierAcceptDelivery(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @UploadedFile() invoice: Express.Multer.File,
+        @Body() dto: CourierAcceptDeliveryDto,
+    ) {
+        return this.service.courierAcceptDelivery(
+            id,
+            user.sub,
+            Number(dto.billAmount),
+            invoice,
+            dto.trackingNumber,
+            dto.deliveryPartner,
+            dto.notes,
+        );
+    }
+
     // COURIER: Upload delivery proof
     @Post('courier/:id/proof')
     @Roles('COURIER')
@@ -194,8 +243,8 @@ export class DeliveryRequestsController {
     @Roles('ADMIN')
     async assignCourier(
         @Param('id') id: string,
-        @Body() dto: { courierId: string },
+        @Body() dto: AssignCourierDto,
     ) {
-        return this.service.assignCourier(id, dto.courierId);
+        return this.service.assignCourier(id, dto.courierId, dto.destinationAddress);
     }
 }

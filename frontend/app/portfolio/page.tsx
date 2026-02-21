@@ -112,11 +112,15 @@ export default function PortfolioPage() {
     if (deliveryRequest) {
       switch (deliveryRequest.status) {
         case 'PENDING':
-          return { status: 'DELIVERY_PENDING', label: 'Delivery Pending', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20' };
-        case 'APPROVED':
-          return { status: 'APPROVED', label: 'Approved', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' };
+          return { status: 'DELIVERY_PENDING', label: 'Awaiting Courier Assignment', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20' };
+        case 'AWAITING_COURIER_PICKUP':
+          return { status: 'COURIER_ASSIGNED', label: 'Courier Assigned', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' };
+        case 'IN_TRANSIT':
+        case 'OUT_FOR_DELIVERY':
         case 'DISPATCHED':
           return { status: 'IN_TRANSIT', label: 'In Transit', color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' };
+        case 'PENDING_OTP_VERIFICATION':
+          return { status: 'AWAITING_OTP', label: 'Delivered - OTP Pending', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' };
         case 'DELIVERED':
           return { status: 'DELIVERED', label: 'Delivered', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
         case 'REJECTED':
@@ -437,12 +441,12 @@ export default function PortfolioPage() {
                               Sell
                             </button>
 
-                            {statusInfo.status === 'IN_TRANSIT' ? (
+                            {statusInfo.status === 'AWAITING_OTP' ? (
                               <button
                                 onClick={() => {
                                   const lotIds = holding.lots?.map((lot: any) => lot.id) || [];
                                   const deliveryRequest = deliveryRequests.find((req: any) =>
-                                    lotIds.includes(req.inventoryLotId) && req.status === 'DISPATCHED'
+                                    lotIds.includes(req.inventoryLotId) && ['PENDING_OTP_VERIFICATION', 'DISPATCHED'].includes(req.status)
                                   );
                                   if (deliveryRequest) {
                                     openOtpModal(deliveryRequest);
@@ -457,9 +461,19 @@ export default function PortfolioPage() {
                             ) : (
                               <button
                                 onClick={() => openDeliveryModal(holding)}
-                                disabled={statusInfo.status === 'PENDING' || statusInfo.status === 'DELIVERY_PENDING'}
+                                disabled={['PENDING', 'DELIVERY_PENDING', 'COURIER_ASSIGNED', 'IN_TRANSIT', 'AWAITING_OTP'].includes(statusInfo.status)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
-                                title={statusInfo.status === 'PENDING' ? 'Waiting for buy approval' : statusInfo.status === 'DELIVERY_PENDING' ? 'Delivery request pending' : 'Request physical delivery'}
+                                title={statusInfo.status === 'PENDING'
+                                  ? 'Waiting for buy approval'
+                                  : statusInfo.status === 'DELIVERY_PENDING'
+                                  ? 'Admin is assigning courier'
+                                  : statusInfo.status === 'COURIER_ASSIGNED'
+                                  ? 'Courier assigned for pickup'
+                                  : statusInfo.status === 'IN_TRANSIT'
+                                  ? 'Delivery is in transit'
+                                  : statusInfo.status === 'AWAITING_OTP'
+                                  ? 'Confirm delivery with OTP'
+                                  : 'Request physical delivery'}
                               >
                                 <Truck className="w-4 h-4" />
                                 Delivery
@@ -543,7 +557,7 @@ export default function PortfolioPage() {
 
               {/* Info Note */}
               <div className="text-xs text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                <strong>Note:</strong> Your request will be sent to admin for approval. Once approved, the seller will be notified to dispatch your order.
+                <strong>Note:</strong> Your request goes to admin first. Admin assigns destination and courier, then courier handles dispatch and delivery updates.
               </div>
 
               {/* Error/Success Messages */}

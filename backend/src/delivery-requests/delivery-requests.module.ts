@@ -6,10 +6,11 @@ import { EmailService } from '../common/services/email.service';
 import { GcsService } from '../common/services/gcs.service';
 import { WatermarkService } from '../common/services/watermark.service';
 import { SmsService } from '../common/services/sms.service';
+import { PdfService } from '../common/services/pdf.service';
 
 @Module({
     controllers: [DeliveryRequestsController],
-    providers: [DeliveryRequestsService, PrismaService, EmailService, GcsService, WatermarkService, SmsService],
+    providers: [DeliveryRequestsService, PrismaService, EmailService, GcsService, WatermarkService, SmsService, PdfService],
     exports: [DeliveryRequestsService],
 })
 export class DeliveryRequestsModule { }
