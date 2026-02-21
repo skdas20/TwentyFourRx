@@ -86,6 +86,12 @@ class CourierAcceptDeliveryDto {
     notes?: string;
 }
 
+class MarkPaymentReceivedDto {
+    @IsString()
+    @IsOptional()
+    note?: string;
+}
+
 @Controller('delivery-requests')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DeliveryRequestsController {
@@ -246,5 +252,16 @@ export class DeliveryRequestsController {
         @Body() dto: AssignCourierDto,
     ) {
         return this.service.assignCourier(id, dto.courierId, dto.destinationAddress);
+    }
+
+    // ADMIN: Confirm buyer payment for delivery charge
+    @Post(':id/mark-payment-received')
+    @Roles('ADMIN')
+    async markPaymentReceived(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @Body() dto: MarkPaymentReceivedDto,
+    ) {
+        return this.service.markDeliveryChargePaid(id, user.sub, dto.note);
     }
 }

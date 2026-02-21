@@ -115,6 +115,23 @@ export default function AdminDeliveryRequestsPage() {
     }
   };
 
+  const handleMarkPaymentReceived = async (requestId: string) => {
+    if (!confirm("Confirm that delivery charge payment has been received?")) return;
+
+    try {
+      setProcessing(true);
+      await deliveryRequestsApi.markPaymentReceived(requestId, reviewNote || undefined);
+      showToast.success("Delivery payment marked as received");
+      setSelectedRequest(null);
+      await loadRequests();
+    } catch (error: any) {
+      console.error("Failed to mark payment:", error);
+      showToast.error(error.response?.data?.message || "Failed to mark payment received");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -364,6 +381,14 @@ export default function AdminDeliveryRequestsPage() {
                             </span>
                           </div>
                         )}
+                        {selectedRequest.courierBillAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600 dark:text-gray-400">Payment Status:</span>
+                            <span className={`font-medium ${selectedRequest.deliveryChargePaid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                              {selectedRequest.deliveryChargePaid ? 'Received' : 'Pending'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -484,6 +509,18 @@ export default function AdminDeliveryRequestsPage() {
                       </button>
                     </div>
                   )}
+                  {selectedRequest.status === "IN_TRANSIT" && selectedRequest.courierBillAmount > 0 && !selectedRequest.deliveryChargePaid && (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => handleMarkPaymentReceived(selectedRequest.id)}
+                        disabled={processing}
+                        className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                        Mark Payment Received
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-200 dark:border-gray-700 text-center">
@@ -498,4 +535,5 @@ export default function AdminDeliveryRequestsPage() {
     </div>
   );
 }
+
 

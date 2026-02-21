@@ -255,6 +255,7 @@ export class DeliveryRequestsService {
                 sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
                 destinationAddress: meta.destinationAddress || '',
                 courierBillAmount: Number(meta.courierBillAmount || 0),
+                deliveryChargePaid: Boolean(meta.deliveryChargePaid),
                 medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
                 courierInvoiceUrl: request.invoiceUrl || null,
             };
@@ -957,6 +958,7 @@ export class DeliveryRequestsService {
                 sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
                 destinationAddress: meta.destinationAddress || '',
                 courierBillAmount: Number(meta.courierBillAmount || 0),
+                deliveryChargePaid: Boolean(meta.deliveryChargePaid),
                 medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
                 courierInvoiceUrl: request.invoiceUrl || null,
             };
@@ -987,7 +989,7 @@ export class DeliveryRequestsService {
 
         const allowedTransitions: Record<string, string[]> = {
             AWAITING_COURIER_PICKUP: ['IN_TRANSIT'],
-            IN_TRANSIT: ['OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED'],
+            IN_TRANSIT: ['OUT_FOR_DELIVERY'],
             OUT_FOR_DELIVERY: ['PENDING_OTP_VERIFICATION', 'DELIVERY_ATTEMPTED'],
         };
 
@@ -997,6 +999,10 @@ export class DeliveryRequestsService {
         }
 
         const existingMeta = this.parseCourierMeta(request.courierNotes);
+        if (newStatus === 'OUT_FOR_DELIVERY' && !existingMeta.deliveryChargePaid) {
+            throw new BadRequestException('Delivery charge payment is pending. Admin must mark payment received before out-for-delivery.');
+        }
+
         const updateData: any = {
             status: newStatus as any,
             courierNotes: notes
@@ -1139,6 +1145,7 @@ export class DeliveryRequestsService {
         const updatedMeta = {
             ...meta,
             courierBillAmount: Number(billAmount),
+            deliveryChargePaid: false,
             destinationAddress: meta.destinationAddress || '',
             courierAcceptedAt: new Date().toISOString(),
             courierAcceptanceNote: notes || meta.courierAcceptanceNote || '',
@@ -1189,6 +1196,80 @@ export class DeliveryRequestsService {
 
         return {
             message: 'Delivery accepted and moved to in-transit. Delivery charge PI sent to buyer.',
+            request: updated,
+        };
+    }
+
+    // Admin marks delivery charge payment as received
+    async markDeliveryChargePaid(requestId: string, adminId: string, note?: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true, email: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: true,
+                    },
+                },
+            },
+        });
+
+        if (!request) {
+            throw new NotFoundException('Delivery request not found');
+        }
+
+        if (request.status !== 'IN_TRANSIT') {
+            throw new BadRequestException(`Payment can only be marked for IN_TRANSIT requests. Current status: ${request.status}`);
+        }
+
+        const meta = this.parseCourierMeta(request.courierNotes);
+        if (!meta.courierBillAmount) {
+            throw new BadRequestException('Courier bill amount is missing for this request');
+        }
+
+        if (meta.deliveryChargePaid) {
+            return { message: 'Delivery charge payment is already marked as received' };
+        }
+
+        const updatedMeta = {
+            ...meta,
+            deliveryChargePaid: true,
+            paymentReceivedAt: new Date().toISOString(),
+            paymentConfirmedByAdminId: adminId,
+            paymentNote: note || '',
+        };
+
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                courierNotes: JSON.stringify(updatedMeta),
+            },
+        });
+
+        if (request.assignedCourierId) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: request.assignedCourierId,
+                    channel: 'INAPP',
+                    subject: 'Delivery Payment Confirmed',
+                    body: `Payment for delivery charge has been confirmed for ${request.inventoryLot.medicine.name}. You can now move this order to out for delivery.`,
+                    meta: { deliveryRequestId: request.id },
+                },
+            });
+        }
+
+        await this.prisma.notification.create({
+            data: {
+                userId: request.requesterId,
+                channel: 'INAPP',
+                subject: 'Delivery Payment Received',
+                body: `Your delivery charge payment for ${request.inventoryLot.medicine.name} has been confirmed. Delivery will proceed shortly.`,
+                meta: { deliveryRequestId: request.id },
+            },
+        });
+
+        return {
+            message: 'Delivery charge payment marked as received',
             request: updated,
         };
     }
@@ -1340,6 +1421,7 @@ export class DeliveryRequestsService {
                  <p><strong>Order Amount:</strong> INR ${baseAmount.toFixed(2)}</p>
                  <p><strong>Delivery Charge:</strong> INR ${Number(deliveryCharge || 0).toFixed(2)}</p>
                  <p><strong>Total (Order + Delivery):</strong> INR ${total.toFixed(2)}</p>
+                 <p>Please complete this payment. Courier will move the shipment to out for delivery only after payment is confirmed.</p>
                  <p>The delivery charge PI is attached for your reference.</p>`,
                 attachment,
             );

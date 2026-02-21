@@ -489,6 +489,9 @@ function getActionButtons(delivery) {
     }
 
     if (delivery.status === 'IN_TRANSIT') {
+        if (!delivery.deliveryChargePaid) {
+            return `<p style="color: var(--warning); font-weight: 600;">Waiting for admin to confirm delivery charge payment.</p>`;
+        }
         return `<button class="btn btn-primary" onclick="updateDeliveryStatus('${delivery.id}', 'OUT_FOR_DELIVERY')">Mark Out for Delivery</button>`;
     }
 
