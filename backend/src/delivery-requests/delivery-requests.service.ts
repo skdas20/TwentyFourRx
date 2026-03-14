@@ -6,6 +6,11 @@ import { SmsService } from '../common/services/sms.service';
 import { PdfService } from '../common/services/pdf.service';
 import { generateOtp, generateOtpExpiry, validateOtp } from '../common/utils/otp.util';
 
+const DELIVERY_RATES = {
+    ROAD: 60, // ₹60 per kg
+    AIR: 120, // ₹120 per kg
+};
+
 @Injectable()
 export class DeliveryRequestsService {
     constructor(
@@ -16,51 +21,40 @@ export class DeliveryRequestsService {
         private pdfService: PdfService,
     ) { }
 
-    // Create a delivery request for an inventory lot
+    // ==================== STEP 1: BUYER CREATES REQUEST ====================
     async createRequest(requesterId: string, inventoryLotId: string, qty: number) {
-        // Validate inventoryLotId is provided
         if (!inventoryLotId) {
-            throw new BadRequestException('Inventory lot ID is required. Please select a valid holding.');
+            throw new BadRequestException('Inventory lot ID is required');
         }
 
-        // Validate inventory lot exists and belongs to user
+        // Validate inventory lot
         const lot = await this.prisma.inventoryLot.findUnique({
             where: { id: inventoryLotId },
             include: {
                 user: true,
-                medicine: {
+                medicine: { include: { manufacturer: true } },
+                sourceOrder: {
                     include: {
-                        manufacturer: true,
-                    },
-                },
+                        listing: {
+                            include: {
+                                seller: { select: { id: true, name: true, email: true, phone: true, address: true } }
+                            }
+                        }
+                    }
+                }
             },
         });
 
-        if (!lot) {
-            throw new NotFoundException('Inventory lot not found');
-        }
+        if (!lot) throw new NotFoundException('Inventory lot not found');
+        if (lot.userId !== requesterId) throw new BadRequestException('You can only request delivery for your own inventory');
+        if (qty > lot.qty) throw new BadRequestException(`Requested quantity exceeds available stock (${lot.qty})`);
 
-        if (lot.userId !== requesterId) {
-            throw new BadRequestException('You can only request delivery for your own inventory');
-        }
-
-        if (qty > lot.qty) {
-            throw new BadRequestException(`Requested quantity exceeds available stock (${lot.qty})`);
-        }
-
-        // Block duplicate active requests for the same lot
+        // Check for duplicate active requests
         const existingRequest = await this.prisma.deliveryRequest.findFirst({
             where: {
                 inventoryLotId,
                 status: {
-                    in: [
-                        'PENDING',
-                        'AWAITING_COURIER_PICKUP',
-                        'IN_TRANSIT',
-                        'OUT_FOR_DELIVERY',
-                        'PENDING_OTP_VERIFICATION',
-                        'DISPATCHED',
-                    ],
+                    notIn: ['DELIVERED', 'CANCELLED', 'REJECTED']
                 },
             },
         });
@@ -69,71 +63,57 @@ export class DeliveryRequestsService {
             throw new BadRequestException('An active delivery request already exists for this lot');
         }
 
-        // Get the ORIGINAL SELLER (from the source order/listing) who should ship the medicine
-        // NOT the current inventory owner (buyer)
-        const inventoryWithOrder = await this.prisma.inventoryLot.findUnique({
-            where: { id: inventoryLotId },
-            include: {
-                sourceOrder: {
-                    include: {
-                        listing: {
-                            include: {
-                                seller: {
-                                    select: { id: true, name: true, email: true, phone: true },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        if (!inventoryWithOrder?.sourceOrder?.listing?.seller) {
-            throw new NotFoundException('Original seller not found for this inventory. Cannot process delivery request.');
+        const seller = lot.sourceOrder?.listing?.seller;
+        if (!seller) {
+            throw new NotFoundException('Original seller not found for this inventory');
         }
 
-        const seller = inventoryWithOrder.sourceOrder.listing.seller;
-
-        // Create the delivery request with PENDING status (admin-first assignment flow)
+        // Create delivery request with AWAITING_SELLER_INFO status
         const request = await this.prisma.deliveryRequest.create({
             data: {
                 requesterId,
                 inventoryLotId,
                 qty,
-                status: 'PENDING',
+                status: 'AWAITING_SELLER_INFO',
             },
             include: {
                 requester: { select: { name: true, email: true, phone: true } },
                 inventoryLot: {
                     include: {
-                        medicine: {
-                            include: { manufacturer: true },
-                        },
+                        medicine: { include: { manufacturer: true } },
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true } }
+                                    }
+                                }
+                            }
+                        }
                     },
                 },
             },
         });
-        // Notify seller to prepare stock only (courier handles dispatch proof/invoice)
-        this.emailService.sendEmail(
-            seller.email,
-            'Physical Delivery Request Received - Prepare Stock',
-            this.getSellerDeliveryRequestTemplate(request, seller),
-        ).catch(error => {
-            console.error('Failed to send seller notification email:', error);
-        });
 
-        // Create in-app notification for SELLER
+        // Notify seller to provide shipping details
         await this.prisma.notification.create({
             data: {
                 userId: seller.id,
                 channel: 'INAPP',
-                subject: 'Delivery Request Received',
-                body: `${request.requester.name} requested physical delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Please prepare stock; courier assignment will be handled by admin.`,
+                subject: 'New Delivery Request - Provide Shipping Details',
+                body: `${request.requester.name} requested physical delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Please provide batch number, expiry date, weight, and transport mode.`,
                 meta: { deliveryRequestId: request.id },
             },
         });
 
-        // Notify admins to assign destination and courier
+        // Send email to seller
+        this.emailService.sendEmail(
+            seller.email,
+            'Physical Delivery Request - Shipping Details Required',
+            this.getSellerShippingFormTemplate(request, seller),
+        ).catch(error => console.error('Failed to send seller email:', error));
+
+        // Notify admin
         const admins = await this.prisma.user.findMany({
             where: { roleCode: 'ADMIN' },
             select: { id: true, email: true },
@@ -145,260 +125,310 @@ export class DeliveryRequestsService {
                     userId: admin.id,
                     channel: 'INAPP',
                     subject: 'New Delivery Request',
-                    body: `${request.requester.name} requested delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Assign destination and courier.`,
+                    body: `${request.requester.name} requested delivery of ${qty} units of ${request.inventoryLot.medicine.name}. Awaiting seller info.`,
                     meta: { deliveryRequestId: request.id },
+                },
+            });
+        }
+
+        return {
+            message: 'Delivery request submitted. Seller will provide shipping details.',
+            request,
+        };
+    }
+
+    // ==================== STEP 2: SELLER PROVIDES SHIPPING DETAILS ====================
+    async submitShippingDetails(
+        requestId: string,
+        sellerId: string,
+        data: {
+            batchNumber: string;
+            expiryDate: string;
+            parcelWeightKg: number;
+            transportMode: 'ROAD' | 'AIR';
+        }
+    ) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true, address: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: { include: { manufacturer: true } },
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            },
+        });
+
+        if (!request) throw new NotFoundException('Delivery request not found');
+        
+        // Verify seller
+        const originalSellerId = request.inventoryLot.sourceOrder?.listing?.seller?.id;
+        if (!originalSellerId || originalSellerId !== sellerId) {
+            throw new BadRequestException('You can only provide details for your own inventory');
+        }
+
+        if (request.status !== 'AWAITING_SELLER_INFO') {
+            throw new BadRequestException('Request is not awaiting seller information');
+        }
+
+        // Calculate delivery charge
+        const rate = DELIVERY_RATES[data.transportMode];
+        const deliveryCharge = data.parcelWeightKg * rate;
+
+        // Update request
+        const updated = await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                batchNumber: data.batchNumber,
+                expiryDate: new Date(data.expiryDate),
+                parcelWeightKg: data.parcelWeightKg,
+                transportMode: data.transportMode,
+                deliveryCharge,
+                status: 'AWAITING_PAYMENT',
+                sellerInfoSubmittedAt: new Date(),
+            },
+            include: {
+                requester: { select: { name: true, email: true, phone: true, address: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: { include: { manufacturer: true } },
+                    }
+                },
+            },
+        });
+
+        // Generate proforma invoice PDF
+        const proformaInvoiceUrl = await this.generateProformaInvoice(updated);
+
+        // Update with proforma invoice URL
+        await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: { proformaInvoiceUrl },
+        });
+
+        // Notify buyer to pay
+        await this.prisma.notification.create({
+            data: {
+                userId: request.requesterId,
+                channel: 'INAPP',
+                subject: 'Proforma Invoice Generated - Payment Required',
+                body: `Delivery charge: ₹${deliveryCharge.toFixed(2)} (${data.parcelWeightKg}kg × ₹${rate}/kg via ${data.transportMode}). Please upload payment receipt.`,
+                meta: { deliveryRequestId: request.id, proformaInvoiceUrl },
+            },
+        });
+
+        // Send proforma invoice to buyer via email
+        this.emailService.sendEmail(
+            updated.requester.email,
+            'Proforma Invoice - Delivery Charge Payment Required',
+            this.getProformaInvoiceEmailTemplate(updated, proformaInvoiceUrl),
+        ).catch(error => console.error('Failed to send proforma invoice email:', error));
+
+        // Notify admin
+        const admins = await this.prisma.user.findMany({
+            where: { roleCode: 'ADMIN' },
+            select: { id: true },
+        });
+
+        for (const admin of admins) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    channel: 'INAPP',
+                    subject: 'Delivery - Awaiting Payment',
+                    body: `Proforma invoice sent to ${updated.requester.name} for ${updated.inventoryLot.medicine.name}. Delivery charge: ₹${deliveryCharge.toFixed(2)}`,
+                    meta: { deliveryRequestId: request.id },
+                },
+            });
+        }
+
+        return {
+            message: 'Shipping details submitted. Proforma invoice sent to buyer.',
+            deliveryCharge,
+            proformaInvoiceUrl,
+        };
+    }
+
+    // ==================== STEP 3: BUYER UPLOADS PAYMENT RECEIPT ====================
+    async uploadPaymentReceipt(
+        requestId: string,
+        buyerId: string,
+        paymentReceiptFile: Express.Multer.File
+    ) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true } },
+                inventoryLot: { include: { medicine: true } },
+            },
+        });
+
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.requesterId !== buyerId) throw new BadRequestException('You can only upload receipt for your own request');
+        if (request.status !== 'AWAITING_PAYMENT') throw new BadRequestException('Request is not awaiting payment');
+
+        // Upload payment receipt
+        const paymentReceiptUrl = await this.gcsService.uploadFile(paymentReceiptFile, 'payment-receipts');
+
+        // Update request
+        await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                paymentReceiptUrl,
+                status: 'PAYMENT_PENDING_VERIFICATION',
+                paymentUploadedAt: new Date(),
+            },
+        });
+
+        // Notify admin to verify payment
+        const admins = await this.prisma.user.findMany({
+            where: { roleCode: 'ADMIN' },
+            select: { id: true, email: true },
+        });
+
+        for (const admin of admins) {
+            await this.prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    channel: 'INAPP',
+                    subject: 'Payment Receipt Uploaded - Verification Required',
+                    body: `${request.requester.name} uploaded payment receipt for ${request.inventoryLot.medicine.name}. Please verify.`,
+                    meta: { deliveryRequestId: request.id, paymentReceiptUrl },
                 },
             });
 
             this.emailService.sendEmail(
                 admin.email,
-                'New Delivery Request Awaiting Courier Assignment',
-                this.getAdminNotificationTemplate(request),
-            ).catch(error => {
-                console.error('Failed to send admin notification email:', error);
-            });
-        }
-
-        // Send SMS to SELLER - asynchronously
-        if (seller.phone) {
-            const uploadLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/seller/deliveries`;
-            this.smsService.sendDeliveryRequestedSms(
-                seller.phone,
-                request.inventoryLot.medicine.name,
-                uploadLink,
-            ).catch(error => {
-                console.error('Failed to send SMS to seller:', error);
-            });
+                'Payment Receipt - Verification Required',
+                `<p>${request.requester.name} has uploaded payment receipt for delivery of ${request.inventoryLot.medicine.name}.</p>
+                 <p>Delivery Charge: ₹${request.deliveryCharge}</p>
+                 <p><a href="${paymentReceiptUrl}">View Payment Receipt</a></p>`,
+            ).catch(error => console.error('Failed to send admin email:', error));
         }
 
         return {
-            message: 'Delivery request submitted successfully. Admin will assign destination and courier.',
-            request,
+            message: 'Payment receipt uploaded. Admin will verify.',
+            paymentReceiptUrl,
         };
     }
 
-    // Get delivery requests for a user (as requester or seller)
-    async getMyRequests(userId: string) {
-        return this.prisma.deliveryRequest.findMany({
-            where: {
-                OR: [
-                    // As requester (buyer)
-                    { requesterId: userId },
-                    // As seller (original seller from the listing)
-                    {
-                        inventoryLot: {
-                            sourceOrder: {
-                                listing: {
-                                    sellerId: userId
-                                }
-                            }
-                        }
-                    }
-                ]
-            },
+    // Continue in next part...
+    // ==================== STEP 4: ADMIN VERIFIES PAYMENT ====================
+    async verifyPayment(requestId: string, adminId: string, approved: boolean, note?: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
             include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
+                requester: { select: { id: true, name: true } },
                 inventoryLot: {
                     include: {
-                        medicine: {
-                            include: { manufacturer: true },
-                        },
+                        medicine: true,
                         sourceOrder: {
                             include: {
                                 listing: {
                                     include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } }
+                                        seller: { select: { id: true, name: true, email: true } }
                                     }
                                 }
                             }
                         }
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-    }
-
-    // Get all delivery requests (admin)
-    async getAllRequests(status?: string) {
-        const where = status ? { status: status as any } : {};
-
-        const requests = await this.prisma.deliveryRequest.findMany({
-            where,
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                assignedCourier: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: {
-                            include: { manufacturer: true },
-                        },
-                        sourceOrder: {
-                            include: {
-                                listing: {
-                                    include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-
-        return requests.map((request) => {
-            const meta = this.parseCourierMeta(request.courierNotes);
-            return {
-                ...request,
-                sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
-                destinationAddress: meta.destinationAddress || '',
-                courierBillAmount: Number(meta.courierBillAmount || 0),
-                deliveryChargePaid: Boolean(meta.deliveryChargePaid),
-                medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
-                courierInvoiceUrl: request.invoiceUrl || null,
-            };
-        });
-    }
-
-    // Approve a delivery request (admin) - Directly generates OTP and marks as DISPATCHED
-    async approveRequest(requestId: string, reviewerNote?: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: {
-                            include: { manufacturer: true },
-                        },
-                        user: { select: { id: true, name: true, email: true } }, // seller
-                    },
+                    }
                 },
             },
         });
 
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.status !== 'PAYMENT_PENDING_VERIFICATION') {
+            throw new BadRequestException('Request is not pending payment verification');
         }
 
-        if (request.status !== 'PENDING') {
-            throw new BadRequestException(`Request must be PENDING. Current status: ${request.status}`);
+        if (!approved) {
+            // Payment rejected - notify buyer to re-upload
+            await this.prisma.deliveryRequest.update({
+                where: { id: requestId },
+                data: {
+                    status: 'AWAITING_PAYMENT',
+                    reviewerNote: note,
+                    paymentReceiptUrl: null, // Clear rejected receipt
+                },
+            });
+
+            await this.prisma.notification.create({
+                data: {
+                    userId: request.requesterId,
+                    channel: 'INAPP',
+                    subject: 'Payment Receipt Rejected',
+                    body: `Your payment receipt was rejected. Reason: ${note || 'Invalid receipt'}. Please upload a valid receipt.`,
+                    meta: { deliveryRequestId: request.id },
+                },
+            });
+
+            return { message: 'Payment rejected. Buyer notified to re-upload.' };
         }
 
-        // Generate OTP for delivery confirmation
-        const otp = generateOtp();
-        const otpExpiry = generateOtpExpiry(24); // Valid for 24 hours
+        // Payment approved
+        const seller = request.inventoryLot.sourceOrder?.listing?.seller;
+        if (!seller) throw new NotFoundException('Seller not found');
 
-        // Update status directly to DISPATCHED with OTP
-        const updated = await this.prisma.deliveryRequest.update({
+        await this.prisma.deliveryRequest.update({
             where: { id: requestId },
             data: {
-                status: 'DISPATCHED',
-                reviewerNote,
-                reviewedAt: new Date(),
-                dispatchedAt: new Date(),
-                deliveryOtp: otp,
-                otpExpiresAt: otpExpiry,
-            },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        user: { select: { id: true, name: true } }, // seller
-                    },
-                },
+                status: 'AWAITING_SELLER_INVOICE',
+                paymentVerifiedAt: new Date(),
+                reviewerNote: note,
             },
         });
 
-        // Send OTP via email to BUYER - asynchronously
+        // Notify seller to upload invoice
+        await this.prisma.notification.create({
+            data: {
+                userId: seller.id,
+                channel: 'INAPP',
+                subject: 'Payment Verified - Upload Invoice to 24Rx',
+                body: `Payment verified for ${request.inventoryLot.medicine.name}. Please upload your invoice to 24Rx.`,
+                meta: { deliveryRequestId: request.id },
+            },
+        });
+
         this.emailService.sendEmail(
-            updated.requester.email,
-            '🔐 Delivery OTP - Your Order Has Been Dispatched',
-            this.getOtpEmailTemplate(updated, otp),
-        ).catch(error => {
-            console.error('Failed to send OTP email:', error);
-        });
+            seller.email,
+            'Payment Verified - Invoice Upload Required',
+            `<p>Payment has been verified for delivery of ${request.inventoryLot.medicine.name}.</p>
+             <p>Please upload your invoice to 24Rx to proceed with dispatch.</p>`,
+        ).catch(error => console.error('Failed to send seller email:', error));
 
-        // Notify the requester (buyer) - Order dispatched
+        // Notify buyer
         await this.prisma.notification.create({
             data: {
                 userId: request.requesterId,
                 channel: 'INAPP',
-                subject: '🚚 Order Dispatched - OTP Sent',
-                body: `Your order for ${request.qty} units of ${request.inventoryLot.medicine.name} has been dispatched! Check your email for the delivery confirmation OTP.`,
+                subject: 'Payment Verified',
+                body: `Your payment has been verified. Seller will upload invoice shortly.`,
                 meta: { deliveryRequestId: request.id },
             },
         });
 
-        // Notify the seller - Order approved and dispatched
-        await this.prisma.notification.create({
-            data: {
-                userId: request.inventoryLot.user.id,
-                channel: 'INAPP',
-                subject: '✅ Delivery Approved',
-                body: `Admin approved the delivery request for ${request.qty} units of ${request.inventoryLot.medicine.name}. OTP sent to buyer.`,
-                meta: { deliveryRequestId: request.id },
-            },
-        });
-
-        return {
-            message: 'Delivery request approved and marked as dispatched. OTP sent to buyer.',
-            request: updated
-        };
+        return { message: 'Payment verified. Seller notified to upload invoice.' };
     }
 
-    // Reject a delivery request (admin)
-    async rejectRequest(requestId: string, reviewerNote: string) {
+    // ==================== STEP 5: SELLER UPLOADS INVOICE ====================
+    async uploadSellerInvoice(
+        requestId: string,
+        sellerId: string,
+        invoiceFile: Express.Multer.File
+    ) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
-                inventoryLot: {
-                    include: { medicine: true },
-                },
-            },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.status !== 'PENDING') {
-            throw new BadRequestException(`Request is already ${request.status}`);
-        }
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                status: 'REJECTED',
-                reviewerNote,
-                reviewedAt: new Date(),
-            },
-        });
-
-        // Notify the requester
-        await this.prisma.notification.create({
-            data: {
-                userId: request.requesterId,
-                channel: 'INAPP',
-                subject: '❌ Delivery Request Rejected',
-                body: `Your delivery request for ${request.qty} units of ${request.inventoryLot.medicine.name} was rejected. Reason: ${reviewerNote}`,
-                meta: { deliveryRequestId: request.id },
-            },
-        });
-
-        return { message: 'Delivery request rejected', request: updated };
-    }
-
-    // Mark as dispatched (admin or seller)
-    // Seller confirms delivery with receipt upload (SELLER)
-    async markDispatched(requestId: string, sellerId: string, invoiceFile?: Express.Multer.File, packageImageFile?: Express.Multer.File, trackingNumber?: string, deliveryPartner?: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
                 inventoryLot: {
                     include: {
                         medicine: true,
@@ -416,50 +446,30 @@ export class DeliveryRequestsService {
             },
         });
 
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
+        if (!request) throw new NotFoundException('Delivery request not found');
 
-        // Verify seller owns this inventory (check original seller from listing)
         const originalSellerId = request.inventoryLot.sourceOrder?.listing?.seller?.id;
         if (!originalSellerId || originalSellerId !== sellerId) {
-            throw new BadRequestException('You can only confirm dispatch for your own inventory');
+            throw new BadRequestException('You can only upload invoice for your own inventory');
         }
 
-        if (request.status !== 'AWAITING_SELLER') {
-            throw new BadRequestException('Request must be awaiting seller confirmation');
+        if (request.status !== 'AWAITING_SELLER_INVOICE') {
+            throw new BadRequestException('Request is not awaiting seller invoice');
         }
 
-        let invoiceUrl: string | undefined;
-        let packageImageUrl: string | undefined;
+        // Upload invoice
+        const sellerInvoiceUrl = await this.gcsService.uploadFile(invoiceFile, 'seller-invoices');
 
-        // Upload courier receipt/documents if provided
-        if (invoiceFile) {
-            invoiceUrl = await this.gcsService.uploadFile(invoiceFile, 'delivery-receipts');
-        }
-
-        // Upload package image if provided
-        if (packageImageFile) {
-            packageImageUrl = await this.gcsService.uploadFile(packageImageFile, 'package-images');
-        }
-
-        // Update request: Status AWAITING_SELLER → PENDING (for admin review)
-        const updated = await this.prisma.deliveryRequest.update({
+        await this.prisma.deliveryRequest.update({
             where: { id: requestId },
             data: {
-                invoiceUrl: invoiceUrl,
-                packageImageUrl: packageImageUrl,
-                trackingNumber: trackingNumber,
-                deliveryPartner: deliveryPartner,
-                status: 'PENDING', // Now pending admin approval
-            },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
-                inventoryLot: { include: { medicine: true } },
+                sellerInvoiceUrl,
+                status: 'AWAITING_ADMIN_DISPATCH',
+                sellerInvoiceUploadedAt: new Date(),
             },
         });
 
-        // Notify ADMIN for approval (seller has confirmed and uploaded documents)
+        // Notify admin to dispatch
         const admins = await this.prisma.user.findMany({
             where: { roleCode: 'ADMIN' },
             select: { id: true, email: true },
@@ -470,961 +480,424 @@ export class DeliveryRequestsService {
                 data: {
                     userId: admin.id,
                     channel: 'INAPP',
-                    subject: '📦 Delivery Confirmation Pending Review',
-                    body: `Seller has confirmed dispatch for ${request.qty} units of ${request.inventoryLot.medicine.name}. Please review documents and approve.`,
-                    meta: { deliveryRequestId: request.id },
+                    subject: 'Seller Invoice Uploaded - Dispatch Required',
+                    body: `Seller uploaded invoice for ${request.inventoryLot.medicine.name}. Please upload admin invoice and initiate dispatch.`,
+                    meta: { deliveryRequestId: request.id, sellerInvoiceUrl },
                 },
             });
 
-            // Send email to admin - asynchronously
             this.emailService.sendEmail(
                 admin.email,
-                '📦 Delivery Confirmation - Admin Approval Required',
-                `<p>A seller has confirmed dispatch and uploaded documents for a delivery request.</p>
-                 <p>Buyer: ${request.requester.name}</p>
-                 <p>Medicine: ${request.inventoryLot.medicine.name}</p>
-                 <p>Quantity: ${request.qty}</p>
-                 ${invoiceUrl ? `<p>Courier Receipt/Documents: <a href="${invoiceUrl}">View Documents</a></p>` : ''}
-                 ${packageImageUrl ? `<p>Package Image: <a href="${packageImageUrl}">View Package</a></p>` : ''}
-                 <p>Please review and approve to generate OTP for buyer.</p>`,
-            ).catch(error => {
-                console.error('Failed to send admin email:', error);
-            });
+                'Seller Invoice Uploaded - Dispatch Required',
+                `<p>Seller has uploaded invoice for ${request.inventoryLot.medicine.name}.</p>
+                 <p><a href="${sellerInvoiceUrl}">View Seller Invoice</a></p>
+                 <p>Please upload admin invoice, set addresses, and assign courier.</p>`,
+            ).catch(error => console.error('Failed to send admin email:', error));
         }
 
-        // Notify buyer that seller has confirmed
+        return {
+            message: 'Invoice uploaded. Admin will initiate dispatch.',
+            sellerInvoiceUrl,
+        };
+    }
+
+    // ==================== STEP 6: ADMIN INITIATES DISPATCH ====================
+    async initiateDispatch(
+        requestId: string,
+        adminId: string,
+        data: {
+            adminInvoiceFile: Express.Multer.File;
+            sourceAddress: string;
+            destinationAddress: string;
+            assignedCourierId: string;
+        }
+    ) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true } },
+                inventoryLot: { include: { medicine: true } },
+            },
+        });
+
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.status !== 'AWAITING_ADMIN_DISPATCH') {
+            throw new BadRequestException('Request is not awaiting admin dispatch');
+        }
+
+        // Verify courier exists
+        const courier = await this.prisma.user.findUnique({
+            where: { id: data.assignedCourierId, roleCode: 'COURIER' },
+            select: { id: true, name: true, email: true, phone: true },
+        });
+
+        if (!courier) throw new NotFoundException('Courier not found');
+
+        // Upload admin invoice
+        const adminInvoiceUrl = await this.gcsService.uploadFile(data.adminInvoiceFile, 'admin-invoices');
+
+        // Update request
+        await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                adminInvoiceUrl,
+                sourceAddress: data.sourceAddress,
+                destinationAddress: data.destinationAddress,
+                assignedCourierId: data.assignedCourierId,
+                status: 'AWAITING_COURIER_PICKUP',
+                dispatchedAt: new Date(),
+            },
+        });
+
+        // Notify courier
+        await this.prisma.notification.create({
+            data: {
+                userId: courier.id,
+                channel: 'INAPP',
+                subject: 'New Pickup Assignment',
+                body: `Pickup ${request.inventoryLot.medicine.name} from ${data.sourceAddress} and deliver to ${data.destinationAddress}`,
+                meta: { deliveryRequestId: request.id },
+            },
+        });
+
+        this.emailService.sendEmail(
+            courier.email,
+            'New Delivery Assignment',
+            `<p>You have been assigned a new delivery:</p>
+             <p>Medicine: ${request.inventoryLot.medicine.name}</p>
+             <p>Quantity: ${request.qty}</p>
+             <p>Pickup: ${data.sourceAddress}</p>
+             <p>Delivery: ${data.destinationAddress}</p>
+             <p><a href="${adminInvoiceUrl}">View Invoice</a></p>`,
+        ).catch(error => console.error('Failed to send courier email:', error));
+
+        // Notify buyer
         await this.prisma.notification.create({
             data: {
                 userId: request.requesterId,
                 channel: 'INAPP',
-                subject: '✅ Seller Confirmed Dispatch',
-                body: `The seller has confirmed dispatch of ${request.qty} units of ${request.inventoryLot.medicine.name}. Awaiting admin approval.`,
+                subject: 'Dispatch Initiated - Courier Assigned',
+                body: `Your order has been assigned to courier ${courier.name}. Awaiting pickup.`,
                 meta: { deliveryRequestId: request.id },
             },
         });
 
         return {
-            message: 'Dispatch confirmed successfully. Admin will review and approve for delivery.',
-            request: updated
+            message: 'Dispatch initiated. Courier assigned.',
+            courier: courier.name,
         };
     }
 
-    // Admin verifies invoice and dispatches (ADMIN only)
-    async verifyAndDispatch(requestId: string, approved: boolean, note?: string) {
+    // ==================== STEP 7: COURIER UPDATES STATUS ====================
+    async updateCourierStatus(
+        requestId: string,
+        courierId: string,
+        status: 'DISPATCHED' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY',
+        notes?: string
+    ) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
                 requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: { 
-                    include: { 
-                        medicine: true,
-                        user: { select: { id: true } }
-                    } 
-                },
+                inventoryLot: { include: { medicine: true } },
             },
         });
 
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.assignedCourierId !== courierId) {
+            throw new BadRequestException('You are not assigned to this delivery');
         }
 
-        if (request.status !== 'APPROVED') {
-            throw new BadRequestException('Request must be approved before verification');
+        const updateData: any = { status, courierNotes: notes };
+
+        // Set timestamps based on status
+        if (status === 'DISPATCHED') {
+            updateData.courierPickupAt = new Date();
         }
 
-        if (!approved) {
-            // Rejected - notify seller to re-upload
+        // Generate OTP when out for delivery
+        if (status === 'OUT_FOR_DELIVERY') {
+            const otp = generateOtp();
+            const otpExpiry = generateOtpExpiry(24);
+            updateData.deliveryOtp = otp;
+            updateData.otpExpiresAt = otpExpiry;
+            updateData.status = 'PENDING_OTP_VERIFICATION'; // Auto-transition
+
+            // Send OTP to buyer
+            this.emailService.sendEmail(
+                request.requester.email,
+                'Delivery OTP - Out for Delivery',
+                this.getOtpEmailTemplate(request, otp),
+            ).catch(error => console.error('Failed to send OTP email:', error));
+
             await this.prisma.notification.create({
                 data: {
-                    userId: request.inventoryLot.user.id,
+                    userId: request.requesterId,
                     channel: 'INAPP',
-                    subject: '❌ Invoice Rejected',
-                    body: `Your invoice was rejected. Reason: ${note || 'Please re-upload a valid invoice.'}`,
+                    subject: 'Out for Delivery - OTP Sent',
+                    body: `Your order is out for delivery. OTP sent to your email for confirmation.`,
                     meta: { deliveryRequestId: request.id },
                 },
             });
-
-            return {
-                message: 'Invoice rejected. Seller has been notified.',
-                request,
-            };
         }
 
-        // Approved - Generate OTP and mark as dispatched
-        const otp = generateOtp();
-        const otpExpiry = generateOtpExpiry(24); // Valid for 24 hours
-
-        const updated = await this.prisma.deliveryRequest.update({
+        await this.prisma.deliveryRequest.update({
             where: { id: requestId },
-            data: {
-                status: 'DISPATCHED',
-                dispatchedAt: new Date(),
-                deliveryOtp: otp,
-                otpExpiresAt: otpExpiry,
-                reviewerNote: note,
-            },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
-                inventoryLot: { include: { medicine: true } },
-            },
+            data: updateData,
         });
 
-        // Send OTP via email to buyer - asynchronously
-        this.emailService.sendEmail(
-            updated.requester.email,
-            '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
-            this.getOtpEmailTemplate(updated, otp),
-        ).catch(error => {
-            console.error('Failed to send OTP email:', error);
-        });
-
-        // Notify the requester (buyer)
-        await this.prisma.notification.create({
-            data: {
-                userId: request.requesterId,
-                channel: 'INAPP',
-                subject: '🚚 Order Dispatched - OTP Sent',
-                body: `Your order for ${request.qty} units of ${request.inventoryLot.medicine.name} has been dispatched! Check your email for the delivery confirmation OTP.`,
-                meta: { deliveryRequestId: request.id },
-            },
-        });
-
-        return { 
-            message: 'Verified and marked as dispatched. OTP sent to buyer for delivery confirmation.', 
-            request: updated 
+        // Notify buyer of status change
+        const statusMessages = {
+            DISPATCHED: 'Courier picked up your order',
+            IN_TRANSIT: 'Your order arrived at nearest hub',
+            OUT_FOR_DELIVERY: 'Your order is out for delivery',
         };
-    }
 
-    // Get pending verification requests (ADMIN)
-    async getPendingVerification() {
-        const requests = await this.prisma.deliveryRequest.findMany({
-            where: {
-                status: 'APPROVED',
-                invoiceUrl: { not: null },
-            },
-            include: {
-                requester: { 
-                    select: { 
-                        id: true, 
-                        name: true, 
-                        email: true, 
-                        phone: true 
-                    } 
-                },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        user: { 
-                            select: { 
-                                id: true, 
-                                name: true, 
-                                email: true 
-                            } 
-                        },
-                    },
-                },
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
-
-        return requests;
-    }
-
-    // Original markDispatched method (kept for backward compatibility if needed)
-    async markDispatchedLegacy(requestId: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
-                inventoryLot: { include: { medicine: true } },
-            },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.status !== 'APPROVED') {
-            throw new BadRequestException('Request must be approved before dispatching');
-        }
-
-        // Generate OTP for delivery confirmation
-        const otp = generateOtp();
-        const otpExpiry = generateOtpExpiry(24); // Valid for 24 hours
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                status: 'DISPATCHED',
-                dispatchedAt: new Date(),
-                deliveryOtp: otp,
-                otpExpiresAt: otpExpiry,
-            },
-            include: {
-                requester: { select: { name: true, email: true, phone: true } },
-                inventoryLot: { include: { medicine: true } },
-            },
-        });
-
-        // Send OTP via email - asynchronously
-        this.emailService.sendEmail(
-            updated.requester.email,
-            '🔐 Delivery Confirmation OTP - Your Order Has Been Dispatched',
-            this.getOtpEmailTemplate(updated, otp),
-        ).catch(error => {
-            console.error('Failed to send OTP email:', error);
-        });
-
-        // Notify the requester
         await this.prisma.notification.create({
             data: {
                 userId: request.requesterId,
                 channel: 'INAPP',
-                subject: '🚚 Order Dispatched - OTP Sent',
-                body: `Your order for ${request.qty} units of ${request.inventoryLot.medicine.name} has been dispatched! Check your email for the delivery confirmation OTP.`,
+                subject: 'Delivery Status Update',
+                body: statusMessages[status] || 'Delivery status updated',
                 meta: { deliveryRequestId: request.id },
             },
         });
 
-        return { message: 'Marked as dispatched. OTP sent to buyer for delivery confirmation.', request: updated };
+        return { message: 'Status updated successfully' };
     }
 
-    // Confirm delivery with OTP (buyer)
-    async confirmDelivery(requestId: string, userId: string, otp: string) {
+    // ==================== STEP 8: BUYER CONFIRMS DELIVERY WITH OTP ====================
+    async confirmDeliveryWithOtp(requestId: string, buyerId: string, otp: string) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
-                requester: { select: { id: true, name: true, email: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        sourceOrder: {
-                            include: {
-                                listing: true,
-                            },
-                        },
-                    },
-                },
+                requester: { select: { id: true, name: true } },
+                inventoryLot: { include: { medicine: true } },
+                assignedCourier: { select: { id: true, name: true } },
             },
         });
 
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        // Verify user is the requester
-        if (request.requesterId !== userId) {
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.requesterId !== buyerId) {
             throw new BadRequestException('You can only confirm your own deliveries');
         }
-
-        // Verify delivery request is in a confirmable status
-        if (!['DISPATCHED', 'PENDING_OTP_VERIFICATION'].includes(request.status)) {
-            throw new BadRequestException('Delivery must be dispatched before confirmation');
+        if (request.status !== 'PENDING_OTP_VERIFICATION') {
+            throw new BadRequestException('Delivery is not pending OTP verification');
         }
 
         // Validate OTP
         if (!validateOtp(otp, request.deliveryOtp, request.otpExpiresAt)) {
-            throw new BadRequestException('Invalid or expired OTP. Please check your email and try again.');
+            throw new BadRequestException('Invalid or expired OTP');
         }
 
-        // Mark delivery as confirmed
-        const updated = await this.prisma.deliveryRequest.update({
+        // Mark as delivered
+        await this.prisma.deliveryRequest.update({
             where: { id: requestId },
             data: {
                 status: 'DELIVERED',
                 deliveredAt: new Date(),
                 otpVerifiedAt: new Date(),
             },
-            include: {
-                requester: { select: { name: true, email: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        sourceOrder: {
-                            include: {
-                                listing: true,
-                            },
-                        },
-                    },
-                },
-            },
         });
 
-        // Update the associated order status to DELIVERED if it exists
-        if (updated.inventoryLot.sourceOrder) {
-            await this.prisma.order.update({
-                where: { id: updated.inventoryLot.sourceOrder.id },
-                data: {
-                    status: 'DELIVERED',
-                    deliveredAt: new Date(),
-                },
-            });
-        }
-
-        // Send confirmation notification
-        await this.prisma.notification.create({
-            data: {
-                userId: updated.requesterId,
-                channel: 'INAPP',
-                subject: '✅ Delivery Confirmed',
-                body: `Your delivery of ${updated.qty} units of ${updated.inventoryLot.medicine.name} has been confirmed successfully!`,
-                meta: { deliveryRequestId: updated.id },
-            },
+        // Notify admin
+        const admins = await this.prisma.user.findMany({
+            where: { roleCode: 'ADMIN' },
+            select: { id: true },
         });
 
-        return {
-            message: 'Delivery confirmed successfully! Your inventory has been updated.',
-            request: updated,
-        };
-    }
-
-    // Helper: Admin notification email template
-    private getAdminNotificationTemplate(request: any): string {
-        return `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-        <div style="background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">🚚 New Delivery Request</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151;">A new physical delivery request has been submitted:</p>
-          
-          <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: #1F2937;">Request Details</h3>
-            <p style="margin: 5px 0;"><strong>Requester:</strong> ${request.requester.name} (${request.requester.email})</p>
-            <p style="margin: 5px 0;"><strong>Phone:</strong> ${request.requester.phone || 'N/A'}</p>
-            <p style="margin: 5px 0;"><strong>Medicine:</strong> ${request.inventoryLot.medicine.name}</p>
-            <p style="margin: 5px 0;"><strong>Manufacturer:</strong> ${request.inventoryLot.medicine.manufacturer?.name || 'N/A'}</p>
-            <p style="margin: 5px 0;"><strong>Quantity:</strong> ${request.qty} units</p>
-          </div>
-          
-          <p style="font-size: 14px; color: #6B7280;">Please define destination details and assign a courier from the admin dashboard.</p>
-          
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/admin/delivery-requests" 
-             style="display: inline-block; background: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">
-            Review Request
-          </a>
-        </div>
-      </div>
-    `;
-    }
-
-    // Helper: Seller delivery request notification (initial notification)
-    private getSellerDeliveryRequestTemplate(request: any, seller: any): string {
-        return `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-        <div style="background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">📦 Physical Delivery Request</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151;">Hello ${seller.name},</p>
-          <p style="font-size: 16px; color: #374151;">A buyer has requested physical delivery of medicine from your inventory:</p>
-
-          <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: #1F2937;">Request Details</h3>
-            <p style="margin: 5px 0;"><strong>Buyer:</strong> ${request.requester.name}</p>
-            <p style="margin: 5px 0;"><strong>Medicine:</strong> ${request.inventoryLot.medicine.name}</p>
-            <p style="margin: 5px 0;"><strong>Quantity:</strong> ${request.qty} units</p>
-          </div>
-
-          <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 0; color: #92400E; font-size: 14px;">
-              <strong>⚠️ Action Required:</strong> Please keep the stock packed and ready. Admin will assign courier for pickup.
-            </p>
-          </div>
-
-          <p style="font-size: 14px; color: #6B7280;">Courier partner will handle dispatch details and courier invoice upload after admin assignment.</p>
-
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/seller/deliveries"
-             style="display: inline-block; background: #F59E0B; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">
-            View Delivery Request
-          </a>
-        </div>
-      </div>
-    `;
-    }
-
-    // Helper: Seller dispatch notification email template (admin approved, seller dispatching)
-    private getSellerDispatchTemplate(request: any, seller: any): string {
-        return `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-        <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">📦 Dispatch Required</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151;">Hello ${seller.name},</p>
-          <p style="font-size: 16px; color: #374151;">A delivery request has been approved. Please dispatch the following:</p>
-
-          <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: #1F2937;">Order Details</h3>
-            <p style="margin: 5px 0;"><strong>Medicine:</strong> ${request.inventoryLot.medicine.name}</p>
-            <p style="margin: 5px 0;"><strong>Quantity:</strong> ${request.qty} units</p>
-          </div>
-
-          <div style="background: #DBEAFE; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: #1E40AF;">Deliver To</h3>
-            <p style="margin: 5px 0;"><strong>Name:</strong> ${request.requester.name}</p>
-            <p style="margin: 5px 0;"><strong>Email:</strong> ${request.requester.email}</p>
-            <p style="margin: 5px 0;"><strong>Phone:</strong> ${request.requester.phone || 'N/A'}</p>
-          </div>
-
-          <p style="font-size: 14px; color: #6B7280;">Please ensure timely dispatch and update the delivery status.</p>
-        </div>
-      </div>
-    `;
-    }
-
-    // Helper: OTP email template for buyer
-    private getOtpEmailTemplate(request: any, otp: string): string {
-        return `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-        <div style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 24px;">🚚 Order Dispatched!</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151;">Hello ${request.requester.name},</p>
-          <p style="font-size: 16px; color: #374151;">Great news! Your order has been dispatched:</p>
-
-          <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 15px 0; color: #1F2937;">Order Details</h3>
-            <p style="margin: 5px 0;"><strong>Medicine:</strong> ${request.inventoryLot.medicine.name}</p>
-            <p style="margin: 5px 0;"><strong>Quantity:</strong> ${request.qty} units</p>
-            <p style="margin: 5px 0;"><strong>Dispatched On:</strong> ${new Date().toLocaleDateString()}</p>
-          </div>
-
-          <div style="background: #DDD6FE; border: 2px solid #8B5CF6; border-radius: 12px; padding: 25px; margin: 25px 0; text-align: center;">
-            <h3 style="margin: 0 0 10px 0; color: #6D28D9;">🔐 Your Delivery Confirmation OTP</h3>
-            <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0;">
-              <p style="font-size: 36px; font-weight: bold; color: #8B5CF6; margin: 0; letter-spacing: 8px;">${otp}</p>
-            </div>
-            <p style="font-size: 14px; color: #6D28D9; margin: 10px 0;">This OTP is valid for 24 hours</p>
-          </div>
-
-          <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 0; color: #92400E; font-size: 14px;">
-              <strong>⚠️ Important:</strong> Once you receive the delivery, please confirm it by entering this OTP in your Portfolio section.
-              This will complete the transaction and update your inventory.
-            </p>
-          </div>
-
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/portfolio"
-             style="display: inline-block; background: #8B5CF6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px;">
-            Confirm Delivery
-          </a>
-
-          <p style="font-size: 12px; color: #9CA3AF; margin-top: 30px;">
-            If you didn't request this delivery or have any concerns, please contact our support team immediately.
-          </p>
-        </div>
-      </div>
-    `;
-    }
-
-    // ===== COURIER METHODS =====
-
-    // Get deliveries assigned to courier
-    async getCourierDeliveries(courierId: string) {
-        const deliveries = await this.prisma.deliveryRequest.findMany({
-            where: {
-                assignedCourierId: courierId,
-            },
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: {
-                            include: { manufacturer: true },
-                        },
-                        sourceOrder: {
-                            include: {
-                                listing: {
-                                    include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-
-        return deliveries.map((request) => {
-            const meta = this.parseCourierMeta(request.courierNotes);
-            return {
-                ...request,
-                sourceAddress: meta.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || '',
-                destinationAddress: meta.destinationAddress || '',
-                courierBillAmount: Number(meta.courierBillAmount || 0),
-                deliveryChargePaid: Boolean(meta.deliveryChargePaid),
-                medicineInvoiceUrl: request.inventoryLot?.sourceOrder?.invoiceUrl || null,
-                courierInvoiceUrl: request.invoiceUrl || null,
-            };
-        });
-    }
-
-    // Update delivery status by courier
-    async updateCourierStatus(requestId: string, courierId: string, newStatus: string, notes?: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                    },
-                },
-            },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.assignedCourierId !== courierId) {
-            throw new BadRequestException('You are not assigned to this delivery');
-        }
-
-        const allowedTransitions: Record<string, string[]> = {
-            AWAITING_COURIER_PICKUP: ['IN_TRANSIT'],
-            IN_TRANSIT: ['OUT_FOR_DELIVERY'],
-            OUT_FOR_DELIVERY: ['PENDING_OTP_VERIFICATION', 'DELIVERY_ATTEMPTED'],
-        };
-
-        const allowedNext = allowedTransitions[request.status] || [];
-        if (!allowedNext.includes(newStatus)) {
-            throw new BadRequestException(`Invalid status transition from ${request.status} to ${newStatus}`);
-        }
-
-        const existingMeta = this.parseCourierMeta(request.courierNotes);
-        if (newStatus === 'OUT_FOR_DELIVERY' && !existingMeta.deliveryChargePaid) {
-            throw new BadRequestException('Delivery charge payment is pending. Admin must mark payment received before out-for-delivery.');
-        }
-
-        const updateData: any = {
-            status: newStatus as any,
-            courierNotes: notes
-                ? JSON.stringify({ ...existingMeta, courierProgressNote: notes })
-                : request.courierNotes,
-        };
-
-        // Handle specific status transitions
-        if (newStatus === 'IN_TRANSIT' && request.status === 'AWAITING_COURIER_PICKUP') {
-            updateData.courierPickupAt = new Date();
-        }
-
-        if (newStatus === 'PENDING_OTP_VERIFICATION') {
-            // Generate OTP when courier marks as delivered
-            const otp = generateOtp();
-            const otpExpiry = generateOtpExpiry(24);
-            
-            updateData.deliveryOtp = otp;
-            updateData.otpExpiresAt = otpExpiry;
-            updateData.dispatchedAt = new Date();
-
-            // Send OTP to buyer
-            this.emailService.sendEmail(
-                request.requester.email,
-                '🔐 Delivery Confirmation OTP',
-                this.getOtpEmailTemplate(request, otp),
-            ).catch(error => {
-                console.error('Failed to send OTP email:', error);
-            });
-
-            // Notify buyer
+        for (const admin of admins) {
             await this.prisma.notification.create({
                 data: {
-                    userId: request.requesterId,
+                    userId: admin.id,
                     channel: 'INAPP',
-                    subject: '📦 Package Delivered - Confirm with OTP',
-                    body: `Your package of ${request.qty} units of ${request.inventoryLot.medicine.name} has been delivered! Check your email for the OTP to confirm receipt.`,
+                    subject: 'Delivery Successful',
+                    body: `${request.requester.name} confirmed delivery of ${request.inventoryLot.medicine.name}`,
                     meta: { deliveryRequestId: request.id },
                 },
             });
         }
 
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: updateData,
-            include: {
-                requester: { select: { name: true, email: true } },
-                inventoryLot: { include: { medicine: true } },
-            },
-        });
-
-        return {
-            message: 'Status updated successfully',
-            request: updated,
-        };
-    }
-
-    // Upload delivery proof photo
-    async uploadDeliveryProof(requestId: string, courierId: string, file: Express.Multer.File) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.assignedCourierId !== courierId) {
-            throw new BadRequestException('You are not assigned to this delivery');
-        }
-
-        const proofUrl = await this.gcsService.uploadFile(file, 'delivery-proofs');
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                deliveryProofUrl: proofUrl,
-            },
-        });
-
-        return {
-            message: 'Delivery proof uploaded successfully',
-            proofUrl,
-            request: updated,
-        };
-    }
-    // Courier accepts assigned delivery and uploads courier invoice + charge
-    async courierAcceptDelivery(
-        requestId: string,
-        courierId: string,
-        billAmount: number,
-        invoiceFile?: Express.Multer.File,
-        trackingNumber?: string,
-        deliveryPartner?: string,
-        notes?: string,
-    ) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        sourceOrder: {
-                            include: {
-                                listing: {
-                                    include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.assignedCourierId !== courierId) {
-            throw new BadRequestException('You are not assigned to this delivery');
-        }
-
-        if (request.status !== 'AWAITING_COURIER_PICKUP') {
-            throw new BadRequestException('Only assigned pickup requests can be accepted');
-        }
-
-        if (!billAmount || Number.isNaN(Number(billAmount)) || Number(billAmount) < 0) {
-            throw new BadRequestException('Valid courier bill amount is required');
-        }
-
-        let courierInvoiceUrl: string | undefined;
-        if (invoiceFile) {
-            courierInvoiceUrl = await this.gcsService.uploadFile(invoiceFile, 'courier-invoices');
-        }
-
-        const meta = this.parseCourierMeta(request.courierNotes);
-        const updatedMeta = {
-            ...meta,
-            courierBillAmount: Number(billAmount),
-            deliveryChargePaid: false,
-            destinationAddress: meta.destinationAddress || '',
-            courierAcceptedAt: new Date().toISOString(),
-            courierAcceptanceNote: notes || meta.courierAcceptanceNote || '',
-        };
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                status: 'IN_TRANSIT',
-                courierPickupAt: new Date(),
-                invoiceUrl: courierInvoiceUrl || request.invoiceUrl,
-                trackingNumber: trackingNumber || request.trackingNumber,
-                deliveryPartner: deliveryPartner || request.deliveryPartner,
-                courierNotes: JSON.stringify(updatedMeta),
-            },
-            include: {
-                requester: { select: { id: true, name: true, email: true, phone: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                        sourceOrder: {
-                            include: {
-                                listing: {
-                                    include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        await this.sendDeliveryChargePI(updated, Number(billAmount)).catch(error => {
-            console.error('Failed to send delivery charge PI:', error);
-        });
-
-        await this.prisma.notification.create({
-            data: {
-                userId: request.requesterId,
-                channel: 'INAPP',
-                subject: 'Delivery Charge Added',
-                body: `Courier accepted your delivery for ${request.inventoryLot.medicine.name}. Delivery charge PI has been sent to your email.`,
-                meta: { deliveryRequestId: request.id, courierBillAmount: Number(billAmount) },
-            },
-        });
-
-        return {
-            message: 'Delivery accepted and moved to in-transit. Delivery charge PI sent to buyer.',
-            request: updated,
-        };
-    }
-
-    // Admin marks delivery charge payment as received
-    async markDeliveryChargePaid(requestId: string, adminId: string, note?: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
-            include: {
-                requester: { select: { id: true, name: true, email: true } },
-                inventoryLot: {
-                    include: {
-                        medicine: true,
-                    },
-                },
-            },
-        });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.status !== 'IN_TRANSIT') {
-            throw new BadRequestException(`Payment can only be marked for IN_TRANSIT requests. Current status: ${request.status}`);
-        }
-
-        const meta = this.parseCourierMeta(request.courierNotes);
-        if (!meta.courierBillAmount) {
-            throw new BadRequestException('Courier bill amount is missing for this request');
-        }
-
-        if (meta.deliveryChargePaid) {
-            return { message: 'Delivery charge payment is already marked as received' };
-        }
-
-        const updatedMeta = {
-            ...meta,
-            deliveryChargePaid: true,
-            paymentReceivedAt: new Date().toISOString(),
-            paymentConfirmedByAdminId: adminId,
-            paymentNote: note || '',
-        };
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                courierNotes: JSON.stringify(updatedMeta),
-            },
-        });
-
+        // Notify courier
         if (request.assignedCourierId) {
             await this.prisma.notification.create({
                 data: {
                     userId: request.assignedCourierId,
                     channel: 'INAPP',
-                    subject: 'Delivery Payment Confirmed',
-                    body: `Payment for delivery charge has been confirmed for ${request.inventoryLot.medicine.name}. You can now move this order to out for delivery.`,
+                    subject: 'Delivery Confirmed',
+                    body: `Buyer confirmed delivery of ${request.inventoryLot.medicine.name}`,
                     meta: { deliveryRequestId: request.id },
                 },
             });
         }
 
-        await this.prisma.notification.create({
-            data: {
-                userId: request.requesterId,
-                channel: 'INAPP',
-                subject: 'Delivery Payment Received',
-                body: `Your delivery charge payment for ${request.inventoryLot.medicine.name} has been confirmed. Delivery will proceed shortly.`,
-                meta: { deliveryRequestId: request.id },
-            },
-        });
-
-        return {
-            message: 'Delivery charge payment marked as received',
-            request: updated,
-        };
+        return { message: 'Delivery confirmed successfully!' };
     }
 
-    // Assign courier to delivery (admin only)
-    async assignCourier(requestId: string, courierId: string, destinationAddress: string) {
-        const request = await this.prisma.deliveryRequest.findUnique({
-            where: { id: requestId },
+    // ==================== HELPER METHODS ====================
+    
+    // Get requests for buyer
+    async getMyRequests(userId: string) {
+        return this.prisma.deliveryRequest.findMany({
+            where: { requesterId: userId },
             include: {
                 inventoryLot: {
                     include: {
-                        medicine: true,
+                        medicine: { include: { manufacturer: true } },
+                    },
+                },
+                assignedCourier: { select: { id: true, name: true, phone: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // Get requests for seller
+    async getSellerRequests(sellerId: string) {
+        return this.prisma.deliveryRequest.findMany({
+            where: {
+                inventoryLot: {
+                    sourceOrder: {
+                        listing: {
+                            sellerId: sellerId
+                        }
+                    }
+                }
+            },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: { include: { manufacturer: true } },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // Get requests for courier
+    async getCourierRequests(courierId: string) {
+        return this.prisma.deliveryRequest.findMany({
+            where: { assignedCourierId: courierId },
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: { include: { manufacturer: true } },
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    // Get all requests (admin)
+    async getAllRequests(status?: string) {
+        const where = status ? { status: status as any } : {};
+        return this.prisma.deliveryRequest.findMany({
+            where,
+            include: {
+                requester: { select: { id: true, name: true, email: true, phone: true } },
+                inventoryLot: {
+                    include: {
+                        medicine: { include: { manufacturer: true } },
                         sourceOrder: {
                             include: {
                                 listing: {
                                     include: {
-                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } },
-                                    },
-                                },
-                            },
-                        },
+                                        seller: { select: { id: true, name: true, email: true, phone: true } }
+                                    }
+                                }
+                            }
+                        }
                     },
                 },
-                requester: { select: { id: true, name: true, email: true, phone: true } },
+                assignedCourier: { select: { id: true, name: true, email: true, phone: true } },
             },
+            orderBy: { createdAt: 'desc' },
         });
-
-        if (!request) {
-            throw new NotFoundException('Delivery request not found');
-        }
-
-        if (request.status !== 'PENDING') {
-            throw new BadRequestException(`Request must be PENDING for courier assignment. Current status: ${request.status}`);
-        }
-
-        if (!destinationAddress?.trim()) {
-            throw new BadRequestException('Destination address is required');
-        }
-
-        const courier = await this.prisma.user.findUnique({
-            where: { id: courierId },
-        });
-
-        if (!courier || courier.roleCode !== 'COURIER') {
-            throw new BadRequestException('Invalid courier ID');
-        }
-
-        const existingMeta = this.parseCourierMeta(request.courierNotes);
-        const meta = {
-            ...existingMeta,
-            destinationAddress: destinationAddress.trim(),
-            sourceAddress: request.inventoryLot.sourceOrder?.listing?.seller?.address || '',
-            assignedByAdminAt: new Date().toISOString(),
-        };
-
-        const updated = await this.prisma.deliveryRequest.update({
-            where: { id: requestId },
-            data: {
-                assignedCourierId: courierId,
-                status: 'AWAITING_COURIER_PICKUP',
-                courierNotes: JSON.stringify(meta),
-            },
-        });
-
-        await this.prisma.notification.create({
-            data: {
-                userId: courierId,
-                channel: 'INAPP',
-                subject: 'New Delivery Assigned',
-                body: `You have been assigned a delivery for ${request.qty} units of ${request.inventoryLot.medicine.name}.`,
-                meta: { deliveryRequestId: request.id, destinationAddress: destinationAddress.trim() },
-            },
-        });
-
-        return {
-            message: 'Courier assigned successfully',
-            request: updated,
-        };
     }
 
-    private parseCourierMeta(notes?: string | null): any {
-        if (!notes) return {};
-        try {
-            return JSON.parse(notes);
-        } catch {
-            return { notes };
-        }
+    // Generate proforma invoice PDF
+    private async generateProformaInvoice(request: any): Promise<string> {
+        // Use existing PDF service to generate proforma invoice
+        const invoiceData = {
+            invoiceNumber: `PI-${request.id.slice(0, 8).toUpperCase()}`,
+            date: new Date().toLocaleDateString('en-IN'),
+            buyer: {
+                name: request.requester.name,
+                email: request.requester.email,
+                address: request.requester.address || 'N/A',
+            },
+            items: [{
+                description: `Delivery Charge for ${request.inventoryLot.medicine.name}`,
+                weight: `${request.parcelWeightKg} kg`,
+                mode: request.transportMode,
+                rate: `₹${DELIVERY_RATES[request.transportMode]}/kg`,
+                amount: request.deliveryCharge,
+            }],
+            total: request.deliveryCharge,
+        };
+
+        // Generate PDF and upload to GCS
+        const pdfBuffer = await this.pdfService.generateProformaInvoice(invoiceData);
+        const fileName = `proforma-invoice-${request.id}.pdf`;
+        
+        // Upload to GCS (you'll need to implement this in GCS service)
+        return await this.gcsService.uploadBuffer(pdfBuffer, 'proforma-invoices', fileName);
     }
 
-    private async sendDeliveryChargePI(request: any, deliveryCharge: number) {
-        const medicine = request.inventoryLot?.medicine;
-        const sourceOrder = request.inventoryLot?.sourceOrder;
-        const baseAmount = Number(sourceOrder?.amount || 0);
-        const total = baseAmount + Number(deliveryCharge || 0);
+    // Email templates
+    private getSellerShippingFormTemplate(request: any, seller: any): string {
+        return `
+            <h2>Physical Delivery Request</h2>
+            <p>Dear ${seller.name},</p>
+            <p>${request.requester.name} has requested physical delivery of:</p>
+            <ul>
+                <li>Medicine: ${request.inventoryLot.medicine.name}</li>
+                <li>Quantity: ${request.qty} units</li>
+            </ul>
+            <p>Please provide the following shipping details:</p>
+            <ul>
+                <li>Batch Number</li>
+                <li>Expiry Date</li>
+                <li>Parcel Weight (in KG)</li>
+                <li>Transport Mode: Road (₹60/kg) or Air (₹120/kg)</li>
+            </ul>
+            <p>Login to your dashboard to submit these details.</p>
+        `;
+    }
 
-        let pdfBuffer: Buffer | null = null;
-        try {
-            pdfBuffer = await this.pdfService.generateQuotationPDF({
-                invoiceNo: `DPI-${request.id.substring(0, 8).toUpperCase()}`,
-                invoiceDate: new Date().toLocaleDateString('en-GB'),
-                orderNo: request.id.substring(0, 8).toUpperCase(),
-                orderDate: new Date(request.createdAt).toLocaleDateString('en-GB'),
-                lrDate: '',
-                dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
-                partyName: request.requester?.name || 'Buyer',
-                partyAddress: '',
-                partyPhone: request.requester?.phone || '',
-                partyGSTIN: '',
-                partyDLNo: '',
-                items: [{
-                    hsn: '',
-                    productName: `Delivery Charge - ${medicine?.name || 'Medicine Order'}`,
-                    pack: 'Service',
-                    qty: 1,
-                    batch: '-',
-                    mfg: '-',
-                    exp: '-',
-                    mrp: Number(deliveryCharge || 0),
-                    rate: Number(deliveryCharge || 0),
-                    dis: 0,
-                    sgst: 0,
-                    sgstValue: 0,
-                    cgst: 0,
-                    cgstValue: 0,
-                    amount: Number(deliveryCharge || 0),
-                }],
-                totalSGST: 0,
-                totalCGST: 0,
-                grandTotal: Number(deliveryCharge || 0),
-                totalItems: 1,
-                totalQty: 1,
-            });
-        } catch (error) {
-            console.error('Failed to generate delivery charge PI PDF:', error);
-        }
+    private getProformaInvoiceEmailTemplate(request: any, invoiceUrl: string): string {
+        return `
+            <h2>Proforma Invoice - Delivery Charge</h2>
+            <p>Dear ${request.requester.name},</p>
+            <p>Your delivery charge has been calculated:</p>
+            <ul>
+                <li>Medicine: ${request.inventoryLot.medicine.name}</li>
+                <li>Weight: ${request.parcelWeightKg} kg</li>
+                <li>Transport: ${request.transportMode}</li>
+                <li>Rate: ₹${DELIVERY_RATES[request.transportMode]}/kg</li>
+                <li><strong>Total: ₹${request.deliveryCharge}</strong></li>
+            </ul>
+            <p><a href="${invoiceUrl}">Download Proforma Invoice</a></p>
+            <p>Please make the payment and upload the receipt in your portfolio section.</p>
+        `;
+    }
 
-        const attachment = pdfBuffer ? [{
-            filename: `Delivery_Charge_PI_${request.id.substring(0, 8)}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-        }] : undefined;
-
-        if (request.requester?.email) {
-            await this.emailService.sendEmail(
-                request.requester.email,
-                'Delivery Charge PI - Payment Advice',
-                `<p>Hello ${request.requester?.name || 'User'},</p>
-                 <p>Your delivery request for <strong>${medicine?.name || 'medicine'}</strong> has been accepted by courier.</p>
-                 <p><strong>Order Amount:</strong> INR ${baseAmount.toFixed(2)}</p>
-                 <p><strong>Delivery Charge:</strong> INR ${Number(deliveryCharge || 0).toFixed(2)}</p>
-                 <p><strong>Total (Order + Delivery):</strong> INR ${total.toFixed(2)}</p>
-                 <p>Please complete this payment. Courier will move the shipment to out for delivery only after payment is confirmed.</p>
-                 <p>The delivery charge PI is attached for your reference.</p>`,
-                attachment,
-            );
-        }
+    private getOtpEmailTemplate(request: any, otp: string): string {
+        return `
+            <h2>Delivery Confirmation OTP</h2>
+            <p>Dear ${request.requester.name},</p>
+            <p>Your order is out for delivery!</p>
+            <p>Medicine: ${request.inventoryLot.medicine.name}</p>
+            <p>Quantity: ${request.qty} units</p>
+            <h3 style="background: #1E40AF; color: white; padding: 20px; text-align: center; font-size: 32px; letter-spacing: 5px;">
+                ${otp}
+            </h3>
+            <p>Please provide this OTP to the courier upon delivery.</p>
+            <p>OTP is valid for 24 hours.</p>
+        `;
     }
 }

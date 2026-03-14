@@ -73,18 +73,25 @@ enum ProposalStatus {
 }
 
 enum DeliveryRequestStatus {
-  AWAITING_SELLER           // Seller needs to upload receipt and confirm
-  AWAITING_COURIER_PICKUP   // Courier needs to pick up
-  IN_TRANSIT                // Courier has picked up, in transit
-  OUT_FOR_DELIVERY          // Courier is out for delivery
-  DELIVERY_ATTEMPTED        // Delivery was attempted but failed
-  PENDING                   // Admin needs to approve
-  APPROVED                  // (Legacy - not used in new flow)
-  REJECTED
-  DISPATCHED                // OTP sent to buyer (legacy)
-  PENDING_OTP_VERIFICATION  // Waiting for buyer OTP confirmation
-  DELIVERED                 // Buyer confirmed with OTP
-  CANCELLED                 // Delivery cancelled
+  AWAITING_SELLER_INFO        // Seller needs to provide weight, batch, expiry, transport
+  AWAITING_PAYMENT            // Proforma invoice sent, waiting for buyer payment
+  PAYMENT_PENDING_VERIFICATION // Buyer uploaded receipt, admin needs to verify
+  AWAITING_SELLER_INVOICE     // Payment verified, seller needs to upload invoice
+  AWAITING_ADMIN_DISPATCH     // Seller invoice uploaded, admin needs to dispatch
+  AWAITING_COURIER_PICKUP     // Admin dispatched, courier needs to pick up
+  DISPATCHED                  // Courier picked up from seller
+  IN_TRANSIT                  // Arrived at hub
+  OUT_FOR_DELIVERY            // Out for delivery, OTP sent
+  PENDING_OTP_VERIFICATION    // Delivered, awaiting OTP confirmation
+  DELIVERED                   // OTP verified, delivery complete
+  CANCELLED                   // Cancelled by user/admin
+  REJECTED                    // Rejected by admin
+  
+  // Legacy statuses (kept for backward compatibility)
+  AWAITING_SELLER             // Old: Seller needs to upload receipt
+  DELIVERY_ATTEMPTED          // Old: Delivery was attempted but failed
+  PENDING                     // Old: Admin needs to approve
+  APPROVED                    // Old: Not used in new flow
 }
 
 enum ContributionStatus {
@@ -596,25 +603,52 @@ model DeliveryRequest {
   requesterId         String                @map("requester_id") @db.Uuid
   inventoryLotId      String                @map("inventory_lot_id") @db.Uuid
   qty                 Int
-  status              DeliveryRequestStatus @default(PENDING)
+  status              DeliveryRequestStatus @default(AWAITING_SELLER_INFO)
+  
+  // Seller-provided shipping details
+  batchNumber         String?               @map("batch_number")
+  expiryDate          DateTime?             @map("expiry_date") @db.Date
+  parcelWeightKg      Decimal?              @map("parcel_weight_kg") @db.Decimal(10, 2)
+  transportMode       String?               @map("transport_mode") // 'ROAD' or 'AIR'
+  deliveryCharge      Decimal?              @map("delivery_charge") @db.Decimal(14, 2)
+  
+  // Document URLs
+  proformaInvoiceUrl  String?               @map("proforma_invoice_url") // Generated proforma invoice
+  paymentReceiptUrl   String?               @map("payment_receipt_url") // Buyer's payment proof
+  sellerInvoiceUrl    String?               @map("seller_invoice_url") // Seller's invoice to 24Rx
+  adminInvoiceUrl     String?               @map("admin_invoice_url") // Admin's final invoice
+  packageImageUrl     String?               @map("package_image_url") // Package photo
+  deliveryProofUrl    String?               @map("delivery_proof_url") // Delivery proof photo
+  
+  // Addresses
+  sourceAddress       String?               @map("source_address") @db.Text
+  destinationAddress  String?               @map("destination_address") @db.Text
+  
+  // Legacy fields
   reviewerNote        String?               @map("reviewer_note")
   invoiceUrl          String?               @map("invoice_url")
-  packageImageUrl     String?               @map("package_image_url") // Package photo uploaded by seller
   trackingNumber      String?               @map("tracking_number")
   deliveryPartner     String?               @map("delivery_partner")
+  
+  // OTP verification
   deliveryOtp         String?               @map("delivery_otp") @db.VarChar(6)
   otpExpiresAt        DateTime?             @map("otp_expires_at") @db.Timestamptz(6)
   otpVerifiedAt       DateTime?             @map("otp_verified_at") @db.Timestamptz(6)
+  
+  // Timestamps
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  sellerInfoSubmittedAt DateTime?           @map("seller_info_submitted_at") @db.Timestamptz(6)
+  paymentUploadedAt   DateTime?             @map("payment_uploaded_at") @db.Timestamptz(6)
+  paymentVerifiedAt   DateTime?             @map("payment_verified_at") @db.Timestamptz(6)
+  sellerInvoiceUploadedAt DateTime?         @map("seller_invoice_uploaded_at") @db.Timestamptz(6)
   reviewedAt          DateTime?             @map("reviewed_at") @db.Timestamptz(6)
   dispatchedAt        DateTime?             @map("dispatched_at") @db.Timestamptz(6)
   deliveredAt         DateTime?             @map("delivered_at") @db.Timestamptz(6)
   
-  // NEW: Courier system fields
+  // Courier system fields
   assignedCourierId   String?               @map("assigned_courier_id") @db.Uuid
   courierPickupAt     DateTime?             @map("courier_pickup_at") @db.Timestamptz(6)
   estimatedDeliveryAt DateTime?             @map("estimated_delivery_at") @db.Timestamptz(6)
-  deliveryProofUrl    String?               @map("delivery_proof_url") // Photo at delivery
   courierNotes        String?               @map("courier_notes") @db.Text
 
   requester       User              @relation(fields: [requesterId], references: [id])

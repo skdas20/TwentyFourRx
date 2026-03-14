@@ -2,6 +2,7 @@ import {
     Controller,
     Get,
     Post,
+    Patch,
     Param,
     Query,
     Body,
@@ -9,15 +10,17 @@ import {
     UseInterceptors,
     UploadedFile,
     UploadedFiles,
+    BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
-import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional, IsEnum } from 'class-validator';
 import { DeliveryRequestsService } from './delivery-requests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
+// DTOs
 class CreateDeliveryRequestDto {
     @IsString()
     @IsNotEmpty()
@@ -28,17 +31,25 @@ class CreateDeliveryRequestDto {
     qty: number;
 }
 
-class ReviewRequestDto {
-    reviewerNote?: string;
-}
-
-class ConfirmDeliveryDto {
+class SubmitShippingDetailsDto {
     @IsString()
     @IsNotEmpty()
-    otp: string;
+    batchNumber: string;
+
+    @IsString()
+    @IsNotEmpty()
+    expiryDate: string; // ISO date string
+
+    @IsNumber()
+    @Min(0.1)
+    parcelWeightKg: number;
+
+    @IsEnum(['ROAD', 'AIR'])
+    @IsNotEmpty()
+    transportMode: 'ROAD' | 'AIR';
 }
 
-class VerifyInvoiceDto {
+class VerifyPaymentDto {
     @IsBoolean()
     @IsNotEmpty()
     approved: boolean;
@@ -48,48 +59,34 @@ class VerifyInvoiceDto {
     note?: string;
 }
 
-class MarkDispatchedDto {
+class InitiateDispatchDto {
     @IsString()
     @IsNotEmpty()
-    trackingNumber: string;
-
-    @IsString()
-    @IsNotEmpty()
-    deliveryPartner: string;
-}
-
-class AssignCourierDto {
-    @IsString()
-    @IsNotEmpty()
-    courierId: string;
+    sourceAddress: string;
 
     @IsString()
     @IsNotEmpty()
     destinationAddress: string;
-}
 
-class CourierAcceptDeliveryDto {
     @IsString()
     @IsNotEmpty()
-    billAmount: string;
+    assignedCourierId: string;
+}
 
-    @IsString()
-    @IsOptional()
-    trackingNumber?: string;
-
-    @IsString()
-    @IsOptional()
-    deliveryPartner?: string;
+class UpdateCourierStatusDto {
+    @IsEnum(['DISPATCHED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'])
+    @IsNotEmpty()
+    status: 'DISPATCHED' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY';
 
     @IsString()
     @IsOptional()
     notes?: string;
 }
 
-class MarkPaymentReceivedDto {
+class ConfirmDeliveryDto {
     @IsString()
-    @IsOptional()
-    note?: string;
+    @IsNotEmpty()
+    otp: string;
 }
 
 @Controller('delivery-requests')
@@ -97,171 +94,163 @@ class MarkPaymentReceivedDto {
 export class DeliveryRequestsController {
     constructor(private service: DeliveryRequestsService) { }
 
-    // SELLER/TRADER: Create a delivery request
+    // ==================== STEP 1: BUYER CREATES REQUEST ====================
     @Post()
     @Roles('SELLER', 'TRADER')
     async createRequest(
         @CurrentUser() user: any,
         @Body() dto: CreateDeliveryRequestDto,
     ) {
-        console.log('Delivery request received:', { userId: user.sub, dto });
         return this.service.createRequest(user.sub, dto.inventoryLotId, dto.qty);
     }
 
-    // SELLER/TRADER: Get my delivery requests
-    @Get('my')
+    // ==================== STEP 2: SELLER PROVIDES SHIPPING DETAILS ====================
+    @Post(':id/shipping-details')
     @Roles('SELLER', 'TRADER')
-    async getMyRequests(@CurrentUser() user: any) {
-        return this.service.getMyRequests(user.sub);
-    }
-
-    // ADMIN: Get all delivery requests
-    @Get()
-    @Roles('ADMIN')
-    async getAllRequests(@Query('status') status?: string) {
-        return this.service.getAllRequests(status);
-    }
-
-    // ADMIN: Approve a delivery request
-    @Post(':id/approve')
-    @Roles('ADMIN')
-    async approveRequest(
-        @Param('id') id: string,
-        @Body() dto: ReviewRequestDto,
-    ) {
-        return this.service.approveRequest(id, dto.reviewerNote);
-    }
-
-    // ADMIN: Reject a delivery request
-    @Post(':id/reject')
-    @Roles('ADMIN')
-    async rejectRequest(
-        @Param('id') id: string,
-        @Body() dto: ReviewRequestDto,
-    ) {
-        if (!dto.reviewerNote) {
-            throw new Error('Rejection reason is required');
-        }
-        return this.service.rejectRequest(id, dto.reviewerNote);
-    }
-
-    // ADMIN/SELLER: Mark as dispatched with invoice and package image upload
-    @Post(':id/dispatch')
-    @Roles('SELLER', 'TRADER')
-    @UseInterceptors(FileFieldsInterceptor([
-        { name: 'invoice', maxCount: 1 },
-        { name: 'packageImage', maxCount: 1 },
-    ]))
-    async markDispatched(
+    async submitShippingDetails(
         @Param('id') id: string,
         @CurrentUser() user: any,
-        @UploadedFiles() files: { invoice?: Express.Multer.File[], packageImage?: Express.Multer.File[] },
-        @Body() dto: MarkDispatchedDto,
+        @Body() dto: SubmitShippingDetailsDto,
     ) {
-        // Extract invoice and packageImage from the fields object
-        const invoiceFile = files?.invoice?.[0];
-        const packageImageFile = files?.packageImage?.[0];
-        
-        return this.service.markDispatched(id, user.sub, invoiceFile, packageImageFile, dto.trackingNumber, dto.deliveryPartner);
+        return this.service.submitShippingDetails(id, user.sub, dto);
     }
 
-    // ADMIN: Get pending invoice verifications
-    @Get('pending-verification')
-    @Roles('ADMIN')
-    async getPendingVerification() {
-        return this.service.getPendingVerification();
-    }
-
-    // ADMIN: Verify invoice and dispatch
-    @Post(':id/verify')
-    @Roles('ADMIN')
-    async verifyAndDispatch(
+    // ==================== STEP 3: BUYER UPLOADS PAYMENT RECEIPT ====================
+    @Post(':id/payment-receipt')
+    @Roles('SELLER', 'TRADER')
+    @UseInterceptors(FileInterceptor('paymentReceipt'))
+    async uploadPaymentReceipt(
         @Param('id') id: string,
-        @Body() dto: VerifyInvoiceDto,
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File,
     ) {
-        return this.service.verifyAndDispatch(id, dto.approved, dto.note);
+        if (!file) {
+            throw new BadRequestException('Payment receipt file is required');
+        }
+        return this.service.uploadPaymentReceipt(id, user.sub, file);
     }
 
-    // BUYER: Confirm delivery with OTP
-    @Post(':id/confirm')
+    // ==================== STEP 4: ADMIN VERIFIES PAYMENT ====================
+    @Post(':id/verify-payment')
+    @Roles('ADMIN')
+    async verifyPayment(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @Body() dto: VerifyPaymentDto,
+    ) {
+        return this.service.verifyPayment(id, user.sub, dto.approved, dto.note);
+    }
+
+    // ==================== STEP 5: SELLER UPLOADS INVOICE ====================
+    @Post(':id/seller-invoice')
+    @Roles('SELLER', 'TRADER')
+    @UseInterceptors(FileInterceptor('invoice'))
+    async uploadSellerInvoice(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File,
+    ) {
+        if (!file) {
+            throw new BadRequestException('Invoice file is required');
+        }
+        return this.service.uploadSellerInvoice(id, user.sub, file);
+    }
+
+    // ==================== STEP 6: ADMIN INITIATES DISPATCH ====================
+    @Post(':id/initiate-dispatch')
+    @Roles('ADMIN')
+    @UseInterceptors(FileInterceptor('adminInvoice'))
+    async initiateDispatch(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @UploadedFile() file: Express.Multer.File,
+        @Body() dto: InitiateDispatchDto,
+    ) {
+        if (!file) {
+            throw new BadRequestException('Admin invoice file is required');
+        }
+        return this.service.initiateDispatch(id, user.sub, {
+            adminInvoiceFile: file,
+            sourceAddress: dto.sourceAddress,
+            destinationAddress: dto.destinationAddress,
+            assignedCourierId: dto.assignedCourierId,
+        });
+    }
+
+    // ==================== STEP 7: COURIER UPDATES STATUS ====================
+    @Patch('courier/:id/status')
+    @Roles('COURIER')
+    async updateCourierStatus(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+        @Body() dto: UpdateCourierStatusDto,
+    ) {
+        return this.service.updateCourierStatus(id, user.sub, dto.status, dto.notes);
+    }
+
+    // ==================== STEP 8: BUYER CONFIRMS DELIVERY WITH OTP ====================
+    @Post(':id/confirm-delivery')
     @Roles('SELLER', 'TRADER')
     async confirmDelivery(
         @Param('id') id: string,
         @CurrentUser() user: any,
         @Body() dto: ConfirmDeliveryDto,
     ) {
-        return this.service.confirmDelivery(id, user.sub, dto.otp);
+        return this.service.confirmDeliveryWithOtp(id, user.sub, dto.otp);
     }
 
-    // COURIER: Get my assigned deliveries
+    // ==================== HELPER ENDPOINTS ====================
+
+    // Get my requests (buyer)
+    @Get('my')
+    @Roles('SELLER', 'TRADER')
+    async getMyRequests(@CurrentUser() user: any) {
+        return this.service.getMyRequests(user.sub);
+    }
+
+    // Get seller requests
+    @Get('seller/my')
+    @Roles('SELLER', 'TRADER')
+    async getSellerRequests(@CurrentUser() user: any) {
+        return this.service.getSellerRequests(user.sub);
+    }
+
+    // Get courier requests
     @Get('courier/my')
     @Roles('COURIER')
-    async getCourierDeliveries(@CurrentUser() user: any) {
-        return this.service.getCourierDeliveries(user.sub);
+    async getCourierRequests(@CurrentUser() user: any) {
+        return this.service.getCourierRequests(user.sub);
     }
 
-    // COURIER: Update delivery status
-    @Post('courier/:id/status')
-    @Roles('COURIER')
-    async updateCourierStatus(
-        @Param('id') id: string,
-        @CurrentUser() user: any,
-        @Body() dto: { status: string; notes?: string },
-    ) {
-        return this.service.updateCourierStatus(id, user.sub, dto.status, dto.notes);
-    }
-
-    // COURIER: Accept assigned delivery and submit dispatch details
-    @Post('courier/:id/accept')
-    @Roles('COURIER')
-    @UseInterceptors(FileInterceptor('invoice'))
-    async courierAcceptDelivery(
-        @Param('id') id: string,
-        @CurrentUser() user: any,
-        @UploadedFile() invoice: Express.Multer.File,
-        @Body() dto: CourierAcceptDeliveryDto,
-    ) {
-        return this.service.courierAcceptDelivery(
-            id,
-            user.sub,
-            Number(dto.billAmount),
-            invoice,
-            dto.trackingNumber,
-            dto.deliveryPartner,
-            dto.notes,
-        );
-    }
-
-    // COURIER: Upload delivery proof
-    @Post('courier/:id/proof')
-    @Roles('COURIER')
-    @UseInterceptors(FileInterceptor('proof'))
-    async uploadDeliveryProof(
-        @Param('id') id: string,
-        @CurrentUser() user: any,
-        @UploadedFile() file: Express.Multer.File,
-    ) {
-        return this.service.uploadDeliveryProof(id, user.sub, file);
-    }
-
-    // ADMIN: Assign courier to delivery
-    @Post(':id/assign-courier')
+    // Get all requests (admin)
+    @Get()
     @Roles('ADMIN')
-    async assignCourier(
-        @Param('id') id: string,
-        @Body() dto: AssignCourierDto,
-    ) {
-        return this.service.assignCourier(id, dto.courierId, dto.destinationAddress);
+    async getAllRequests(@Query('status') status?: string) {
+        return this.service.getAllRequests(status);
     }
 
-    // ADMIN: Confirm buyer payment for delivery charge
-    @Post(':id/mark-payment-received')
-    @Roles('ADMIN')
-    async markPaymentReceived(
-        @Param('id') id: string,
-        @CurrentUser() user: any,
-        @Body() dto: MarkPaymentReceivedDto,
-    ) {
-        return this.service.markDeliveryChargePaid(id, user.sub, dto.note);
+    // Get single request details
+    @Get(':id')
+    async getRequestDetails(@Param('id') id: string, @CurrentUser() user: any) {
+        // This will be implemented in service to check permissions
+        const requests = await this.service.getAllRequests();
+        const request = requests.find(r => r.id === id);
+        
+        if (!request) {
+            throw new BadRequestException('Request not found');
+        }
+
+        // Check if user has access to this request
+        const hasAccess = 
+            request.requesterId === user.sub || // Buyer
+            request.inventoryLot?.sourceOrder?.listing?.sellerId === user.sub || // Seller
+            request.assignedCourierId === user.sub || // Courier
+            user.roleCode === 'ADMIN'; // Admin
+
+        if (!hasAccess) {
+            throw new BadRequestException('Access denied');
+        }
+
+        return request;
     }
 }

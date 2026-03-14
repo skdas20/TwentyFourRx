@@ -158,4 +158,52 @@ export class GcsService implements OnModuleInit {
     });
     return url;
   }
+
+  async uploadBuffer(
+    buffer: Buffer,
+    folder: string = 'documents',
+    fileName: string,
+  ): Promise<string> {
+    const fullFileName = `${folder}/${Date.now()}-${fileName}`;
+    
+    console.log('📤 Uploading buffer to Google Cloud Storage:', {
+      bucket: this.bucketName,
+      fileName: fullFileName,
+      size: buffer.length,
+    });
+    
+    const blob = this.bucket.file(fullFileName);
+    const blobStream = blob.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType: 'application/pdf',
+      },
+    });
+
+    return new Promise((resolve, reject) => {
+      blobStream.on('error', (error) => {
+        console.error('❌ Upload error:', error);
+        reject(error);
+      });
+
+      blobStream.on('finish', async () => {
+        try {
+          await blob.makePublic();
+          const publicUrl = `https://storage.googleapis.com/${this.bucketName}/${fullFileName}`;
+          console.log('✅ Buffer uploaded successfully:', publicUrl);
+          resolve(publicUrl);
+        } catch (error) {
+          console.log('⚠️ Cannot make file public, generating signed URL...');
+          const [signedUrl] = await blob.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 365 * 24 * 60 * 60 * 1000,
+          });
+          console.log('✅ Buffer uploaded with signed URL:', signedUrl);
+          resolve(signedUrl);
+        }
+      });
+
+      blobStream.end(buffer);
+    });
+  }
 }

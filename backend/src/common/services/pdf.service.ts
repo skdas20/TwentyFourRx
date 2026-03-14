@@ -41,6 +41,24 @@ interface QuotationData {
   totalQty: number;
 }
 
+interface ProformaInvoiceData {
+  invoiceNumber: string;
+  date: string;
+  buyer: {
+    name: string;
+    email: string;
+    address: string;
+  };
+  items: Array<{
+    description: string;
+    weight: string;
+    mode: string;
+    rate: string;
+    amount: number;
+  }>;
+  total: number;
+}
+
 @Injectable()
 export class PdfService {
   constructor(private configService: ConfigService) {}
@@ -567,5 +585,80 @@ export class PdfService {
 
     doc.fontSize(8).font('Helvetica');
     doc.text('Authorised Signatory', midX + 80, signatureY + 95);
+  }
+
+  // Generate Proforma Invoice for Delivery Charges
+  async generateProformaInvoice(data: ProformaInvoiceData): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const chunks: Buffer[] = [];
+
+        doc.on('data', (chunk) => chunks.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+
+        // Header
+        doc.fontSize(20).fillColor('#1E40AF').text('PROFORMA INVOICE', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(16).fillColor('#000').text('24Rx Exchange', { align: 'center' });
+        doc.fontSize(10).text('Delivery Charge Invoice', { align: 'center' });
+        doc.moveDown(2);
+
+        // Invoice Details
+        doc.fontSize(10);
+        doc.text(`Invoice Number: ${data.invoiceNumber}`, 50, doc.y);
+        doc.text(`Date: ${data.date}`, 400, doc.y - 12);
+        doc.moveDown(2);
+
+        // Buyer Details
+        doc.fontSize(12).text('Bill To:', 50, doc.y);
+        doc.fontSize(10);
+        doc.text(data.buyer.name, 50, doc.y + 5);
+        doc.text(data.buyer.email, 50, doc.y + 5);
+        doc.text(data.buyer.address, 50, doc.y + 5);
+        doc.moveDown(2);
+
+        // Table Header
+        const tableTop = doc.y;
+        doc.rect(50, tableTop, 500, 25).fillAndStroke('#1E40AF', '#1E40AF');
+        doc.fillColor('#FFF').fontSize(10);
+        doc.text('Description', 60, tableTop + 8);
+        doc.text('Weight', 250, tableTop + 8);
+        doc.text('Mode', 320, tableTop + 8);
+        doc.text('Rate', 390, tableTop + 8);
+        doc.text('Amount', 470, tableTop + 8);
+
+        // Table Rows
+        let yPos = tableTop + 30;
+        doc.fillColor('#000');
+        data.items.forEach((item, index) => {
+          if (index % 2 === 0) {
+            doc.rect(50, yPos - 5, 500, 25).fillAndStroke('#F3F4F6', '#E5E7EB');
+          }
+          doc.fillColor('#000');
+          doc.text(item.description, 60, yPos, { width: 180 });
+          doc.text(item.weight, 250, yPos);
+          doc.text(item.mode, 320, yPos);
+          doc.text(item.rate, 390, yPos);
+          doc.text(`₹${item.amount.toFixed(2)}`, 470, yPos);
+          yPos += 30;
+        });
+
+        // Total
+        doc.moveDown(2);
+        doc.fontSize(12).fillColor('#1E40AF');
+        doc.text(`Total Amount: ₹${data.total.toFixed(2)}`, 350, yPos + 20);
+
+        // Footer
+        doc.fontSize(8).fillColor('#666');
+        doc.text('Please make payment to the account details provided separately.', 50, 750, { align: 'center' });
+        doc.text('This is a computer-generated invoice and does not require a signature.', 50, 765, { align: 'center' });
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 }
