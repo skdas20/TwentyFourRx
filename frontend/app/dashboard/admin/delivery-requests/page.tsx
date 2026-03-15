@@ -15,12 +15,12 @@ export default function AdminDeliveryRequestsPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
-  const [filter, setFilter] = useState<string>("PENDING");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [processing, setProcessing] = useState(false);
   const [couriers, setCouriers] = useState<any[]>([]);
   const [selectedCourierId, setSelectedCourierId] = useState("");
+  const [sourceAddress, setSourceAddress] = useState("");
   const [destinationAddress, setDestinationAddress] = useState("");
 
   useEffect(() => {
@@ -37,15 +37,22 @@ export default function AdminDeliveryRequestsPage() {
     setUser(parsed);
     loadRequests();
     loadCouriers();
-  }, [router, filter]);
+  }, [router]); // Removed filter dependency
 
   const loadRequests = async () => {
     try {
       setLoading(true);
-      const res = await deliveryRequestsApi.getAllRequests(filter);
+      // Load ALL requests, sorted by most recent
+      const res = await deliveryRequestsApi.getAllRequests();
       console.log('📦 Delivery Requests Response:', res.data);
       console.log('📦 First Request:', res.data?.[0]);
-      setRequests(res.data || []);
+      
+      // Sort by createdAt descending (most recent first)
+      const sorted = (res.data || []).sort((a: any, b: any) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setRequests(sorted);
     } catch (error) {
       console.error("Failed to load delivery requests:", error);
       setRequests([]);
@@ -132,6 +139,75 @@ export default function AdminDeliveryRequestsPage() {
     }
   };
 
+  const handleVerifyPayment = async (requestId: string) => {
+    if (!selectedCourierId) {
+      showToast.error("Please select a courier");
+      return;
+    }
+    if (!sourceAddress.trim()) {
+      showToast.error("Please enter source address (seller location)");
+      return;
+    }
+    if (!destinationAddress.trim()) {
+      showToast.error("Please enter destination address");
+      return;
+    }
+    if (!confirm("Verify payment and assign courier for this delivery?")) return;
+
+    try {
+      setProcessing(true);
+      
+      await deliveryRequestsApi.verifyPayment(requestId, {
+        approved: true,
+        assignedCourierId: selectedCourierId,
+        sourceAddress: sourceAddress.trim(),
+        destinationAddress: destinationAddress.trim(),
+        note: reviewNote || undefined,
+      });
+      
+      showToast.success("Payment verified and courier assigned successfully!");
+      setSelectedRequest(null);
+      setReviewNote("");
+      setSelectedCourierId("");
+      setSourceAddress("");
+      setDestinationAddress("");
+      loadRequests();
+    } catch (error: any) {
+      console.error("Failed to verify payment:", error);
+      showToast.error(error.response?.data?.message || "Failed to verify payment");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleRejectPayment = async (requestId: string) => {
+    if (!reviewNote.trim()) {
+      showToast.error("Please provide a reason for payment rejection");
+      return;
+    }
+    if (!confirm("Reject this payment receipt?")) return;
+
+    try {
+      setProcessing(true);
+      await deliveryRequestsApi.verifyPayment(requestId, {
+        approved: false,
+        note: reviewNote,
+      });
+      
+      showToast.success("Payment rejected. Buyer will be notified to re-upload.");
+      setSelectedRequest(null);
+      setReviewNote("");
+      setSourceAddress("");
+      setDestinationAddress("");
+      loadRequests();
+    } catch (error: any) {
+      console.error("Failed to reject payment:", error);
+      showToast.error(error.response?.data?.message || "Failed to reject payment");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -169,23 +245,6 @@ export default function AdminDeliveryRequestsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-          {["PENDING", "AWAITING_COURIER_PICKUP", "IN_TRANSIT", "PENDING_OTP_VERIFICATION", "DELIVERED", "REJECTED"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                filter === status
-                  ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -193,8 +252,8 @@ export default function AdminDeliveryRequestsPage() {
         ) : requests.length === 0 ? (
           <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
             <Truck className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No {filter.toLowerCase()} requests</h3>
-            <p className="text-gray-600 dark:text-gray-400">There are no delivery requests with status: {filter}</p>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No delivery requests</h3>
+            <p className="text-gray-600 dark:text-gray-400">There are no delivery requests yet</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -209,6 +268,7 @@ export default function AdminDeliveryRequestsPage() {
                     console.log('📦 Package Image URL:', request.packageImageUrl);
                     setSelectedRequest(request);
                     setSelectedCourierId(request.assignedCourierId || "");
+                    setSourceAddress(request.sourceAddress || request.inventoryLot?.sourceOrder?.listing?.seller?.address || "");
                     setDestinationAddress(request.destinationAddress || "");
                   }}
                   className={`bg-white dark:bg-gray-800 rounded-xl p-6 border cursor-pointer transition-all ${
@@ -251,7 +311,7 @@ export default function AdminDeliveryRequestsPage() {
             </div>
 
             {/* Request Details */}
-            <div className="lg:sticky lg:top-24 h-fit">
+            <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
               {selectedRequest ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-6">
@@ -509,6 +569,124 @@ export default function AdminDeliveryRequestsPage() {
                       </button>
                     </div>
                   )}
+
+                  {/* Payment Verification UI */}
+                  {selectedRequest.status === "PAYMENT_PENDING_VERIFICATION" && (
+                    <>
+                      {/* Show Payment Receipt */}
+                      {selectedRequest.paymentReceiptUrl && (
+                        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Payment Receipt</h3>
+                          <a 
+                            href={selectedRequest.paymentReceiptUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium rounded-lg border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Payment Receipt
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Show Proforma Invoice */}
+                      {selectedRequest.proformaInvoiceUrl && (
+                        <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Proforma Invoice</h3>
+                          <div className="space-y-2 text-sm mb-3">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600 dark:text-gray-400">Delivery Charge:</span>
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                ₹{selectedRequest.deliveryCharge ? Number(selectedRequest.deliveryCharge).toFixed(2) : '0.00'}
+                              </span>
+                            </div>
+                          </div>
+                          <a 
+                            href={selectedRequest.proformaInvoiceUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-purple-600 hover:text-purple-700 dark:text-purple-400 font-medium rounded-lg border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View Proforma Invoice
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Courier Assignment Form */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Assign Courier <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={selectedCourierId}
+                          onChange={(e) => setSelectedCourierId(e.target.value)}
+                          className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="">Select courier partner</option>
+                          {couriers.map((courier: any) => (
+                            <option key={courier.id} value={courier.id}>
+                              {courier.name} {courier.phone ? `(${courier.phone})` : ""}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Source Address (Seller) <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={sourceAddress}
+                          onChange={(e) => setSourceAddress(e.target.value)}
+                          rows={2}
+                          className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter seller's pickup address"
+                        />
+
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Destination Address (Buyer) <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={destinationAddress}
+                          onChange={(e) => setDestinationAddress(e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Enter buyer's delivery address"
+                        />
+
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4 mb-2">
+                          Rejection Note (only if rejecting payment)
+                        </label>
+                        <textarea
+                          value={reviewNote}
+                          onChange={(e) => setReviewNote(e.target.value)}
+                          rows={2}
+                          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Reason for payment rejection (if rejecting)"
+                        />
+                      </div>
+
+                      {/* Verify/Reject Buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleRejectPayment(selectedRequest.id)}
+                          disabled={processing}
+                          className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <XCircle className="w-5 h-5" />
+                          Reject Payment
+                        </button>
+                        <button
+                          onClick={() => handleVerifyPayment(selectedRequest.id)}
+                          disabled={processing || !selectedCourierId || !destinationAddress.trim()}
+                          className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                          Verify & Assign Courier
+                        </button>
+                      </div>
+                    </>
+                  )}
+
                   {selectedRequest.status === "IN_TRANSIT" && selectedRequest.courierBillAmount > 0 && !selectedRequest.deliveryChargePaid && (
                     <div className="flex gap-3">
                       <button

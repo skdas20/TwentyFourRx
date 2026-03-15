@@ -39,6 +39,9 @@ export class DeliveryRequestsService {
                             include: {
                                 seller: { select: { id: true, name: true, email: true, phone: true, address: true } }
                             }
+                        },
+                        approvedProposal: {
+                            select: { sellerInvoiceUrl: true }
                         }
                     }
                 }
@@ -75,6 +78,8 @@ export class DeliveryRequestsService {
                 inventoryLotId,
                 qty,
                 status: 'AWAITING_SELLER_INFO',
+                // Copy seller invoice from original buy proposal
+                sellerInvoiceUrl: lot.sourceOrder?.approvedProposal?.sellerInvoiceUrl || null,
             },
             include: {
                 requester: { select: { name: true, email: true, phone: true } },
@@ -146,7 +151,8 @@ export class DeliveryRequestsService {
             expiryDate: string;
             parcelWeightKg: number;
             transportMode: 'ROAD' | 'AIR';
-        }
+        },
+        packageImage?: Express.Multer.File,
     ) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
@@ -185,6 +191,15 @@ export class DeliveryRequestsService {
         const rate = DELIVERY_RATES[data.transportMode];
         const deliveryCharge = data.parcelWeightKg * rate;
 
+        // Upload package image if provided
+        let packageImageUrl: string | null = null;
+        if (packageImage) {
+            packageImageUrl = await this.gcsService.uploadFile(
+                packageImage,
+                `delivery-requests/${requestId}`,
+            );
+        }
+
         // Update request
         const updated = await this.prisma.deliveryRequest.update({
             where: { id: requestId },
@@ -194,6 +209,7 @@ export class DeliveryRequestsService {
                 parcelWeightKg: data.parcelWeightKg,
                 transportMode: data.transportMode,
                 deliveryCharge,
+                packageImageUrl,
                 status: 'AWAITING_PAYMENT',
                 sellerInfoSubmittedAt: new Date(),
             },
@@ -323,12 +339,22 @@ export class DeliveryRequestsService {
     }
 
     // Continue in next part...
-    // ==================== STEP 4: ADMIN VERIFIES PAYMENT ====================
-    async verifyPayment(requestId: string, adminId: string, approved: boolean, note?: string) {
+    // ==================== STEP 4: ADMIN VERIFIES PAYMENT & ASSIGNS COURIER ====================
+    async verifyPayment(
+        requestId: string, 
+        adminId: string, 
+        approved: boolean, 
+        note?: string,
+        courierData?: {
+            assignedCourierId: string;
+            sourceAddress: string;
+            destinationAddress: string;
+        }
+    ) {
         const request = await this.prisma.deliveryRequest.findUnique({
             where: { id: requestId },
             include: {
-                requester: { select: { id: true, name: true } },
+                requester: { select: { id: true, name: true, email: true } },
                 inventoryLot: {
                     include: {
                         medicine: true,
@@ -375,49 +401,78 @@ export class DeliveryRequestsService {
             return { message: 'Payment rejected. Buyer notified to re-upload.' };
         }
 
-        // Payment approved
-        const seller = request.inventoryLot.sourceOrder?.listing?.seller;
-        if (!seller) throw new NotFoundException('Seller not found');
+        // Payment approved - directly assign courier and dispatch
+        if (!courierData) {
+            throw new BadRequestException('Courier assignment data is required for payment approval');
+        }
 
+        // Verify courier exists
+        const courier = await this.prisma.user.findUnique({
+            where: { id: courierData.assignedCourierId, roleCode: 'COURIER' },
+            select: { id: true, name: true, email: true, phone: true },
+        });
+
+        if (!courier) throw new NotFoundException('Courier not found');
+
+        // Update request - skip AWAITING_SELLER_INVOICE and AWAITING_ADMIN_DISPATCH
         await this.prisma.deliveryRequest.update({
             where: { id: requestId },
             data: {
-                status: 'AWAITING_SELLER_INVOICE',
+                status: 'AWAITING_COURIER_PICKUP',
                 paymentVerifiedAt: new Date(),
                 reviewerNote: note,
+                assignedCourierId: courierData.assignedCourierId,
+                sourceAddress: courierData.sourceAddress,
+                destinationAddress: courierData.destinationAddress,
+                dispatchedAt: new Date(),
             },
         });
 
-        // Notify seller to upload invoice
+        // Notify courier
         await this.prisma.notification.create({
             data: {
-                userId: seller.id,
+                userId: courier.id,
                 channel: 'INAPP',
-                subject: 'Payment Verified - Upload Invoice to 24Rx',
-                body: `Payment verified for ${request.inventoryLot.medicine.name}. Please upload your invoice to 24Rx.`,
+                subject: 'New Pickup Assignment',
+                body: `Pickup ${request.inventoryLot.medicine.name} from ${courierData.sourceAddress} and deliver to ${courierData.destinationAddress}`,
                 meta: { deliveryRequestId: request.id },
             },
         });
 
         this.emailService.sendEmail(
-            seller.email,
-            'Payment Verified - Invoice Upload Required',
-            `<p>Payment has been verified for delivery of ${request.inventoryLot.medicine.name}.</p>
-             <p>Please upload your invoice to 24Rx to proceed with dispatch.</p>`,
-        ).catch(error => console.error('Failed to send seller email:', error));
+            courier.email,
+            'New Delivery Assignment',
+            `<p>You have been assigned a new delivery:</p>
+             <p>Medicine: ${request.inventoryLot.medicine.name}</p>
+             <p>Quantity: ${request.qty}</p>
+             <p>Pickup: ${courierData.sourceAddress}</p>
+             <p>Delivery: ${courierData.destinationAddress}</p>`,
+        ).catch(error => console.error('Failed to send courier email:', error));
 
         // Notify buyer
         await this.prisma.notification.create({
             data: {
                 userId: request.requesterId,
                 channel: 'INAPP',
-                subject: 'Payment Verified',
-                body: `Your payment has been verified. Seller will upload invoice shortly.`,
+                subject: 'Payment Verified - Courier Assigned',
+                body: `Your payment has been verified. Courier ${courier.name} has been assigned for pickup.`,
                 meta: { deliveryRequestId: request.id },
             },
         });
 
-        return { message: 'Payment verified. Seller notified to upload invoice.' };
+        this.emailService.sendEmail(
+            request.requester.email,
+            'Payment Verified - Courier Assigned',
+            `<p>Your payment has been verified!</p>
+             <p>Courier ${courier.name} has been assigned to deliver your order.</p>
+             <p>Medicine: ${request.inventoryLot.medicine.name}</p>
+             <p>Quantity: ${request.qty}</p>`,
+        ).catch(error => console.error('Failed to send buyer email:', error));
+
+        return { 
+            message: 'Payment verified and courier assigned successfully.',
+            courier: courier.name,
+        };
     }
 
     // ==================== STEP 5: SELLER UPLOADS INVOICE ====================
@@ -588,7 +643,47 @@ export class DeliveryRequestsService {
         };
     }
 
-    // ==================== STEP 7: COURIER UPDATES STATUS ====================
+    // ==================== STEP 7: COURIER ACCEPTS & UPDATES STATUS ====================
+    async acceptDelivery(requestId: string, courierId: string) {
+        const request = await this.prisma.deliveryRequest.findUnique({
+            where: { id: requestId },
+            include: {
+                requester: { select: { id: true, name: true, email: true } },
+                inventoryLot: { include: { medicine: true } },
+            },
+        });
+
+        if (!request) throw new NotFoundException('Delivery request not found');
+        if (request.assignedCourierId !== courierId) {
+            throw new BadRequestException('You are not assigned to this delivery');
+        }
+        if (request.status !== 'AWAITING_COURIER_PICKUP') {
+            throw new BadRequestException('Delivery is not awaiting pickup');
+        }
+
+        // Update status to IN_TRANSIT
+        await this.prisma.deliveryRequest.update({
+            where: { id: requestId },
+            data: {
+                status: 'IN_TRANSIT',
+                courierPickupAt: new Date(),
+            },
+        });
+
+        // Notify buyer
+        await this.prisma.notification.create({
+            data: {
+                userId: request.requesterId,
+                channel: 'INAPP',
+                subject: 'Delivery In Transit',
+                body: `Your order for ${request.inventoryLot.medicine.name} is now in transit.`,
+                meta: { deliveryRequestId: request.id },
+            },
+        });
+
+        return { message: 'Delivery accepted and marked as in transit.' };
+    }
+
     async updateCourierStatus(
         requestId: string,
         courierId: string,
@@ -785,6 +880,15 @@ export class DeliveryRequestsService {
                 inventoryLot: {
                     include: {
                         medicine: { include: { manufacturer: true } },
+                        sourceOrder: {
+                            include: {
+                                listing: {
+                                    include: {
+                                        seller: { select: { id: true, name: true, email: true, phone: true, address: true } }
+                                    }
+                                }
+                            }
+                        }
                     },
                 },
             },
@@ -819,32 +923,104 @@ export class DeliveryRequestsService {
         });
     }
 
-    // Generate proforma invoice PDF
+    // Generate proforma invoice PDF - COMBINED medicine + delivery charge
     private async generateProformaInvoice(request: any): Promise<string> {
-        // Use existing PDF service to generate proforma invoice
-        const invoiceData = {
-            invoiceNumber: `PI-${request.id.slice(0, 8).toUpperCase()}`,
-            date: new Date().toLocaleDateString('en-IN'),
-            buyer: {
-                name: request.requester.name,
-                email: request.requester.email,
-                address: request.requester.address || 'N/A',
+        // Get the original buy proposal to get medicine pricing
+        const buyProposal = await this.prisma.buyProposal.findFirst({
+            where: {
+                approvedOrderId: request.inventoryLot.sourceOrderId,
             },
-            items: [{
-                description: `Delivery Charge for ${request.inventoryLot.medicine.name}`,
-                weight: `${request.parcelWeightKg} kg`,
-                mode: request.transportMode,
-                rate: `₹${DELIVERY_RATES[request.transportMode]}/kg`,
-                amount: request.deliveryCharge,
-            }],
-            total: request.deliveryCharge,
-        };
+            include: {
+                listing: {
+                    include: {
+                        medicine: { include: { manufacturer: true } }
+                    }
+                }
+            }
+        });
 
-        // Generate PDF and upload to GCS
-        const pdfBuffer = await this.pdfService.generateProformaInvoice(invoiceData);
+        if (!buyProposal) {
+            throw new NotFoundException('Original buy proposal not found');
+        }
+
+        // Calculate medicine totals (from original buy proposal)
+        const unitPrice = Number(buyProposal.listing.listPrice || buyProposal.listing.basePrice || 0);
+        const gstPct = Number(buyProposal.listing.gstPercentage || 0);
+        const medicineSubtotal = unitPrice * request.qty;
+        const medicineGst = medicineSubtotal * (gstPct / 100);
+        const medicineTotal = medicineSubtotal + medicineGst;
+
+        // Delivery charge (no GST)
+        const deliveryCharge = Number(request.deliveryCharge || 0);
+
+        // Grand total
+        const grandTotal = medicineTotal + deliveryCharge;
+
+        // Create items array with medicine + delivery charge
+        const items = [
+            // Medicine item
+            {
+                hsn: '',
+                productName: buyProposal.listing.medicine.name,
+                pack: buyProposal.listing.medicine.packSize || '1',
+                qty: request.qty,
+                batch: request.batchNumber || buyProposal.confirmedBatchNo || 'TBD',
+                mfg: new Date().toLocaleDateString('en-GB'),
+                exp: request.expiryDate ? new Date(request.expiryDate).toLocaleDateString('en-GB') : 
+                     (buyProposal.confirmedExpiryDate ? new Date(buyProposal.confirmedExpiryDate).toLocaleDateString('en-GB') : 'N/A'),
+                mrp: Number(buyProposal.listing.medicine.mrp || 0),
+                rate: unitPrice,
+                dis: 0,
+                sgst: gstPct / 2,
+                sgstValue: medicineGst / 2,
+                cgst: gstPct / 2,
+                cgstValue: medicineGst / 2,
+                amount: medicineTotal,
+            },
+            // Delivery charge item
+            {
+                hsn: '',
+                productName: `Delivery Charge (${request.transportMode} - ${request.parcelWeightKg}kg)`,
+                pack: '',
+                qty: 1,
+                batch: '',
+                mfg: '',
+                exp: '',
+                mrp: 0,
+                rate: deliveryCharge,
+                dis: 0,
+                sgst: 0,
+                sgstValue: 0,
+                cgst: 0,
+                cgstValue: 0,
+                amount: deliveryCharge,
+            }
+        ];
+
+        const pdfBuffer = await this.pdfService.generateQuotationPDF({
+            invoiceNo: `PI-${request.id.substring(0, 8).toUpperCase()}`,
+            invoiceDate: new Date().toLocaleDateString('en-GB'),
+            orderNo: request.id.substring(0, 8).toUpperCase(),
+            orderDate: new Date(request.createdAt).toLocaleDateString('en-GB'),
+            lrDate: '',
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+            // BUYER details
+            partyName: request.requester.name,
+            partyAddress: request.requester.address || '',
+            partyPhone: request.requester.phone || '',
+            partyGSTIN: '',
+            partyDLNo: '',
+            items: items,
+            totalSGST: medicineGst / 2,
+            totalCGST: medicineGst / 2,
+            grandTotal: grandTotal,
+            totalItems: 2,
+            totalQty: request.qty + 1,
+        });
+
         const fileName = `proforma-invoice-${request.id}.pdf`;
         
-        // Upload to GCS (you'll need to implement this in GCS service)
+        // Upload to GCS
         return await this.gcsService.uploadBuffer(pdfBuffer, 'proforma-invoices', fileName);
     }
 

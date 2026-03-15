@@ -15,14 +15,7 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'https://24rxexchange.com',
-      'https://www.24rxexchange.com',
-      'https://track.24rxexchange.com'
-    ],
+    origin: true, // Allow all origins in development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],

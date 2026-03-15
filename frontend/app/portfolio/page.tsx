@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2, DollarSign, Download } from "lucide-react";
+import { Briefcase, TrendingUp, Package, ArrowLeft, PieChart, Truck, X, Loader2, DollarSign, Download, Upload } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import Logo from "@/components/Logo";
@@ -34,6 +34,14 @@ export default function PortfolioPage() {
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpSuccess, setOtpSuccess] = useState("");
+
+  // Payment receipt upload state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentRequest, setSelectedPaymentRequest] = useState<any>(null);
+  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -111,26 +119,36 @@ export default function PortfolioPage() {
 
     if (deliveryRequest) {
       switch (deliveryRequest.status) {
+        case 'AWAITING_SELLER_INFO':
+          return { status: 'AWAITING_SELLER_INFO', label: 'Awaiting Seller Details', color: 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20', deliveryRequest };
+        case 'AWAITING_PAYMENT':
+          return { status: 'AWAITING_PAYMENT', label: 'Payment Required', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20', deliveryRequest };
+        case 'PAYMENT_PENDING_VERIFICATION':
+          return { status: 'PAYMENT_PENDING_VERIFICATION', label: 'Payment Under Verification', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20', deliveryRequest };
+        case 'AWAITING_SELLER_INVOICE':
+          return { status: 'AWAITING_SELLER_INVOICE', label: 'Awaiting Seller Invoice', color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20', deliveryRequest };
+        case 'AWAITING_ADMIN_DISPATCH':
+          return { status: 'AWAITING_ADMIN_DISPATCH', label: 'Awaiting Admin Dispatch', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20', deliveryRequest };
         case 'PENDING':
-          return { status: 'DELIVERY_PENDING', label: 'Awaiting Courier Assignment', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20' };
+          return { status: 'DELIVERY_PENDING', label: 'Awaiting Courier Assignment', color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20', deliveryRequest };
         case 'AWAITING_COURIER_PICKUP':
-          return { status: 'COURIER_ASSIGNED', label: 'Courier Assigned', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' };
+          return { status: 'COURIER_ASSIGNED', label: 'Courier Assigned', color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20', deliveryRequest };
         case 'IN_TRANSIT':
         case 'OUT_FOR_DELIVERY':
         case 'DISPATCHED':
-          return { status: 'IN_TRANSIT', label: 'In Transit', color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' };
+          return { status: 'IN_TRANSIT', label: 'In Transit', color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20', deliveryRequest };
         case 'PENDING_OTP_VERIFICATION':
-          return { status: 'AWAITING_OTP', label: 'Delivered - OTP Pending', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' };
+          return { status: 'AWAITING_OTP', label: 'Delivered - OTP Pending', color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20', deliveryRequest };
         case 'DELIVERED':
-          return { status: 'DELIVERED', label: 'Delivered', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
+          return { status: 'DELIVERED', label: 'Delivered', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20', deliveryRequest };
         case 'REJECTED':
-          return { status: 'REJECTED', label: 'Rejected', color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' };
+          return { status: 'REJECTED', label: 'Rejected', color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20', deliveryRequest };
         default:
-          return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
+          return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20', deliveryRequest: null };
       }
     }
 
-    return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' };
+    return { status: 'AVAILABLE', label: 'Available', color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20', deliveryRequest: null };
   };
 
   const openDeliveryModal = (holding: any) => {
@@ -147,6 +165,64 @@ export default function PortfolioPage() {
     setDeliveryQty(0);
     setDeliveryError("");
     setDeliverySuccess("");
+  };
+
+  const openPaymentModal = (deliveryRequest: any) => {
+    setSelectedPaymentRequest(deliveryRequest);
+    setPaymentReceipt(null);
+    setPaymentError("");
+    setPaymentSuccess("");
+    setShowPaymentModal(true);
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedPaymentRequest(null);
+    setPaymentReceipt(null);
+    setPaymentError("");
+    setPaymentSuccess("");
+  };
+
+  const handleUploadPaymentReceipt = async () => {
+    if (!selectedPaymentRequest || !paymentReceipt) {
+      setPaymentError("Please select a payment receipt file");
+      return;
+    }
+
+    setUploadingReceipt(true);
+    setPaymentError("");
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const formData = new FormData();
+      formData.append("paymentReceipt", paymentReceipt);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1"}/delivery-requests/${selectedPaymentRequest.id}/payment-receipt`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to upload payment receipt");
+      }
+
+      setPaymentSuccess("Payment receipt uploaded successfully! Admin will verify it soon.");
+      setTimeout(() => {
+        closePaymentModal();
+        loadHoldings();
+      }, 2000);
+    } catch (error: any) {
+      setPaymentError(error.message);
+    } finally {
+      setUploadingReceipt(false);
+    }
   };
 
   const handleRequestDelivery = async () => {
@@ -458,12 +534,29 @@ export default function PortfolioPage() {
                                 <Package className="w-4 h-4" />
                                 Confirm Delivery
                               </button>
+                            ) : statusInfo.status === 'AWAITING_PAYMENT' ? (
+                              <button
+                                onClick={() => openPaymentModal(statusInfo.deliveryRequest)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                                title="Upload payment receipt for delivery charge"
+                              >
+                                <Upload className="w-4 h-4" />
+                                Upload Receipt
+                              </button>
                             ) : (
                               <button
                                 onClick={() => openDeliveryModal(holding)}
-                                disabled={['PENDING', 'DELIVERY_PENDING', 'COURIER_ASSIGNED', 'IN_TRANSIT', 'AWAITING_OTP'].includes(statusInfo.status)}
+                                disabled={['AWAITING_SELLER_INFO', 'PAYMENT_PENDING_VERIFICATION', 'AWAITING_SELLER_INVOICE', 'AWAITING_ADMIN_DISPATCH', 'PENDING', 'DELIVERY_PENDING', 'COURIER_ASSIGNED', 'IN_TRANSIT'].includes(statusInfo.status)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
-                                title={statusInfo.status === 'PENDING'
+                                title={statusInfo.status === 'AWAITING_SELLER_INFO'
+                                  ? 'Waiting for seller to provide shipping details'
+                                  : statusInfo.status === 'PAYMENT_PENDING_VERIFICATION'
+                                  ? 'Admin is verifying your payment'
+                                  : statusInfo.status === 'AWAITING_SELLER_INVOICE'
+                                  ? 'Waiting for seller invoice'
+                                  : statusInfo.status === 'AWAITING_ADMIN_DISPATCH'
+                                  ? 'Admin is preparing dispatch'
+                                  : statusInfo.status === 'PENDING'
                                   ? 'Waiting for buy approval'
                                   : statusInfo.status === 'DELIVERY_PENDING'
                                   ? 'Admin is assigning courier'
@@ -471,8 +564,6 @@ export default function PortfolioPage() {
                                   ? 'Courier assigned for pickup'
                                   : statusInfo.status === 'IN_TRANSIT'
                                   ? 'Delivery is in transit'
-                                  : statusInfo.status === 'AWAITING_OTP'
-                                  ? 'Confirm delivery with OTP'
                                   : 'Request physical delivery'}
                               >
                                 <Truck className="w-4 h-4" />
@@ -697,6 +788,105 @@ export default function PortfolioPage() {
                   <>
                     <Package className="w-4 h-4" />
                     Confirm Delivery
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Receipt Upload Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Payment Receipt</h3>
+              <button
+                onClick={closePaymentModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Please upload your payment receipt for the delivery charge of ₹{Number(selectedPaymentRequest?.deliveryCharge || 0).toFixed(2)}
+              </p>
+
+              {selectedPaymentRequest?.proformaInvoiceUrl && (
+                <a
+                  href={selectedPaymentRequest.proformaInvoiceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Proforma Invoice
+                </a>
+              )}
+
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Payment Receipt <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)}
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-center hover:border-orange-400 dark:hover:border-orange-500 transition-colors">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {paymentReceipt?.name || 'Click to select or drag & drop'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Supported formats: PDF, JPG, PNG (Max 10MB)
+                </p>
+              </div>
+
+              {/* Error/Success Messages */}
+              {paymentError && (
+                <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+                  {paymentError}
+                </div>
+              )}
+              {paymentSuccess && (
+                <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                  {paymentSuccess}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+              <button
+                onClick={closePaymentModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadPaymentReceipt}
+                disabled={uploadingReceipt || !paymentReceipt}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 rounded-lg transition-colors"
+              >
+                {uploadingReceipt ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Upload Receipt
                   </>
                 )}
               </button>

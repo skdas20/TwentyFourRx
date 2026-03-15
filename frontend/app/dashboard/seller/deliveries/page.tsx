@@ -14,6 +14,15 @@ interface DeliveryRequest {
   qty: number;
   status: string;
   invoiceUrl: string | null;
+  sellerInvoiceUrl: string | null;
+  proformaInvoiceUrl: string | null;
+  paymentReceiptUrl: string | null;
+  packageImageUrl: string | null;
+  batchNumber: string | null;
+  expiryDate: string | null;
+  parcelWeightKg: number | null;
+  transportMode: string | null;
+  deliveryCharge: number | null;
   createdAt: string;
   dispatchedAt: string | null;
   requester: {
@@ -39,8 +48,10 @@ export default function SellerDeliveriesPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<{ [key: string]: File | null }>({});
   const [selectedPackageImage, setSelectedPackageImage] = useState<{ [key: string]: File | null }>({});
-  const [trackingNumber, setTrackingNumber] = useState<{ [key: string]: string }>({});
-  const [deliveryPartner, setDeliveryPartner] = useState<{ [key: string]: string }>({});
+  const [batchNumber, setBatchNumber] = useState<{ [key: string]: string }>({});
+  const [expiryDate, setExpiryDate] = useState<{ [key: string]: string }>({});
+  const [parcelWeight, setParcelWeight] = useState<{ [key: string]: string }>({});
+  const [transportMode, setTransportMode] = useState<{ [key: string]: 'ROAD' | 'AIR' }>({});
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -62,7 +73,7 @@ export default function SellerDeliveriesPage() {
       const token = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
-      const response = await fetch(`${apiUrl}/delivery-requests/my`, {
+      const response = await fetch(`${apiUrl}/delivery-requests/seller/my`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -103,24 +114,84 @@ export default function SellerDeliveriesPage() {
     }));
   };
 
-  const handleDispatch = async (requestId: string) => {
-    const file = selectedFile[requestId];
+  const handleProvideShippingDetails = async (requestId: string) => {
+    const batch = batchNumber[requestId];
+    const expiry = expiryDate[requestId];
+    const weight = parcelWeight[requestId];
+    const transport = transportMode[requestId];
     const packageImage = selectedPackageImage[requestId];
-    const tracking = trackingNumber[requestId];
-    const partner = deliveryPartner[requestId];
+
+    if (!batch || !batch.trim()) {
+      showToast.error('Please enter the batch number');
+      return;
+    }
+
+    if (!expiry || !expiry.trim()) {
+      showToast.error('Please enter the expiry date');
+      return;
+    }
+
+    if (!weight || !weight.trim() || Number(weight) <= 0) {
+      showToast.error('Please enter a valid parcel weight');
+      return;
+    }
+
+    if (!transport) {
+      showToast.error('Please select transport mode (ROAD or AIR)');
+      return;
+    }
+
+    if (!packageImage) {
+      showToast.error('Please upload package image');
+      return;
+    }
+
+    setUploadingId(requestId);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+      const formData = new FormData();
+      formData.append('batchNumber', batch.trim());
+      formData.append('expiryDate', expiry.trim());
+      formData.append('parcelWeightKg', String(Number(weight.trim())));
+      formData.append('transportMode', transport);
+      formData.append('packageImage', packageImage);
+
+      const response = await fetch(`${apiUrl}/delivery-requests/${requestId}/shipping-details`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to provide shipping details');
+      }
+
+      showToast.success('Shipping details submitted! Proforma invoice sent to buyer.');
+      await fetchMyRequests();
+      
+      // Clear form
+      setBatchNumber(prev => ({ ...prev, [requestId]: '' }));
+      setExpiryDate(prev => ({ ...prev, [requestId]: '' }));
+      setParcelWeight(prev => ({ ...prev, [requestId]: '' }));
+      setTransportMode(prev => ({ ...prev, [requestId]: 'ROAD' }));
+      setSelectedPackageImage(prev => ({ ...prev, [requestId]: null }));
+    } catch (err: any) {
+      showToast.error(err.message);
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleUploadSellerInvoice = async (requestId: string) => {
+    const file = selectedFile[requestId];
 
     if (!file) {
-      showToast.error('Please select a courier invoice/document to upload');
-      return;
-    }
-
-    if (!tracking || !tracking.trim()) {
-      showToast.error('Please enter the tracking number');
-      return;
-    }
-
-    if (!partner || !partner.trim()) {
-      showToast.error('Please enter the delivery partner name');
+      showToast.error('Please select an invoice to upload');
       return;
     }
 
@@ -131,13 +202,8 @@ export default function SellerDeliveriesPage() {
 
       const formData = new FormData();
       formData.append('invoice', file);
-      if (packageImage) {
-        formData.append('packageImage', packageImage);
-      }
-      formData.append('trackingNumber', tracking.trim());
-      formData.append('deliveryPartner', partner.trim());
 
-      const response = await fetch(`${apiUrl}/delivery-requests/${requestId}/dispatch`, {
+      const response = await fetch(`${apiUrl}/delivery-requests/${requestId}/seller-invoice`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -147,27 +213,12 @@ export default function SellerDeliveriesPage() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to confirm dispatch');
+        throw new Error(error.message || 'Failed to upload invoice');
       }
 
-      showToast.success('Dispatch confirmed! Request sent to admin for approval.');
+      showToast.success('Invoice uploaded successfully! Awaiting admin dispatch.');
       await fetchMyRequests();
-      setSelectedFile(prev => ({
-        ...prev,
-        [requestId]: null,
-      }));
-      setSelectedPackageImage(prev => ({
-        ...prev,
-        [requestId]: null,
-      }));
-      setTrackingNumber(prev => ({
-        ...prev,
-        [requestId]: '',
-      }));
-      setDeliveryPartner(prev => ({
-        ...prev,
-        [requestId]: '',
-      }));
+      setSelectedFile(prev => ({ ...prev, [requestId]: null }));
     } catch (err: any) {
       showToast.error(err.message);
     } finally {
@@ -177,11 +228,20 @@ export default function SellerDeliveriesPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case 'AWAITING_SELLER_INFO':
         return <Clock className="text-yellow-600" size={18} />;
-      case 'APPROVED':
-        return <CheckCircle className="text-green-600" size={18} />;
+      case 'AWAITING_PAYMENT':
+        return <Clock className="text-orange-600" size={18} />;
+      case 'PAYMENT_PENDING_VERIFICATION':
+        return <Clock className="text-blue-600" size={18} />;
+      case 'AWAITING_SELLER_INVOICE':
+        return <Upload className="text-purple-600" size={18} />;
+      case 'AWAITING_ADMIN_DISPATCH':
+        return <Clock className="text-indigo-600" size={18} />;
+      case 'AWAITING_COURIER_PICKUP':
       case 'DISPATCHED':
+      case 'IN_TRANSIT':
+      case 'OUT_FOR_DELIVERY':
         return <Truck className="text-blue-600" size={18} />;
       case 'DELIVERED':
         return <CheckCircle className="text-green-600" size={18} />;
@@ -192,15 +252,25 @@ export default function SellerDeliveriesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case 'AWAITING_SELLER_INFO':
         return 'bg-yellow-50 text-yellow-700 border-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800/30';
-      case 'APPROVED':
-        return 'bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/30';
+      case 'AWAITING_PAYMENT':
+        return 'bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800/30';
+      case 'PAYMENT_PENDING_VERIFICATION':
+        return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30';
+      case 'AWAITING_SELLER_INVOICE':
+        return 'bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800/30';
+      case 'AWAITING_ADMIN_DISPATCH':
+        return 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800/30';
+      case 'AWAITING_COURIER_PICKUP':
       case 'DISPATCHED':
+      case 'IN_TRANSIT':
+      case 'OUT_FOR_DELIVERY':
         return 'bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30';
       case 'DELIVERED':
         return 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30';
       case 'REJECTED':
+      case 'CANCELLED':
         return 'bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30';
       default:
         return 'bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700';
@@ -328,69 +398,96 @@ export default function SellerDeliveriesPage() {
 
                   {/* Actions Section */}
                   <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50">
-                    {request.status === 'AWAITING_SELLER' && !request.invoiceUrl ? (
-                      <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-100 dark:border-blue-800/30">
+                    {/* STEP 2: Seller provides shipping details */}
+                    {request.status === 'AWAITING_SELLER_INFO' && (
+                      <div className="bg-yellow-50/50 dark:bg-yellow-900/10 rounded-xl p-6 border border-yellow-100 dark:border-yellow-800/30">
                         <div className="flex items-center gap-2 mb-4">
-                          <Upload size={18} className="text-blue-600" />
-                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Dispatch Details</h4>
+                          <Package size={18} className="text-yellow-600" />
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Provide Shipping Details</h4>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
-                          Please provide tracking information and upload the courier invoice to confirm this delivery.
+                          Please provide batch number, expiry date, parcel weight, transport mode, and package image.
                         </p>
 
                         <div className="space-y-4">
-                          {/* Tracking Number */}
+                          {/* Batch Number */}
                           <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                              Tracking Number <span className="text-red-500">*</span>
+                              Batch Number <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="text"
-                              value={trackingNumber[request.id] || ''}
-                              onChange={(e) => setTrackingNumber(prev => ({ ...prev, [request.id]: e.target.value }))}
-                              placeholder="Enter tracking number"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={batchNumber[request.id] || ''}
+                              onChange={(e) => setBatchNumber(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              placeholder="Enter batch number"
+                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             />
                           </div>
 
-                          {/* Delivery Partner */}
+                          {/* Expiry Date */}
                           <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                              Delivery Partner <span className="text-red-500">*</span>
+                              Expiry Date <span className="text-red-500">*</span>
                             </label>
                             <input
-                              type="text"
-                              value={deliveryPartner[request.id] || ''}
-                              onChange={(e) => setDeliveryPartner(prev => ({ ...prev, [request.id]: e.target.value }))}
-                              placeholder="e.g., Blue Dart, DTDC, FedEx"
-                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              type="date"
+                              value={expiryDate[request.id] || ''}
+                              onChange={(e) => setExpiryDate(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             />
                           </div>
 
-                          {/* Courier Invoice Upload */}
+                          {/* Parcel Weight */}
                           <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                              Courier Invoice <span className="text-red-500">*</span>
+                              Parcel Weight (KG) <span className="text-red-500">*</span>
                             </label>
-                            <div className="relative">
-                              <input
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
-                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                              />
-                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  {selectedFile[request.id]?.name || 'Click to select or drag & drop'}
-                                </span>
-                              </div>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={parcelWeight[request.id] || ''}
+                              onChange={(e) => setParcelWeight(prev => ({ ...prev, [request.id]: e.target.value }))}
+                              placeholder="Enter weight in kg"
+                              className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                            />
+                          </div>
+
+                          {/* Transport Mode */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Transport Mode <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setTransportMode(prev => ({ ...prev, [request.id]: 'ROAD' }))}
+                                className={`px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
+                                  transportMode[request.id] === 'ROAD'
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                🚚 ROAD (₹60/kg)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTransportMode(prev => ({ ...prev, [request.id]: 'AIR' }))}
+                                className={`px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
+                                  transportMode[request.id] === 'AIR'
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                ✈️ AIR (₹120/kg)
+                              </button>
                             </div>
                           </div>
 
                           {/* Package Image Upload */}
                           <div>
                             <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                              Package Photo (Optional)
+                              Package Photo <span className="text-red-500">*</span>
                             </label>
                             <div className="relative">
                               <input
@@ -399,20 +496,80 @@ export default function SellerDeliveriesPage() {
                                 onChange={(e) => handlePackageImageChange(request.id, e.target.files?.[0] || null)}
                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
                               />
-                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-yellow-400 dark:hover:border-yellow-500 transition-colors">
                                 <span className="text-sm text-gray-500 dark:text-gray-400">
                                   {selectedPackageImage[request.id]?.name || 'Click to upload package photo'}
                                 </span>
                               </div>
                             </div>
-                            <p className="text-xs text-gray-400 mt-1">Upload a photo of the packaged medicine for verification</p>
                           </div>
 
                           {/* Submit Button */}
                           <button
-                            onClick={() => handleDispatch(request.id)}
-                            disabled={!selectedFile[request.id] || !trackingNumber[request.id] || !deliveryPartner[request.id] || uploadingId === request.id}
-                            className="w-full px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                            onClick={() => handleProvideShippingDetails(request.id)}
+                            disabled={
+                              !batchNumber[request.id] ||
+                              !expiryDate[request.id] ||
+                              !parcelWeight[request.id] ||
+                              !transportMode[request.id] ||
+                              !selectedPackageImage[request.id] ||
+                              uploadingId === request.id
+                            }
+                            className="w-full px-8 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-yellow-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                          >
+                            {uploadingId === request.id ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle size={18} />
+                                Submit Shipping Details
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 5: Seller uploads invoice after payment verified */}
+                    {request.status === 'AWAITING_SELLER_INVOICE' && (
+                      <div className="bg-purple-50/50 dark:bg-purple-900/10 rounded-xl p-6 border border-purple-100 dark:border-purple-800/30">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Upload size={18} className="text-purple-600" />
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">Upload Your Invoice</h4>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+                          Payment has been verified. Please upload your invoice to 24Rx.
+                        </p>
+
+                        <div className="space-y-4">
+                          {/* Invoice Upload */}
+                          <div>
+                            <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                              Your Invoice <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                              />
+                              <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {selectedFile[request.id]?.name || 'Click to select or drag & drop'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Submit Button */}
+                          <button
+                            onClick={() => handleUploadSellerInvoice(request.id)}
+                            disabled={!selectedFile[request.id] || uploadingId === request.id}
+                            className="w-full px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                           >
                             {uploadingId === request.id ? (
                               <>
@@ -422,48 +579,72 @@ export default function SellerDeliveriesPage() {
                             ) : (
                               <>
                                 <CheckCircle size={18} />
-                                Confirm Dispatch
+                                Upload Invoice
                               </>
                             )}
                           </button>
                         </div>
                       </div>
-                    ) : request.invoiceUrl ? (
-                      <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-100 dark:border-green-800/30">
+                    )}
+
+                    {/* Other statuses - just show info */}
+                    {request.status === 'AWAITING_PAYMENT' && (
+                      <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-4 border border-orange-100 dark:border-orange-800/30">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
-                            <CheckCircle size={18} className="text-green-600" />
-                          </div>
+                          <Clock size={18} className="text-orange-600" />
                           <div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">Documents Uploaded</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Awaiting final admin verification</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Awaiting Buyer Payment</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Proforma invoice sent to buyer. Waiting for payment.</p>
                           </div>
                         </div>
-                        <a
-                          href={request.invoiceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-white dark:bg-gray-800 text-xs font-bold text-blue-600 dark:text-blue-400 rounded-lg border border-blue-100 dark:border-blue-800/30 hover:bg-blue-50 transition-colors flex items-center gap-2"
-                        >
-                          <Eye size={14} />
-                          View Proof
-                        </a>
                       </div>
-                    ) : request.status === 'DISPATCHED' ? (
-                      <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800/30 flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-sm">
+                    )}
+
+                    {request.status === 'PAYMENT_PENDING_VERIFICATION' && (
+                      <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800/30">
+                        <div className="flex items-center gap-3">
+                          <Clock size={18} className="text-blue-600" />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Payment Under Verification</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Buyer uploaded payment receipt. Admin is verifying.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {request.status === 'AWAITING_ADMIN_DISPATCH' && (
+                      <div className="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/30">
+                        <div className="flex items-center gap-3">
+                          <Clock size={18} className="text-indigo-600" />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Awaiting Admin Dispatch</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Your invoice uploaded. Admin will dispatch soon.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(request.status === 'AWAITING_COURIER_PICKUP' || request.status === 'DISPATCHED' || request.status === 'IN_TRANSIT' || request.status === 'OUT_FOR_DELIVERY') && (
+                      <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800/30">
+                        <div className="flex items-center gap-3">
                           <Truck size={18} className="text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900 dark:text-white">Order Dispatched</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Dispatched on {new Date(request.dispatchedAt!).toLocaleString()}
-                          </p>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">In Transit</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Order is being delivered by courier partner.</p>
+                          </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-400 font-medium italic">
-                        {request.status === 'PENDING' ? 'Waiting for admin to approve the delivery request...' : 'No actions required at this stage.'}
+                    )}
+
+                    {request.status === 'DELIVERED' && (
+                      <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-100 dark:border-green-800/30">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle size={18} className="text-green-600" />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Delivered Successfully</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Order delivered on {new Date(request.dispatchedAt!).toLocaleString()}</p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

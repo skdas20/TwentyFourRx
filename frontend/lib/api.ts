@@ -270,6 +270,15 @@ export const deliveryRequestsApi = {
   // Admin: Assign courier and destination
   assignCourier: (id: string, courierId: string, destinationAddress: string) =>
     api.post(`/delivery-requests/${id}/assign-courier`, { courierId, destinationAddress }),
+  // Admin: Verify payment and assign courier
+  verifyPayment: (id: string, data: { 
+    approved: boolean; 
+    note?: string;
+    assignedCourierId?: string;
+    sourceAddress?: string;
+    destinationAddress?: string;
+  }) =>
+    api.post(`/delivery-requests/${id}/verify-payment`, data),
   // Admin: Mark delivery charge payment received
   markPaymentReceived: (id: string, note?: string) =>
     api.post(`/delivery-requests/${id}/mark-payment-received`, { note }),

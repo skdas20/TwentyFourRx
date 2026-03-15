@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { IsString, IsNumber, IsNotEmpty, Min, IsBoolean, IsOptional, IsEnum } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { DeliveryRequestsService } from './delivery-requests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -40,6 +41,7 @@ class SubmitShippingDetailsDto {
     @IsNotEmpty()
     expiryDate: string; // ISO date string
 
+    @Transform(({ value }) => parseFloat(value))
     @IsNumber()
     @Min(0.1)
     parcelWeightKg: number;
@@ -57,6 +59,19 @@ class VerifyPaymentDto {
     @IsString()
     @IsOptional()
     note?: string;
+
+    // Courier assignment data (required when approved=true)
+    @IsString()
+    @IsOptional()
+    assignedCourierId?: string;
+
+    @IsString()
+    @IsOptional()
+    sourceAddress?: string;
+
+    @IsString()
+    @IsOptional()
+    destinationAddress?: string;
 }
 
 class InitiateDispatchDto {
@@ -107,12 +122,14 @@ export class DeliveryRequestsController {
     // ==================== STEP 2: SELLER PROVIDES SHIPPING DETAILS ====================
     @Post(':id/shipping-details')
     @Roles('SELLER', 'TRADER')
+    @UseInterceptors(FileInterceptor('packageImage'))
     async submitShippingDetails(
         @Param('id') id: string,
         @CurrentUser() user: any,
         @Body() dto: SubmitShippingDetailsDto,
+        @UploadedFile() packageImage: Express.Multer.File,
     ) {
-        return this.service.submitShippingDetails(id, user.sub, dto);
+        return this.service.submitShippingDetails(id, user.sub, dto, packageImage);
     }
 
     // ==================== STEP 3: BUYER UPLOADS PAYMENT RECEIPT ====================
@@ -130,7 +147,7 @@ export class DeliveryRequestsController {
         return this.service.uploadPaymentReceipt(id, user.sub, file);
     }
 
-    // ==================== STEP 4: ADMIN VERIFIES PAYMENT ====================
+    // ==================== STEP 4: ADMIN VERIFIES PAYMENT & ASSIGNS COURIER ====================
     @Post(':id/verify-payment')
     @Roles('ADMIN')
     async verifyPayment(
@@ -138,7 +155,18 @@ export class DeliveryRequestsController {
         @CurrentUser() user: any,
         @Body() dto: VerifyPaymentDto,
     ) {
-        return this.service.verifyPayment(id, user.sub, dto.approved, dto.note);
+        // If approved, courier data is required
+        if (dto.approved && (!dto.assignedCourierId || !dto.sourceAddress || !dto.destinationAddress)) {
+            throw new BadRequestException('Courier assignment data is required when approving payment');
+        }
+
+        const courierData = dto.approved ? {
+            assignedCourierId: dto.assignedCourierId!,
+            sourceAddress: dto.sourceAddress!,
+            destinationAddress: dto.destinationAddress!,
+        } : undefined;
+
+        return this.service.verifyPayment(id, user.sub, dto.approved, dto.note, courierData);
     }
 
     // ==================== STEP 5: SELLER UPLOADS INVOICE ====================
@@ -178,6 +206,15 @@ export class DeliveryRequestsController {
     }
 
     // ==================== STEP 7: COURIER UPDATES STATUS ====================
+    @Post('courier/:id/accept')
+    @Roles('COURIER')
+    async acceptDelivery(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        return this.service.acceptDelivery(id, user.sub);
+    }
+
     @Patch('courier/:id/status')
     @Roles('COURIER')
     async updateCourierStatus(
