@@ -818,8 +818,13 @@ export class NotificationsService {
         </div>
 
         <div style="background-color: #dbeafe; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
-          <p style="margin: 0; color: #1e40af;"><strong>Invoice Details (for your reference):</strong></p>
-          <p style="margin: 5px 0 0 0; color: #1e40af; font-size: 14px;">
+          <p style="margin: 0; color: #1e40af;"><strong>Billing Details (for your invoice):</strong></p>
+          <p style="margin: 10px 0 0 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+            <strong>24RX MEDICAL ENTERPRISES</strong><br>
+            2ND STREET CHURCH ROAD<br>
+            KADRU, RANCHI<br>
+            RANCHI-834001 (JHARKHAND)<br>
+            <strong>Phone:</strong> 7004052004, 7070414040<br>
             <strong>D.L. No:</strong> JH-RNS-15350015301<br>
             <strong>GSTIN:</strong> 20GAKPK4400G1Z7<br>
             <strong>E-Mail:</strong> 24rxmedicalsupply@gmail.com
@@ -836,7 +841,7 @@ export class NotificationsService {
       {
         userId: seller.id,
         subject,
-        body: `Sale approved for ${medicineName} (${quantity} units). Please upload your sales invoice.\n\nInvoice Details:\nD.L. No: JH-RNS-15350015301\nGSTIN: 20GAKPK4400G1Z7\nE-Mail: 24rxmedicalsupply@gmail.com`,
+        body: `Sale approved for ${medicineName} (${quantity} units). Please upload your sales invoice.\n\nBilling Details:\n24RX MEDICAL ENTERPRISES\n2ND STREET CHURCH ROAD\nKADRU, RANCHI\nRANCHI-834001 (JHARKHAND)\nPhone: 7004052004, 7070414040\nD.L. No: JH-RNS-15350015301\nGSTIN: 20GAKPK4400G1Z7\nE-Mail: 24rxmedicalsupply@gmail.com`,
         meta: {
           type: 'UPLOAD_INVOICE',
           proposalId: proposal.id,

@@ -238,7 +238,7 @@ export class DeliveryRequestsService {
                 userId: request.requesterId,
                 channel: 'INAPP',
                 subject: 'Proforma Invoice Generated - Payment Required',
-                body: `Delivery charge: ₹${deliveryCharge.toFixed(2)} (${data.parcelWeightKg}kg × ₹${rate}/kg via ${data.transportMode}). Please upload payment receipt.`,
+                body: `Delivery charge: ₹${deliveryCharge.toFixed(2)} (${data.parcelWeightKg}kg × ₹${rate}/kg via ${data.transportMode}). Please upload payment receipt.\n\nPayment Details:\n24RX MEDICAL ENTERPRISES\n2ND STREET CHURCH ROAD, KADRU, RANCHI\nRANCHI-834001 (JHARKHAND)\nPhone: 7004052004, 7070414040\nD.L. No: JH-RNS-15350015301\nGSTIN: 20GAKPK4400G1Z7\n\nBank: BANK OF BARODA, RANCHI\nAccount: 10170200001128\nIFSC: BARB0RANCHI`,
                 meta: { deliveryRequestId: request.id, proformaInvoiceUrl },
             },
         });
@@ -925,59 +925,11 @@ export class DeliveryRequestsService {
 
     // Generate proforma invoice PDF - COMBINED medicine + delivery charge
     private async generateProformaInvoice(request: any): Promise<string> {
-        // Get the original buy proposal to get medicine pricing
-        const buyProposal = await this.prisma.buyProposal.findFirst({
-            where: {
-                approvedOrderId: request.inventoryLot.sourceOrderId,
-            },
-            include: {
-                listing: {
-                    include: {
-                        medicine: { include: { manufacturer: true } }
-                    }
-                }
-            }
-        });
-
-        if (!buyProposal) {
-            throw new NotFoundException('Original buy proposal not found');
-        }
-
-        // Calculate medicine totals (from original buy proposal)
-        const unitPrice = Number(buyProposal.listing.listPrice || buyProposal.listing.basePrice || 0);
-        const gstPct = Number(buyProposal.listing.gstPercentage || 0);
-        const medicineSubtotal = unitPrice * request.qty;
-        const medicineGst = medicineSubtotal * (gstPct / 100);
-        const medicineTotal = medicineSubtotal + medicineGst;
-
-        // Delivery charge (no GST)
+        // Delivery charge (no GST) - Buyer only pays for delivery, medicine already paid
         const deliveryCharge = Number(request.deliveryCharge || 0);
 
-        // Grand total
-        const grandTotal = medicineTotal + deliveryCharge;
-
-        // Create items array with medicine + delivery charge
+        // Create items array with ONLY delivery charge
         const items = [
-            // Medicine item
-            {
-                hsn: '',
-                productName: buyProposal.listing.medicine.name,
-                pack: buyProposal.listing.medicine.packSize || '1',
-                qty: request.qty,
-                batch: request.batchNumber || buyProposal.confirmedBatchNo || 'TBD',
-                mfg: new Date().toLocaleDateString('en-GB'),
-                exp: request.expiryDate ? new Date(request.expiryDate).toLocaleDateString('en-GB') : 
-                     (buyProposal.confirmedExpiryDate ? new Date(buyProposal.confirmedExpiryDate).toLocaleDateString('en-GB') : 'N/A'),
-                mrp: Number(buyProposal.listing.medicine.mrp || 0),
-                rate: unitPrice,
-                dis: 0,
-                sgst: gstPct / 2,
-                sgstValue: medicineGst / 2,
-                cgst: gstPct / 2,
-                cgstValue: medicineGst / 2,
-                amount: medicineTotal,
-            },
-            // Delivery charge item
             {
                 hsn: '',
                 productName: `Delivery Charge (${request.transportMode} - ${request.parcelWeightKg}kg)`,
@@ -1011,11 +963,11 @@ export class DeliveryRequestsService {
             partyGSTIN: '',
             partyDLNo: '',
             items: items,
-            totalSGST: medicineGst / 2,
-            totalCGST: medicineGst / 2,
-            grandTotal: grandTotal,
-            totalItems: 2,
-            totalQty: request.qty + 1,
+            totalSGST: 0,
+            totalCGST: 0,
+            grandTotal: deliveryCharge,
+            totalItems: 1,
+            totalQty: 1,
         });
 
         const fileName = `proforma-invoice-${request.id}.pdf`;
@@ -1047,18 +999,51 @@ export class DeliveryRequestsService {
 
     private getProformaInvoiceEmailTemplate(request: any, invoiceUrl: string): string {
         return `
-            <h2>Proforma Invoice - Delivery Charge</h2>
-            <p>Dear ${request.requester.name},</p>
-            <p>Your delivery charge has been calculated:</p>
-            <ul>
-                <li>Medicine: ${request.inventoryLot.medicine.name}</li>
-                <li>Weight: ${request.parcelWeightKg} kg</li>
-                <li>Transport: ${request.transportMode}</li>
-                <li>Rate: ₹${DELIVERY_RATES[request.transportMode]}/kg</li>
-                <li><strong>Total: ₹${request.deliveryCharge}</strong></li>
-            </ul>
-            <p><a href="${invoiceUrl}">Download Proforma Invoice</a></p>
-            <p>Please make the payment and upload the receipt in your portfolio section.</p>
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #2563eb;">Proforma Invoice - Delivery Charge</h2>
+                <p>Dear ${request.requester.name},</p>
+                <p>Your delivery charge has been calculated for the following:</p>
+                
+                <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="padding: 8px 0; color: #6b7280;">Medicine:</td><td style="padding: 8px 0; font-weight: bold;">${request.inventoryLot.medicine.name}</td></tr>
+                        <tr><td style="padding: 8px 0; color: #6b7280;">Weight:</td><td style="padding: 8px 0;">${request.parcelWeightKg} kg</td></tr>
+                        <tr><td style="padding: 8px 0; color: #6b7280;">Transport:</td><td style="padding: 8px 0;">${request.transportMode}</td></tr>
+                        <tr><td style="padding: 8px 0; color: #6b7280;">Rate:</td><td style="padding: 8px 0;">₹${DELIVERY_RATES[request.transportMode]}/kg</td></tr>
+                        <tr><td style="padding: 8px 0; color: #6b7280; font-weight: bold;">Total Delivery Charge:</td><td style="padding: 8px 0; font-weight: bold; color: #2563eb; font-size: 18px;">₹${request.deliveryCharge}</td></tr>
+                    </table>
+                </div>
+
+                <div style="background-color: #dbeafe; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                    <p style="margin: 0; color: #1e40af;"><strong>Payment Details:</strong></p>
+                    <p style="margin: 10px 0 0 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+                        <strong>24RX MEDICAL ENTERPRISES</strong><br>
+                        2ND STREET CHURCH ROAD<br>
+                        KADRU, RANCHI<br>
+                        RANCHI-834001 (JHARKHAND)<br>
+                        <strong>Phone:</strong> 7004052004, 7070414040<br>
+                        <strong>D.L. No:</strong> JH-RNS-15350015301<br>
+                        <strong>GSTIN:</strong> 20GAKPK4400G1Z7<br>
+                        <strong>E-Mail:</strong> 24rxmedicalsupply@gmail.com
+                    </p>
+                </div>
+
+                <div style="background-color: #f0fdf4; padding: 15px; border-left: 4px solid #10b981; margin: 20px 0;">
+                    <p style="margin: 0; color: #065f46;"><strong>Bank Details:</strong></p>
+                    <p style="margin: 10px 0 0 0; color: #065f46; font-size: 14px; line-height: 1.6;">
+                        <strong>Bank Name:</strong> BANK OF BARODA<br>
+                        <strong>Branch Name:</strong> RANCHI<br>
+                        <strong>Account No.:</strong> 10170200001128<br>
+                        <strong>IFSC Code:</strong> BARB0RANCHI
+                    </p>
+                </div>
+
+                <p>
+                    <a href="${invoiceUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-right: 10px;">Download Proforma Invoice</a>
+                </p>
+                
+                <p style="color: #6b7280; font-size: 14px;">Please make the payment and upload the receipt in your portfolio section.</p>
+            </div>
         `;
     }
 
