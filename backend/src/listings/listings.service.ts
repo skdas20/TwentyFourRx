@@ -1149,10 +1149,52 @@ export class ListingsService {
 
   // Helper function to normalize medicine names for better matching
   private normalizeMedicineName(name: string): string {
+    if (!name) return '';
     return name
       .toLowerCase()
-      .replace(/[-\s]+/g, '') // Remove hyphens and spaces
+      // Remove common suffixes and designations
+      .replace(/\s+(inj|injection|tab|tablet|cap|capsule|vial|infusion|suspension|syrup|drop|ointment|gel|cream|lotion|powder|inhaler)\b/g, '')
+      .replace(/[-\s]+/g, '') // Remove remaining hyphens and spaces
       .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
+  }
+
+  // Helper to normalize manufacturer names
+  private normalizeManufacturer(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .replace(/\s+(pvt|ltd|pvt\.ltd|limited|pharmaceuticals|pharma|remedies|laboratories|labs|lifesciences)\b/g, '')
+      .replace(/[-\s.,]+/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  // Helper to normalize composition strings
+  private normalizeComposition(comp: string): string {
+    if (!comp) return '';
+    return comp
+      .toLowerCase()
+      .replace(/\s*\([^)]*\)/g, '') // Remove anything in parentheses like (600mg)
+      .replace(/[-\s.,+]+/g, '') // Remove separators
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  // Simple string similarity using Sørensen–Dice coefficient
+  private getSimilarity(str1: string, str2: string): number {
+    const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (s1 === s2) return 1;
+    if (s1.length < 2 || s2.length < 2) return 0;
+
+    const bigrams1 = new Set();
+    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
+    const bigrams2 = new Set();
+    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
+
+    let intersection = 0;
+    for (const b of bigrams1) {
+      if (bigrams2.has(b)) intersection++;
+    }
+    return (2 * intersection) / (bigrams1.size + bigrams2.size);
   }
 
   async analyzeBulkCsv(requestId: string, csvBuffer: Buffer) {
@@ -1193,6 +1235,7 @@ export class ListingsService {
         const form = row['Form'] || row['form'];
         const strength = row['Strength'] || row['strength'];
         const manufacturer = row['Manufacturer'] || row['manufacturer'];
+        const composition = row['Composition'] || row['composition'];
 
         // Basic validation
         if (!brandName || !form || !manufacturer) {
@@ -1204,65 +1247,117 @@ export class ListingsService {
         const normalizedBrand = this.normalizeMedicineName(String(brandName));
         const normalizedForm = String(form).toLowerCase().trim();
         const normalizedStrength = strength ? String(strength).toLowerCase().replace(/\s+/g, '').trim() : '';
-        const normalizedManufacturer = String(manufacturer).toLowerCase().trim();
+        const normalizedManufacturer = this.normalizeManufacturer(String(manufacturer));
+        const normalizedComp = this.normalizeComposition(String(composition));
 
-        // 1. Check Active Medicines with flexible matching
-        const activeMedicinesFiltered = activeMedicines.filter(med =>
-          String(med.form).toLowerCase().trim() === normalizedForm
+        // MATCHING LOGIC - MULTI-PASS
+        let match: any = null;
+        let matchSource: 'ACTIVE' | 'REFERENCE' | null = null;
+
+        // --- PASS 1: Exact Match (High Confidence) ---
+        // Brand + Form + Strength + Manufacturer
+        match = activeMedicines.find(med => 
+          this.normalizeMedicineName(med.name) === normalizedBrand &&
+          String(med.form).toLowerCase().trim() === normalizedForm &&
+          (med.strength ? String(med.strength).toLowerCase().replace(/\s+/g, '').trim() : '') === normalizedStrength &&
+          this.normalizeManufacturer(med.manufacturer?.name || '') === normalizedManufacturer
         );
+        if (match) matchSource = 'ACTIVE';
 
-        let activeMatch = activeMedicinesFiltered.find(med => {
-          const medNameNorm = this.normalizeMedicineName(med.name);
-          const medStrengthNorm = med.strength ? String(med.strength).toLowerCase().replace(/\s+/g, '').trim() : '';
-          const medManufNorm = med.manufacturer?.name?.toLowerCase().trim() || '';
+        if (!match) {
+          match = refMedicines.find(ref => 
+            this.normalizeMedicineName(ref.name) === normalizedBrand &&
+            String(ref.form).toLowerCase().trim() === normalizedForm &&
+            String(ref.strength).toLowerCase().replace(/\s+/g, '').trim() === normalizedStrength &&
+            this.normalizeManufacturer(ref.manufacturer || '') === normalizedManufacturer
+          );
+          if (match) matchSource = 'REFERENCE';
+        }
 
-          return medNameNorm === normalizedBrand &&
-                 medStrengthNorm === normalizedStrength &&
-                 medManufNorm === normalizedManufacturer;
-        });
+        // --- PASS 2: Composition Match (Strong Alternative) ---
+        if (!match && normalizedComp) {
+          match = activeMedicines.find(med => 
+            this.normalizeComposition(med.composition || '') === normalizedComp &&
+            (med.strength ? String(med.strength).toLowerCase().replace(/\s+/g, '').trim() : '') === normalizedStrength &&
+            String(med.form).toLowerCase().trim() === normalizedForm
+          );
+          if (match) matchSource = 'ACTIVE';
 
-        if (activeMatch) {
+          if (!match) {
+            match = refMedicines.find(ref => 
+              this.normalizeComposition(ref.composition || '') === normalizedComp &&
+              String(ref.strength).toLowerCase().replace(/\s+/g, '').trim() === normalizedStrength &&
+              String(ref.form).toLowerCase().trim() === normalizedForm
+            );
+            if (match) matchSource = 'REFERENCE';
+          }
+        }
+
+        // --- PASS 3: Manufacturer-Agnostic Match ---
+        if (!match) {
+          match = activeMedicines.find(med => 
+            this.normalizeMedicineName(med.name) === normalizedBrand &&
+            String(med.form).toLowerCase().trim() === normalizedForm &&
+            (med.strength ? String(med.strength).toLowerCase().replace(/\s+/g, '').trim() : '') === normalizedStrength
+          );
+          if (match) matchSource = 'ACTIVE';
+
+          if (!match) {
+            match = refMedicines.find(ref => 
+              this.normalizeMedicineName(ref.name) === normalizedBrand &&
+              String(ref.form).toLowerCase().trim() === normalizedForm &&
+              String(ref.strength).toLowerCase().replace(/\s+/g, '').trim() === normalizedStrength
+            );
+            if (match) matchSource = 'REFERENCE';
+          }
+        }
+
+        // --- PASS 4: Fuzzy Match (Brand Name) ---
+        if (!match) {
+          const SIMILARITY_THRESHOLD = 0.85;
+          
+          // Try fuzzy matching within the same form
+          const potentialActive = activeMedicines.filter(med => String(med.form).toLowerCase().trim() === normalizedForm);
+          let bestActive = { med: null, score: 0 };
+          for (const med of potentialActive) {
+            const score = this.getSimilarity(med.name, String(brandName));
+            if (score > bestActive.score) bestActive = { med, score };
+          }
+
+          if (bestActive.score >= SIMILARITY_THRESHOLD) {
+            match = bestActive.med;
+            matchSource = 'ACTIVE';
+          } else {
+            const potentialRef = refMedicines.filter(ref => String(ref.form).toLowerCase().trim() === normalizedForm);
+            let bestRef = { ref: null, score: 0 };
+            for (const ref of potentialRef) {
+              const score = this.getSimilarity(ref.name, String(brandName));
+              if (score > bestRef.score) bestRef = { ref, score };
+            }
+
+            if (bestRef.score >= SIMILARITY_THRESHOLD) {
+              match = bestRef.ref;
+              matchSource = 'REFERENCE';
+            }
+          }
+        }
+
+        // Final Result Assignment
+        if (match) {
           parsedRows.push({
             ...row,
             status: 'MATCHED',
-            medicineId: activeMatch.id,
-            matchType: 'ACTIVE',
-            matchName: activeMatch.name,
+            medicineId: match.id,
+            matchType: matchSource,
+            matchName: match.name,
+            composition: match.composition, // Pull composition from matched medicine
           });
-          continue;
-        }
-
-        // 2. Check Reference Medicines with flexible matching
-        const refMedicinesFiltered = refMedicines.filter(ref =>
-          String(ref.form).toLowerCase().trim() === normalizedForm
-        );
-
-        let refMatch = refMedicinesFiltered.find(ref => {
-          const refNameNorm = this.normalizeMedicineName(ref.name);
-          const refStrengthNorm = ref.strength ? String(ref.strength).toLowerCase().replace(/\s+/g, '').trim() : '';
-          const refManufNorm = ref.manufacturer?.toLowerCase().trim() || '';
-
-          return refNameNorm === normalizedBrand &&
-                 refStrengthNorm === normalizedStrength &&
-                 refManufNorm === normalizedManufacturer;
-        });
-
-        if (refMatch) {
+        } else {
           parsedRows.push({
             ...row,
-            status: 'MATCHED',
-            medicineId: refMatch.id,
-            matchType: 'REFERENCE', // Needs conversion to Medicine
-            matchName: refMatch.name,
+            status: 'NEW',
           });
-          continue;
         }
-
-        // 3. No Match
-        parsedRows.push({
-          ...row,
-          status: 'NEW',
-        });
       }
 
       // Update request with parsed data
@@ -1304,6 +1399,7 @@ export class ListingsService {
       }).catch(err => console.error('Failed to notify seller about error:', err));
     }
   }
+
 
   // Get seller's own bulk listing requests
   async getMyBulkListingRequests(sellerId: string) {
