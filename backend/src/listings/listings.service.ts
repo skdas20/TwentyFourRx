@@ -1318,25 +1318,35 @@ export class ListingsService {
           
           // Try fuzzy matching within the same form
           const potentialActive = activeMedicines.filter(med => String(med.form).toLowerCase().trim() === normalizedForm);
-          let bestActive: { med: any; score: number } = { med: null, score: 0 };
+          let bestActiveMed: any = null;
+          let bestActiveScore = 0;
+
           for (const med of potentialActive) {
             const score = this.getSimilarity(med.name, String(brandName));
-            if (score > bestActive.score) bestActive = { med, score };
+            if (score > bestActiveScore) {
+              bestActiveScore = score;
+              bestActiveMed = med;
+            }
           }
 
-          if (bestActive.score >= SIMILARITY_THRESHOLD) {
-            match = bestActive.med;
+          if (bestActiveScore >= SIMILARITY_THRESHOLD) {
+            match = bestActiveMed;
             matchSource = 'ACTIVE';
           } else {
             const potentialRef = refMedicines.filter(ref => String(ref.form).toLowerCase().trim() === normalizedForm);
-            let bestRef: { ref: any; score: number } = { ref: null, score: 0 };
+            let bestRefMed: any = null;
+            let bestRefScore = 0;
+
             for (const ref of potentialRef) {
               const score = this.getSimilarity(ref.name, String(brandName));
-              if (score > bestRef.score) bestRef = { ref, score };
+              if (score > bestRefScore) {
+                bestRefScore = score;
+                bestRefMed = ref;
+              }
             }
 
-            if (bestRef.score >= SIMILARITY_THRESHOLD) {
-              match = bestRef.ref;
+            if (bestRefScore >= SIMILARITY_THRESHOLD) {
+              match = bestRefMed;
               matchSource = 'REFERENCE';
             }
           }
