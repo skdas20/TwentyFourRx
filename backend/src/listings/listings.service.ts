@@ -1318,7 +1318,7 @@ export class ListingsService {
           
           // Try fuzzy matching within the same form
           const potentialActive = activeMedicines.filter(med => String(med.form).toLowerCase().trim() === normalizedForm);
-          let bestActive = { med: null, score: 0 };
+          let bestActive: { med: any; score: number } = { med: null, score: 0 };
           for (const med of potentialActive) {
             const score = this.getSimilarity(med.name, String(brandName));
             if (score > bestActive.score) bestActive = { med, score };
@@ -1329,7 +1329,7 @@ export class ListingsService {
             matchSource = 'ACTIVE';
           } else {
             const potentialRef = refMedicines.filter(ref => String(ref.form).toLowerCase().trim() === normalizedForm);
-            let bestRef = { ref: null, score: 0 };
+            let bestRef: { ref: any; score: number } = { ref: null, score: 0 };
             for (const ref of potentialRef) {
               const score = this.getSimilarity(ref.name, String(brandName));
               if (score > bestRef.score) bestRef = { ref, score };
