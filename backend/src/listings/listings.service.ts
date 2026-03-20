@@ -1148,12 +1148,27 @@ export class ListingsService {
   }
 
   // Helper function to normalize medicine names for better matching
-  private normalizeMedicineName(name: string): string {
+  private normalizeMedicineName(name: string, strength?: string): string {
     if (!name) return '';
-    return name
-      .toLowerCase()
-      // Remove common suffixes and designations
-      .replace(/\s+(inj|injection|tab|tablet|cap|capsule|vial|infusion|suspension|syrup|drop|ointment|gel|cream|lotion|powder|inhaler)\b/g, '')
+    let normalized = name.toLowerCase();
+
+    // 1. Remove common pack size patterns at the end (e.g., 1*1, 10*1, 1x10)
+    normalized = normalized.replace(/[\s-]*\d+[x*]\d+[\s-]*$/g, '');
+
+    // 2. Remove common suffixes with various separators (-, /, space)
+    normalized = normalized.replace(/[-\/\s]+(inj|injection|tab|tablet|cap|capsule|vial|infusion|suspension|syrup|drop|ointment|gel|cream|lotion|powder|inhaler)\b/g, '');
+
+    // 3. If strength is provided, try to remove it from the name to prevent double-matching issues
+    if (strength) {
+      const normStrength = strength.toLowerCase().replace(/\s+/g, '');
+      if (normStrength) {
+        // Escape special chars in strength for regex
+        const escapedStrength = normStrength.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        normalized = normalized.replace(new RegExp(`[-\\s]*${escapedStrength}`, 'g'), '');
+      }
+    }
+
+    return normalized
       .replace(/[-\s]+/g, '') // Remove remaining hyphens and spaces
       .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
   }
@@ -1163,8 +1178,7 @@ export class ListingsService {
     if (!name) return '';
     return name
       .toLowerCase()
-      .replace(/\s+(pvt|ltd|pvt\.ltd|limited|pharmaceuticals|pharma|remedies|laboratories|labs|lifesciences)\b/g, '')
-      .replace(/[-\s.,]+/g, '')
+      .replace(/[-\/\s.,]+(pvt|ltd|pvt\.ltd|limited|pharmaceuticals|pharma|remedies|laboratories|labs|lifesciences)\b/g, '')
       .replace(/[^a-z0-9]/g, '');
   }
 
@@ -1173,9 +1187,71 @@ export class ListingsService {
     if (!comp) return '';
     return comp
       .toLowerCase()
-      .replace(/\s*\([^)]*\)/g, '') // Remove anything in parentheses like (600mg)
-      .replace(/[-\s.,+]+/g, '') // Remove separators
+      .replace(/[^a-z0-9]/g, ''); // Just keep alphanumeric for maximum overlap
+  }
+
+  private normalizeStrengthValue(strength: string): string {
+    if (!strength) return '';
+    return strength
+      .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
+  }
+
+  private normalizeFormValue(form: string): string {
+    if (!form) return '';
+    return form
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  private getFormFamily(form: string): string {
+    const normalized = this.normalizeFormValue(form);
+    if (!normalized) return '';
+    if (/(inj|injection|vial|ampoule|ampule|amp)/.test(normalized)) return 'injectable';
+    if (/(tab|tablet)/.test(normalized)) return 'tablet';
+    if (/(cap|capsule)/.test(normalized)) return 'capsule';
+    if (/(syrup|suspension|drops|drop)/.test(normalized)) return 'liquid';
+    if (/(cream|ointment|gel|lotion)/.test(normalized)) return 'topical';
+    return normalized;
+  }
+
+  private extractSearchTokens(value: string, minLength: number = 3): string[] {
+    if (!value) return [];
+
+    const stopWords = new Set([
+      'and', 'with', 'plus', 'for', 'the', 'inj', 'injection', 'infusion', 'tablet',
+      'tab', 'capsule', 'cap', 'syrup', 'suspension', 'drop', 'drops', 'oral', 'vial',
+      'amp', 'ampoule', 'gm', 'mg', 'mcg', 'ml', 'iu', 'eq', 'w', 'wv', 'ww', 'ip',
+      'bp', 'usp', 'sr', 'er', 'xr',
+    ]);
+
+    const tokens = value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map(token => token.trim())
+      .filter(token => token.length >= minLength)
+      .filter(token => !stopWords.has(token))
+      .filter(token => !/^\d+$/.test(token));
+
+    return Array.from(new Set(tokens))
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 6);
+  }
+
+  private getTokenOverlapScore(searchTokens: string[], candidateValue: string): number {
+    if (!searchTokens.length || !candidateValue) return 0;
+
+    const normalizedCandidate = candidateValue.toLowerCase();
+    let matches = 0;
+
+    for (const token of searchTokens) {
+      if (normalizedCandidate.includes(token)) {
+        matches++;
+      }
+    }
+
+    return matches / searchTokens.length;
   }
 
   // Simple string similarity using Sørensen–Dice coefficient
@@ -1354,6 +1430,7 @@ export class ListingsService {
 
         // Final Result Assignment
         if (match) {
+          console.log(`✅ MATCH FOUND [Pass ${matchSource}]: ${brandName} -> ${match.name}`);
           parsedRows.push({
             ...row,
             status: 'MATCHED',
@@ -1363,6 +1440,7 @@ export class ListingsService {
             composition: match.composition, // Pull composition from matched medicine
           });
         } else {
+          console.log(`❌ NO MATCH: ${brandName} (${normalizedBrand})`);
           parsedRows.push({
             ...row,
             status: 'NEW',
@@ -1625,6 +1703,278 @@ export class ListingsService {
     });
 
     return { message: 'Bulk listing request deleted successfully' };
+  }
+
+  // ADMIN: Get similar medicines for a specific item in a bulk request
+  async getSimilarMedicinesForItem(requestId: string, index: number) {
+    const request = await this.prisma.bulkListingRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request || !request.parsedData) {
+      throw new NotFoundException('Request not found or no parsed data');
+    }
+
+    const rows = request.parsedData as any[];
+    if (index < 0 || index >= rows.length) {
+      throw new BadRequestException('Invalid item index');
+    }
+
+    const item = rows[index];
+    const brandName = String(item['Brand Name'] || item['brand_name'] || '').trim();
+    const composition = String(item['Composition'] || item['composition'] || '').trim();
+    const form = String(item['Form'] || item['form'] || '').trim();
+    const strength = String(item['Strength'] || item['strength'] || '').trim();
+    const manufacturer = String(item['Manufacturer'] || item['manufacturer'] || '').trim();
+
+    const brandTokens = this.extractSearchTokens(brandName, 3);
+    const compositionTokens = this.extractSearchTokens(composition, 4);
+    const manufacturerTokens = this.extractSearchTokens(manufacturer, 4).slice(0, 2);
+    const normalizedBrand = this.normalizeMedicineName(brandName, strength);
+    const normalizedStrength = this.normalizeStrengthValue(strength);
+    const normalizedManufacturer = this.normalizeManufacturer(manufacturer);
+    const formFamily = this.getFormFamily(form);
+
+    const buildOrConditions = (field: 'name' | 'composition' | 'manufacturer', tokens: string[]) =>
+      tokens.map(token => ({
+        [field]: { contains: token, mode: 'insensitive' as any },
+      }));
+
+    const activeQueries: Promise<any[]>[] = [];
+    const referenceQueries: Promise<any[]>[] = [];
+
+    if (compositionTokens.length) {
+      activeQueries.push(
+        this.prisma.medicine.findMany({
+          where: { OR: buildOrConditions('composition', compositionTokens) },
+          include: { manufacturer: true },
+          take: 25,
+        }),
+      );
+      referenceQueries.push(
+        this.prisma.medicineReference.findMany({
+          where: { OR: buildOrConditions('composition', compositionTokens) },
+          take: 25,
+        }),
+      );
+    }
+
+    if (brandTokens.length) {
+      activeQueries.push(
+        this.prisma.medicine.findMany({
+          where: { OR: buildOrConditions('name', brandTokens) },
+          include: { manufacturer: true },
+          take: 20,
+        }),
+      );
+      referenceQueries.push(
+        this.prisma.medicineReference.findMany({
+          where: { OR: buildOrConditions('name', brandTokens) },
+          take: 20,
+        }),
+      );
+    }
+
+    if (manufacturerTokens.length) {
+      activeQueries.push(
+        this.prisma.medicine.findMany({
+          where: {
+            manufacturer: {
+              name: {
+                contains: manufacturerTokens[0],
+                mode: 'insensitive' as any,
+              },
+            },
+          },
+          include: { manufacturer: true },
+          take: 15,
+        }),
+      );
+      referenceQueries.push(
+        this.prisma.medicineReference.findMany({
+          where: { OR: buildOrConditions('manufacturer', manufacturerTokens) },
+          take: 15,
+        }),
+      );
+    }
+
+    if (!activeQueries.length && !referenceQueries.length) {
+      return [];
+    }
+
+    const [activeResultsGrouped, refResultsGrouped] = await Promise.all([
+      Promise.all(activeQueries),
+      Promise.all(referenceQueries),
+    ]);
+
+    const suggestions = [
+      ...activeResultsGrouped.flat().map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        manufacturer: m.manufacturer?.name || 'Unknown',
+        composition: m.composition || '',
+        strength: m.strength,
+        form: m.form,
+        type: 'ACTIVE',
+      })),
+      ...refResultsGrouped.flat().map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        manufacturer: r.manufacturer || 'Unknown',
+        composition: r.composition || '',
+        strength: r.strength,
+        form: r.form,
+        type: 'REFERENCE',
+      })),
+    ];
+
+    const seen = new Set<string>();
+    const scoredSuggestions = suggestions
+      .filter((suggestion) => {
+        const key = `${suggestion.type}:${suggestion.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((suggestion) => {
+        const normalizedSuggestionName = this.normalizeMedicineName(suggestion.name, suggestion.strength);
+        const normalizedSuggestionStrength = this.normalizeStrengthValue(suggestion.strength || '');
+        const normalizedSuggestionManufacturer = this.normalizeManufacturer(suggestion.manufacturer || '');
+        const suggestionFormFamily = this.getFormFamily(suggestion.form || '');
+
+        const compositionTokenScore = this.getTokenOverlapScore(compositionTokens, suggestion.composition || '');
+        const compositionSimilarity = composition
+          ? this.getSimilarity(suggestion.composition || '', composition)
+          : 0;
+        const nameTokenScore = this.getTokenOverlapScore(brandTokens, suggestion.name || '');
+        const nameSimilarity = brandName
+          ? this.getSimilarity(suggestion.name || '', brandName)
+          : 0;
+
+        const exactNameBonus = normalizedBrand && normalizedSuggestionName === normalizedBrand ? 0.7 : 0;
+        const formBonus = formFamily && suggestionFormFamily === formFamily ? 0.8 : 0;
+        const formPenalty = formFamily &&
+          suggestionFormFamily &&
+          suggestionFormFamily !== formFamily
+          ? -0.4
+          : 0;
+        const strengthBonus = normalizedStrength && normalizedSuggestionStrength === normalizedStrength
+          ? 0.35
+          : normalizedStrength &&
+            normalizedSuggestionStrength &&
+            (normalizedSuggestionStrength.includes(normalizedStrength) || normalizedStrength.includes(normalizedSuggestionStrength))
+            ? 0.2
+            : 0;
+        const manufacturerBonus = normalizedManufacturer && normalizedSuggestionManufacturer === normalizedManufacturer
+          ? 0.2
+          : normalizedManufacturer &&
+            normalizedSuggestionManufacturer &&
+            (normalizedSuggestionManufacturer.includes(normalizedManufacturer) || normalizedManufacturer.includes(normalizedSuggestionManufacturer))
+            ? 0.1
+            : 0;
+
+        let matchReason = 'CLOSE_MATCH';
+        let matchReasonLabel = 'Closest match';
+        if (compositionTokenScore >= 0.5 || compositionSimilarity >= 0.6) {
+          matchReason = 'COMPOSITION_MATCH';
+          matchReasonLabel = 'Similar composition';
+        } else if (exactNameBonus > 0 || nameTokenScore >= 0.5 || nameSimilarity >= 0.6) {
+          matchReason = 'NAME_MATCH';
+          matchReasonLabel = 'Similar name';
+        }
+
+        const score =
+          compositionTokenScore * 4 +
+          compositionSimilarity * 2.5 +
+          nameTokenScore * 2.5 +
+          nameSimilarity * 2 +
+          exactNameBonus +
+          formBonus +
+          formPenalty +
+          strengthBonus +
+          manufacturerBonus +
+          (suggestion.type === 'ACTIVE' ? 0.05 : 0);
+
+        return {
+          ...suggestion,
+          matchReason,
+          matchReasonLabel,
+          score,
+        };
+      })
+      .filter(suggestion =>
+        suggestion.score >= 1 ||
+        suggestion.matchReason !== 'CLOSE_MATCH' ||
+        suggestion.name.toLowerCase().includes(brandName.toLowerCase()),
+      )
+      .sort((a, b) => {
+        const priority: Record<string, number> = {
+          COMPOSITION_MATCH: 0,
+          NAME_MATCH: 1,
+          CLOSE_MATCH: 2,
+        };
+        const priorityDelta = priority[a.matchReason] - priority[b.matchReason];
+        if (priorityDelta !== 0) return priorityDelta;
+        return b.score - a.score;
+      });
+
+    console.log(
+      `Similar medicine lookup for "${brandName}" returned ${scoredSuggestions.length} candidates`,
+    );
+
+    return scoredSuggestions.slice(0, 15);
+  }
+
+  // ADMIN: Manually map a bulk item to a specific medicine
+  async mapBulkItemToMedicine(requestId: string, index: number, medicineId: string, matchType: 'ACTIVE' | 'REFERENCE') {
+    const request = await this.prisma.bulkListingRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request || !request.parsedData) {
+      throw new NotFoundException('Request not found or no parsed data');
+    }
+
+    const rows = [...(request.parsedData as any[])];
+    if (index < 0 || index >= rows.length) {
+      throw new BadRequestException('Invalid item index');
+    }
+
+    // Get the selected medicine details
+    let selectedMed: any;
+    if (matchType === 'ACTIVE') {
+      selectedMed = await this.prisma.medicine.findUnique({
+        where: { id: medicineId },
+        include: { manufacturer: true }
+      });
+    } else {
+      selectedMed = await this.prisma.medicineReference.findUnique({
+        where: { id: medicineId }
+      });
+    }
+
+    if (!selectedMed) {
+      throw new NotFoundException('Selected medicine not found');
+    }
+
+    // Update the row
+    rows[index] = {
+      ...rows[index],
+      status: 'MATCHED',
+      medicineId: selectedMed.id,
+      matchType: matchType,
+      matchName: selectedMed.name,
+      composition: selectedMed.composition,
+      manufacturer: matchType === 'ACTIVE' ? selectedMed.manufacturer.name : selectedMed.manufacturer
+    };
+
+    // Save back to DB
+    await this.prisma.bulkListingRequest.update({
+      where: { id: requestId },
+      data: { parsedData: rows }
+    });
+
+    return { message: 'Item mapped successfully', item: rows[index] };
   }
 
   // Update listing (seller/trader only)

@@ -22,6 +22,12 @@ export default function BulkRequestDetailPage() {
   const [markupPercentage, setMarkupPercentage] = useState<string>('15');
   const [markupFixed, setMarkupFixed] = useState<string>('10');
 
+  // Similar medicines state
+  const [showSimilarModal, setShowSimilarModal] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+  const [similarMedicines, setSimilarMedicines] = useState<any[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+
   useEffect(() => {
     loadRequest();
   }, [id]);
@@ -34,6 +40,42 @@ export default function BulkRequestDetailPage() {
       console.error("Failed to load request:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleViewSimilar = async (index: number) => {
+    try {
+      setCurrentIndex(index);
+      setShowSimilarModal(true);
+      setLoadingSimilar(true);
+      setSimilarMedicines([]);
+      const res = await listingsApi.getSimilarMedicines(id, index);
+      setSimilarMedicines(res.data);
+    } catch (error) {
+      console.error("Failed to load similar medicines:", error);
+      showToast.error("Failed to load suggestions");
+    } finally {
+      setLoadingSimilar(false);
+    }
+  };
+
+  const handleMapItem = async (medicineId: string, matchType: 'ACTIVE' | 'REFERENCE') => {
+    if (currentIndex === null) return;
+    try {
+      setSubmitting(true);
+      await listingsApi.mapBulkItem(id, {
+        index: currentIndex,
+        medicineId,
+        matchType
+      });
+      showToast.success("Item mapped successfully!");
+      setShowSimilarModal(false);
+      loadRequest(); // Refresh the list
+    } catch (error: any) {
+      console.error("Failed to map item:", error);
+      showToast.error(error.response?.data?.message || "Failed to map item");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -245,9 +287,17 @@ export default function BulkRequestDetailPage() {
                           Invalid
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                          <AlertCircle className="w-3 h-3" /> New
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                            <AlertCircle className="w-3 h-3" /> New
+                          </span>
+                          <button
+                            onClick={() => handleViewSimilar(index)}
+                            className="text-[10px] text-blue-600 hover:underline font-medium"
+                          >
+                            View Similar
+                          </button>
+                        </div>
                       )}
                       {row.matchType === 'REFERENCE' && <div className="text-[10px] text-gray-500 mt-0.5">(Reference DB)</div>}
                     </td>
@@ -388,6 +438,91 @@ export default function BulkRequestDetailPage() {
                   Approve with {markupType === 'PERCENTAGE' ? `${markupPercentage}%` : `₹${markupFixed}`} Markup
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Similar Medicines Modal */}
+      {showSimilarModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col max-h-[85vh] border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Similar Medicines</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Suggestions for: <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    {currentIndex !== null ? (rows[currentIndex]['Brand Name'] || rows[currentIndex].brand_name) : ''}
+                  </span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowSimilarModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 rotate-90" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {loadingSimilar ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="text-sm text-gray-500">Searching master database...</p>
+                </div>
+              ) : similarMedicines.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-500">No similar medicines found in the database.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {similarMedicines.map((med) => (
+                    <div 
+                      key={med.id} 
+                      className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all group"
+                    >
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-gray-900 dark:text-white">{med.name}</h4>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                              med.type === 'ACTIVE' 
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                            }`}>
+                              {med.type}
+                            </span>
+                            {med.matchReasonLabel && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                {med.matchReasonLabel}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{med.manufacturer}</p>
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-500 space-y-0.5">
+                            <p><span className="font-semibold">Composition:</span> {med.composition}</p>
+                            <p><span className="font-semibold">Strength:</span> {med.strength} | <span className="font-semibold">Form:</span> {med.form}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleMapItem(med.id, med.type)}
+                          disabled={submitting}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors group-hover:scale-105 active:scale-95"
+                        >
+                          Link to This
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-2xl">
+              <p className="text-xs text-gray-500 text-center italic">
+                Mapping will update the bulk item's status to MATCHED and link it to the selected record.
+              </p>
             </div>
           </div>
         </div>

@@ -106,6 +106,9 @@ export const listingsApi = {
   getMyBulkRequests: () => api.get('/listings/bulk/my-requests'),
   getBulkRequests: (status?: string) => api.get('/listings/bulk/requests', { params: { status } }),
   getBulkRequest: (id: string) => api.get(`/listings/bulk/requests/${id}`),
+  getSimilarMedicines: (id: string, index: number) => api.get(`/listings/bulk/requests/${id}/similar/${index}`),
+  mapBulkItem: (id: string, data: { index: number; medicineId: string; matchType: 'ACTIVE' | 'REFERENCE' }) =>
+    api.post(`/listings/bulk/requests/${id}/map-item`, data),
   approveBulkItems: (id: string, selectedIndices: number[], markupType: 'PERCENTAGE' | 'FIXED', markupValue: number) =>
     api.post(`/listings/bulk/requests/${id}/approve`, { selectedIndices, markupType, markupValue }),
   deleteBulkRequest: (id: string) => api.delete(`/listings/bulk/requests/${id}`),

@@ -247,6 +247,28 @@ export class ListingsController {
     return this.listingsService.deleteBulkListingRequest(id);
   }
 
+  // ADMIN: Get similar medicines for a bulk item
+  @Get('bulk/requests/:id/similar/:index')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getSimilarMedicines(
+    @Param('id') id: string,
+    @Param('index') index: string,
+  ) {
+    return this.listingsService.getSimilarMedicinesForItem(id, parseInt(index, 10));
+  }
+
+  // ADMIN: Manually map a bulk item to a medicine
+  @Post('bulk/requests/:id/map-item')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async mapBulkItem(
+    @Param('id') id: string,
+    @Body() dto: { index: number; medicineId: string; matchType: 'ACTIVE' | 'REFERENCE' },
+  ) {
+    return this.listingsService.mapBulkItemToMedicine(id, dto.index, dto.medicineId, dto.matchType);
+  }
+
   // ADMIN: Get pending medicine proposals (MUST be before :id routes)
   @Get('proposals/pending')
   @UseGuards(JwtAuthGuard, RolesGuard)
