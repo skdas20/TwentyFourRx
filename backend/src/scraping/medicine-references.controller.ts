@@ -106,6 +106,33 @@ export class MedicineReferencesController {
     return suggestions;
   }
 
+  @Get(':id')
+  @Public()
+  async getReferenceById(@Param('id') id: string) {
+    const ref = await this.prisma.medicineReference.findUnique({
+      where: { id },
+    });
+
+    if (!ref || !ref.isActive) {
+      throw new BadRequestException('Medicine reference not found');
+    }
+
+    return {
+      id: ref.id,
+      label: `${ref.name} - ${ref.composition} (${ref.manufacturer})`,
+      value: ref.id,
+      name: ref.name,
+      genericName: ref.genericName,
+      composition: ref.composition,
+      form: ref.form,
+      strength: ref.strength,
+      manufacturer: ref.manufacturer,
+      marketer: ref.marketer,
+      packSize: ref.packSize,
+      mrp: ref.mrp ? parseFloat(ref.mrp.toString()) : null,
+    };
+  }
+
   @Post('contribute')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'TRADER')

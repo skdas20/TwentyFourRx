@@ -115,18 +115,9 @@ function NewListingContent() {
         return;
       }
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-      
-      // Try to get medicine from listings API
-      const listingsResponse = await fetch(`${apiUrl}/listings?medicineId=${medicineId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
-      
-      if (listingsResponse.ok) {
-        const listings = await listingsResponse.json();
-        if (listings && listings.length > 0 && listings[0].medicine) {
+      const listingsResponse = await listingsApi.getListings({ medicineId });
+      const listings = Array.isArray(listingsResponse.data) ? listingsResponse.data : [];
+      if (listings.length > 0 && listings[0].medicine) {
           const medicine = listings[0].medicine;
           console.log("Loaded medicine from listings:", medicine);
           
@@ -145,31 +136,15 @@ function NewListingContent() {
             setProposedMrp((listings[0].listPrice || listings[0].basePrice).toString());
           }
           return;
-        }
       }
-      
-      // Fallback: try to get from medicine references API
-      const response = await fetch(`${apiUrl}/medicine-references/search?q=${medicineId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to load medicine');
-      }
-      
-      const medicines = await response.json();
-      if (medicines && medicines.length > 0) {
-        const medicine = medicines[0];
-        console.log("Loaded medicine from references:", medicine);
-        setSelectedMedicine(medicine);
-        
-        if (medicine.mrp) {
-          setProposedMrp(medicine.mrp.toString());
-        }
-      } else {
-        throw new Error('Medicine not found');
+
+      const referenceResponse = await medicineReferencesApi.getById(medicineId);
+      const medicine = referenceResponse.data;
+      console.log("Loaded medicine from references:", medicine);
+      setSelectedMedicine(medicine);
+
+      if (medicine?.mrp) {
+        setProposedMrp(medicine.mrp.toString());
       }
     } catch (error: any) {
       console.error("Failed to load medicine:", error);

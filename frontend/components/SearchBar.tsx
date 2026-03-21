@@ -15,6 +15,7 @@ interface SearchResult {
   url: string;
   icon: React.ReactNode;
   clickable?: boolean;
+  actionText?: string;
 }
 
 interface SearchBarProps {
@@ -108,10 +109,10 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
               type: "medicine" as const,
               title: `${med.name} ${med.strength || ''}`,
               description: `${med.form} • ${med.manufacturer}`,
-              price: med.mrp,
-              url: `/medicines/${med.id}`, // Detail page handles "no listing" case
+              url: `/dashboard/seller/listings/new?medicineId=${med.id}`,
               icon: <Package className="w-4 h-4" />,
               clickable: isLoggedIn,
+              actionText: "Create listing",
             }));
 
           // 3. Static Features (Navigation)
@@ -262,6 +263,11 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                     {result.description && (
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
                         {result.description}
+                      </p>
+                    )}
+                    {result.actionText && result.clickable && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                        {result.actionText}
                       </p>
                     )}
                     {!result.clickable && (

@@ -75,6 +75,8 @@ export const medicinesApi = {
 export const medicineReferencesApi = {
   search: (query: string) =>
     api.get('/medicine-references/search', { params: { q: query } }),
+  getById: (id: string) =>
+    api.get(`/medicine-references/${id}`),
   getContributions: (status?: string) =>
     api.get('/medicine-references/contributions', { params: { status } }),
 }
