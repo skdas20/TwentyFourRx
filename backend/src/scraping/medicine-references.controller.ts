@@ -106,6 +106,72 @@ export class MedicineReferencesController {
     return suggestions;
   }
 
+  // Admin: list medicine contributions.
+  // IMPORTANT: this static route MUST be declared BEFORE the @Get(':id') route below.
+  // Otherwise Nest/Express matches `/medicine-references/contributions` against `:id`,
+  // passing the literal string "contributions" into findUnique() on a UUID column (HTTP 500).
+  @Get('contributions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getContributions(
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = parseInt(page || '1', 10);
+    const limitNum = parseInt(limit || '20', 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+      where.status = status;
+    }
+
+    const [contributions, total] = await Promise.all([
+      this.prisma.medicineContribution.findMany({
+        where,
+        include: {
+          contributor: {
+            select: { id: true, name: true, email: true },
+          },
+          reviewer: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.medicineContribution.count({ where }),
+    ]);
+
+    return {
+      contributions: contributions.map((c) => ({
+        id: c.id,
+        name: c.name,
+        genericName: c.genericName,
+        composition: c.composition,
+        form: c.form,
+        strength: c.strength,
+        manufacturer: c.manufacturer,
+        marketer: c.marketer,
+        packSize: c.packSize,
+        mrp: c.mrp ? parseFloat(c.mrp.toString()) : null,
+        imageUrl: c.imageUrl,
+        status: c.status,
+        reviewerNote: c.reviewerNote,
+        createdAt: c.createdAt,
+        reviewedAt: c.reviewedAt,
+        contributor: c.contributor,
+        reviewer: c.reviewer,
+      })),
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+    };
+  }
+
   @Get(':id')
   @Public()
   async getReferenceById(@Param('id') id: string) {
@@ -251,69 +317,6 @@ export class MedicineReferencesController {
         imageUrl: contribution.imageUrl,
         status: contribution.status,
       },
-    };
-  }
-
-  // Admin endpoints for managing contributions
-  @Get('contributions')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  async getContributions(
-    @Query('status') status?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const pageNum = parseInt(page || '1', 10);
-    const limitNum = parseInt(limit || '20', 10);
-    const skip = (pageNum - 1) * limitNum;
-
-    const where: any = {};
-    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
-      where.status = status;
-    }
-
-    const [contributions, total] = await Promise.all([
-      this.prisma.medicineContribution.findMany({
-        where,
-        include: {
-          contributor: {
-            select: { id: true, name: true, email: true },
-          },
-          reviewer: {
-            select: { id: true, name: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limitNum,
-      }),
-      this.prisma.medicineContribution.count({ where }),
-    ]);
-
-    return {
-      contributions: contributions.map((c) => ({
-        id: c.id,
-        name: c.name,
-        genericName: c.genericName,
-        composition: c.composition,
-        form: c.form,
-        strength: c.strength,
-        manufacturer: c.manufacturer,
-        marketer: c.marketer,
-        packSize: c.packSize,
-        mrp: c.mrp ? parseFloat(c.mrp.toString()) : null,
-        imageUrl: c.imageUrl,
-        status: c.status,
-        reviewerNote: c.reviewerNote,
-        createdAt: c.createdAt,
-        reviewedAt: c.reviewedAt,
-        contributor: c.contributor,
-        reviewer: c.reviewer,
-      })),
-      total,
-      page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
     };
   }
 
