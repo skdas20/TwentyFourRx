@@ -269,6 +269,17 @@ export class ListingsController {
     return this.listingsService.mapBulkItemToMedicine(id, dto.index, dto.medicineId, dto.matchType);
   }
 
+  // ADMIN: Edit a bulk item's fields (e.g. fill in a missing Form) and re-validate
+  @Post('bulk/requests/:id/edit-item')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async editBulkItem(
+    @Param('id') id: string,
+    @Body() dto: { index: number; updates: Record<string, any> },
+  ) {
+    return this.listingsService.editBulkItem(id, dto.index, dto.updates);
+  }
+
   // ADMIN: Get pending medicine proposals (MUST be before :id routes)
   @Get('proposals/pending')
   @UseGuards(JwtAuthGuard, RolesGuard)

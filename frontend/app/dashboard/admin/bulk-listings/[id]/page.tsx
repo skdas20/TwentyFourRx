@@ -28,6 +28,12 @@ export default function BulkRequestDetailPage() {
   const [similarMedicines, setSimilarMedicines] = useState<any[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(false);
 
+  // Edit item state
+  const EDIT_FIELDS = ['Brand Name', 'Form', 'Strength', 'Manufacturer', 'Composition', 'MRP', 'List Price', 'Stock', 'GST %'];
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+
   useEffect(() => {
     loadRequest();
   }, [id]);
@@ -74,6 +80,40 @@ export default function BulkRequestDetailPage() {
     } catch (error: any) {
       console.error("Failed to map item:", error);
       showToast.error(error.response?.data?.message || "Failed to map item");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (index: number) => {
+    const row = rows[index] || {};
+    const initial: Record<string, string> = {};
+    EDIT_FIELDS.forEach((f) => {
+      const v = row[f] ?? row[f.toLowerCase()] ?? '';
+      initial[f] = v === null || v === undefined ? '' : String(v);
+    });
+    setEditForm(initial);
+    setEditIndex(index);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editIndex === null) return;
+    try {
+      setSubmitting(true);
+      const res = await listingsApi.editBulkItem(id, { index: editIndex, updates: editForm });
+      const newStatus = res.data?.item?.status;
+      setShowEditModal(false);
+      setEditIndex(null);
+      if (newStatus === 'INVALID') {
+        showToast.error("Still missing required fields (Brand Name, Form, Manufacturer)");
+      } else {
+        showToast.success(`Item updated — now ${newStatus}. You can select and approve it.`);
+      }
+      await loadRequest();
+    } catch (error: any) {
+      console.error("Failed to edit item:", error);
+      showToast.error(error.response?.data?.message || "Failed to update item");
     } finally {
       setSubmitting(false);
     }
@@ -233,6 +273,10 @@ export default function BulkRequestDetailPage() {
               <span className="w-2 h-2 rounded-full bg-red-500"></span>
               New/Unmatched: {rows.filter(r => r.status === 'NEW').length}
             </span>
+            <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400">
+              <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+              Invalid: {rows.filter(r => r.status === 'INVALID').length}
+            </span>
           </div>
         </div>
         
@@ -261,9 +305,9 @@ export default function BulkRequestDetailPage() {
                 const isMatched = row.status === 'MATCHED';
                 const isInvalid = row.status === 'INVALID';
                 const rowClass = isMatched 
-                  ? 'bg-green-50/30 dark:bg-green-900/10 hover:bg-green-50/50' 
-                  : isInvalid 
-                    ? 'bg-gray-100 dark:bg-gray-800 opacity-50'
+                  ? 'bg-green-50/30 dark:bg-green-900/10 hover:bg-green-50/50'
+                  : isInvalid
+                    ? 'bg-gray-100/60 dark:bg-gray-800/60'
                     : 'bg-red-50/30 dark:bg-red-900/10 hover:bg-red-50/50';
 
                 return (
@@ -283,20 +327,39 @@ export default function BulkRequestDetailPage() {
                           <CheckCircle className="w-3 h-3" /> Matched
                         </span>
                       ) : isInvalid ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                          Invalid
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                            Invalid
+                          </span>
+                          {row.error && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">{row.error}</span>
+                          )}
+                          <button
+                            onClick={() => handleOpenEdit(index)}
+                            className="text-[10px] text-blue-600 hover:underline font-medium"
+                          >
+                            Edit to fix
+                          </button>
+                        </div>
                       ) : (
                         <div className="flex flex-col gap-1 items-start">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
                             <AlertCircle className="w-3 h-3" /> New
                           </span>
-                          <button
-                            onClick={() => handleViewSimilar(index)}
-                            className="text-[10px] text-blue-600 hover:underline font-medium"
-                          >
-                            View Similar
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleViewSimilar(index)}
+                              className="text-[10px] text-blue-600 hover:underline font-medium"
+                            >
+                              View Similar
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(index)}
+                              className="text-[10px] text-blue-600 hover:underline font-medium"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </div>
                       )}
                       {row.matchType === 'REFERENCE' && <div className="text-[10px] text-gray-500 mt-0.5">(Reference DB)</div>}
@@ -523,6 +586,72 @@ export default function BulkRequestDetailPage() {
               <p className="text-xs text-gray-500 text-center italic">
                 Mapping will update the bulk item's status to MATCHED and link it to the selected record.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Item Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full flex flex-col max-h-[85vh] border border-gray-200 dark:border-gray-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Edit Item</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Fill in any missing details. Brand Name, Form and Manufacturer are required.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {EDIT_FIELDS.map((field) => {
+                const required = field === 'Brand Name' || field === 'Form' || field === 'Manufacturer';
+                const numeric = field === 'MRP' || field === 'List Price' || field === 'Stock' || field === 'GST %';
+                return (
+                  <div key={field} className={field === 'Composition' ? 'sm:col-span-2' : ''}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {field}{required && <span className="text-red-500"> *</span>}
+                    </label>
+                    <input
+                      type={numeric ? 'number' : 'text'}
+                      list={field === 'Form' ? 'form-options' : undefined}
+                      value={editForm[field] ?? ''}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder={required ? 'Required' : 'Optional'}
+                    />
+                  </div>
+                );
+              })}
+              <datalist id="form-options">
+                <option value="Tablet" />
+                <option value="Capsule" />
+                <option value="Injection" />
+                <option value="Syrup" />
+                <option value="Suspension" />
+                <option value="Drops" />
+                <option value="Cream" />
+                <option value="Ointment" />
+                <option value="Gel" />
+                <option value="Inhaler" />
+                <option value="Powder" />
+                <option value="Infusion" />
+              </datalist>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
+              <button
+                onClick={() => { setShowEditModal(false); setEditIndex(null); }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={submitting}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Saving..." : "Save & Re-validate"}
+              </button>
             </div>
           </div>
         </div>

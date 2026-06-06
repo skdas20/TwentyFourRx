@@ -370,6 +370,12 @@ export default function MyListingsPage() {
                       <p className="text-gray-900 dark:text-gray-100 font-semibold">₹{listing.listPrice}</p>
                     </div>
                   )}
+                  {(listing.medicine?.mrp ?? listing.proposedMrp) != null && (
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">MRP:</span>
+                      <p className="text-gray-900 dark:text-gray-100 font-semibold">₹{listing.medicine?.mrp ?? listing.proposedMrp}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Stock */}
