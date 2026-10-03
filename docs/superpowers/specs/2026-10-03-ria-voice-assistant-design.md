@@ -48,6 +48,20 @@ The server enforces all of this; the prompt only reinforces it:
 - **Logging in mid-conversation:** Live sessions can't change their tools or instructions, so the backend opens a new Live session in member mode, and Ria welcomes the user by name.
 - **Showing the user's own data:** for questions like "what's in my portfolio", Ria fetches the data, opens the matching page, and spotlights each item as she describes it.
 
+## Tours (the server drives them)
+Live models tend to stop after each step and wait for the user. So for any walkthrough, Ria calls `start_tour` **once** with the ordered steps, and the backend runs the tour:
+1. The backend highlights step *k*.
+2. It prompts Ria with "Tour step k of n". She explains that one item in a sentence or two.
+3. The backend waits until her turn is complete **and** the browser reports `playback_idle`, so the user has heard it all. A fallback timer based on the audio length covers a missing report, and a 25-second watchdog covers a silent model.
+4. It moves to the next step.
+
+If the user speaks or types, or the page changes, the tour stops. Ria answers, and can call `start_tour` again with the remaining steps.
+
+## Noise handling
+- Voice detection uses low start- and end-of-speech sensitivity, 200 ms prefix padding and 700 ms of silence before a turn ends.
+- `proactivity.proactiveAudio` is on, so the model can ignore input not meant for it.
+- The prompt tells Ria to ignore background chatter and never to invent a topic from it.
+
 ## Limits and safety
 - **Origin allowlist:** `FRONTEND_URL`, `https://24rxexchange.com` and `https://www.24rxexchange.com`. It can be overridden with `ASSISTANT_ALLOWED_ORIGINS`.
 - **Session caps:**

@@ -110,11 +110,38 @@ export const PUBLIC_DATA_TOOLS: FunctionDeclaration[] = [
   },
 ];
 
-/** Guests get no form filling and no account tools. */
+/** Server-driven multi-step walkthrough of elements on the current page. */
+export const TOUR_TOOL: FunctionDeclaration = {
+  name: 'start_tour',
+  description:
+    'Walk the user through several elements on the current page, one after another, without waiting for them between steps. The app highlights each step in order and prompts you to explain it. Get the target ids from read_page first.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      steps: {
+        type: Type.ARRAY,
+        description: 'Ordered steps (max 15)',
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            target: { type: Type.STRING, description: 'data-assist id, e.g. qa-sell' },
+            topic: { type: Type.STRING, description: 'What to explain about it, a few words' },
+          },
+          required: ['target', 'topic'],
+        },
+      },
+    },
+    required: ['steps'],
+  },
+};
+
+/** Guests get no form filling, tours or account tools. */
 const GUEST_CLIENT_TOOLS = CLIENT_TOOLS.filter((t) => t.name !== 'fill_field');
 
 export function toolsFor(loggedIn: boolean): FunctionDeclaration[] {
-  return loggedIn ? [...CLIENT_TOOLS, ...DATA_TOOLS, ...PUBLIC_DATA_TOOLS] : [...GUEST_CLIENT_TOOLS, ...PUBLIC_DATA_TOOLS];
+  return loggedIn
+    ? [...CLIENT_TOOLS, TOUR_TOOL, ...DATA_TOOLS, ...PUBLIC_DATA_TOOLS]
+    : [...GUEST_CLIENT_TOOLS, ...PUBLIC_DATA_TOOLS];
 }
 
 /** Pages a guest may be navigated to. */

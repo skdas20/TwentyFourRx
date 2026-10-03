@@ -133,6 +133,8 @@ export class RiaController {
       sampleRate: 24000,
       onPlayingChange: (playing) => {
         if (!this.active) return;
+        // Lets the server pace multi-step tours to what the user has actually heard.
+        if (!playing) this.sendRaw({ type: 'playback_idle' });
         this.set({ status: playing ? 'speaking' : 'listening', activity: playing ? '' : this.state.activity });
         this.bumpIdle();
       },

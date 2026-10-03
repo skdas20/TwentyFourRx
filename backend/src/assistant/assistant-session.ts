@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { GoogleGenAI, LiveServerMessage, Modality, Session } from '@google/genai';
+import { EndSensitivity, GoogleGenAI, LiveServerMessage, Modality, Session, StartSensitivity } from '@google/genai';
 import type { WebSocket } from 'ws';
 import { AssistantUserContext, buildSystemInstruction } from './assistant.prompt';
 import {
@@ -7,6 +7,7 @@ import {
   DATA_TOOL_NAMES,
   GUEST_ROUTES,
   PUBLIC_DATA_TOOL_NAMES,
+  TOUR_TOOL,
   toolsFor,
 } from './assistant.tools';
 import { AssistantDataService } from './assistant-data.service';
@@ -65,6 +66,12 @@ export class AssistantSession {
   private guestTurns = 0;
   private spokeThisTurn = false;
   private wrappingUp = false;
+  /** Server-driven tour: we highlight each step and prompt the model to explain it. */
+  private tour?: { steps: { target: string; topic: string }[]; next: number };
+  private modelBusy = false;
+  private clientPlaying = false;
+  private turnAudioMs = 0;
+  private playbackFallback?: NodeJS.Timeout;
 
   constructor(
     private readonly ws: WebSocket,
@@ -101,10 +108,15 @@ export class AssistantSession {
         return this.live?.sendRealtimeInput({ audioStreamEnd: true });
       case 'text':
         if (typeof msg.text === 'string' && msg.text.trim()) {
+          this.interruptTour();
           this.live?.sendRealtimeInput({ text: msg.text.slice(0, 2000) });
         }
         return;
+      case 'playback_idle':
+        this.clientPlaying = false;
+        return this.advanceTour();
       case 'context':
+        if (typeof msg.path === 'string' && msg.path !== this.path) this.cancelTour();
         if (typeof msg.path === 'string') this.path = msg.path.slice(0, 200);
         if (typeof msg.note === 'string') this.silentContext(msg.note.slice(0, 500));
         return;
@@ -207,6 +219,8 @@ export class AssistantSession {
     }
     this.guestTurns = 0;
     this.wrappingUp = false;
+    this.cancelTour();
+    this.modelBusy = false;
 
     this.reconnecting = true;
     for (const id of [...this.pendingClientTools.keys()]) this.clearPendingTool(id);
@@ -298,6 +312,16 @@ export class AssistantSession {
             outputAudioTranscription: {},
             sessionResumption: this.handle ? { handle: this.handle } : {},
             contextWindowCompression: { slidingWindow: {} },
+            // Busy offices: don't treat background chatter as the user speaking.
+            realtimeInputConfig: {
+              automaticActivityDetection: {
+                startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
+                endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+                prefixPaddingMs: 200,
+                silenceDurationMs: 700,
+              },
+            },
+            proactivity: { proactiveAudio: true },
           },
           callbacks: {
             onmessage: (m) => {
@@ -330,12 +354,20 @@ export class AssistantSession {
       for (const part of sc.modelTurn?.parts ?? []) {
         if (part.inlineData?.data) {
           this.spokeThisTurn = true;
+          this.modelBusy = true;
+          this.clientPlaying = true;
+          // 24 kHz 16-bit mono: bytes / 48 per ms.
+          this.turnAudioMs += (part.inlineData.data.length * 0.75) / 48;
           this.send({ type: 'audio', data: part.inlineData.data });
         }
       }
       if (sc.inputTranscription?.text) this.send({ type: 'transcript', role: 'user', text: sc.inputTranscription.text });
       if (sc.outputTranscription?.text) this.send({ type: 'transcript', role: 'model', text: sc.outputTranscription.text });
-      if (sc.interrupted) this.send({ type: 'interrupted' });
+      if (sc.interrupted) {
+        this.send({ type: 'interrupted' });
+        this.clientPlaying = false;
+        this.interruptTour();
+      }
       if (sc.turnComplete) {
         this.send({ type: 'turn_complete' });
         this.onTurnComplete();
@@ -364,10 +396,69 @@ export class AssistantSession {
   private onTurnComplete() {
     const spoke = this.spokeThisTurn;
     this.spokeThisTurn = false;
+    this.modelBusy = false;
+    // If the browser never reports playback end, assume it after the audio's length.
+    clearTimeout(this.playbackFallback);
+    if (this.tour) {
+      this.playbackFallback = setTimeout(() => {
+        this.clientPlaying = false;
+        this.advanceTour();
+      }, this.turnAudioMs + 2000);
+    }
+    this.turnAudioMs = 0;
+    this.advanceTour();
     if (this.user.loggedIn || !spoke) return;
     if (this.wrappingUp) return this.endGuest();
     this.guestTurns++;
     if (this.guestTurns >= this.opts.limits.guestTurns) this.wrapUpGuest();
+  }
+
+  /** Run the next tour step once the model is idle and the user has heard the previous one. */
+  private advanceTour() {
+    const tour = this.tour;
+    if (!tour || this.modelBusy || this.clientPlaying || this.closed) return;
+    clearTimeout(this.playbackFallback);
+
+    if (tour.next >= tour.steps.length) {
+      this.tour = undefined;
+      this.send({ type: 'tool_call', id: 'tour-end', name: 'clear_highlight', args: {} });
+      this.modelBusy = true;
+      this.prompt('The tour is complete. In one short sentence, wrap up and ask if they have any questions.');
+      return;
+    }
+
+    const step = tour.steps[tour.next++];
+    const k = tour.next;
+    const n = tour.steps.length;
+    this.send({ type: 'tool_call', id: `tour-${k}`, name: 'highlight', args: { target: step.target } });
+    this.modelBusy = true;
+    // Watchdog: never let a silent model stall the tour.
+    this.playbackFallback = setTimeout(() => {
+      this.modelBusy = false;
+      this.clientPlaying = false;
+      this.advanceTour();
+    }, 25_000);
+    this.prompt(
+      `Tour step ${k} of ${n}: the screen now highlights "${step.target}" — ${step.topic}. Explain it in one or two short sentences. Don't ask a question and don't call any tools.`,
+    );
+  }
+
+  /** The user spoke or typed mid-tour: stop, and let the model offer to continue. */
+  private interruptTour() {
+    const tour = this.tour;
+    if (!tour) return;
+    this.cancelTour();
+    const remaining = tour.steps.slice(Math.max(0, tour.next - 1));
+    if (remaining.length) {
+      this.silentContext(
+        `The user interrupted the tour at step ${tour.next} of ${tour.steps.length}. Answer them first. If they want to continue, call start_tour with the remaining steps: ${JSON.stringify(remaining)}`,
+      );
+    }
+  }
+
+  private cancelTour() {
+    this.tour = undefined;
+    clearTimeout(this.playbackFallback);
   }
 
   private onLiveClosed(code?: number, reason?: string) {
@@ -413,6 +504,22 @@ export class AssistantSession {
           return this.respond(id, name, { ok: false, error: 'Guests can only open public pages. Ask the user to log in first.' });
         }
       }
+    }
+
+    if (name === TOUR_TOOL.name) {
+      if (!this.user.loggedIn) return this.respond(id, name, { error: 'Tours are available after login.' });
+      const steps = (Array.isArray(args.steps) ? args.steps : [])
+        .filter((s: any) => s && typeof s.target === 'string')
+        .slice(0, 15)
+        .map((s: any) => ({ target: String(s.target).slice(0, 100), topic: String(s.topic ?? '').slice(0, 120) }));
+      if (!steps.length) return this.respond(id, name, { error: 'No valid steps. Call read_page to get target ids.' });
+      this.tour = { steps, next: 0 };
+      this.log.log(`tour started: ${steps.length} steps`);
+      return this.respond(id, name, {
+        ok: true,
+        steps: steps.length,
+        note: 'Tour started. Say at most one short intro sentence now. The app will highlight each step and prompt you with "Tour step k of n".',
+      });
     }
 
     if (PUBLIC_DATA_TOOL_NAMES.has(name)) {
@@ -487,6 +594,7 @@ export class AssistantSession {
     if (this.closed) return;
     this.closed = true;
     clearTimeout(this.maxTimer);
+    this.cancelTour();
     this.releaseGuestSlot();
     for (const id of [...this.pendingClientTools.keys()]) this.clearPendingTool(id);
     try {
