@@ -14,6 +14,8 @@ const IDLE_STATE: RiaState = {
   error: "",
   micLevel: 0,
   outLevel: 0,
+  guest: true,
+  notice: "",
 };
 
 const STATUS_TEXT: Record<RiaState["status"], string> = {
@@ -161,6 +163,16 @@ export default function RiaWidget() {
             )}
           </div>
 
+          {s.guest && active && (
+            <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              Guest mode — basic answers only.{" "}
+              <a href="/auth/login" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                Log in
+              </a>{" "}
+              for full help with onboarding, KYC and your account.
+            </p>
+          )}
+
           {typing && active && (
             <form onSubmit={submit} className="flex items-center gap-2 border-t border-slate-100 px-3 py-2 dark:border-slate-800">
               <input
@@ -232,6 +244,43 @@ export default function RiaWidget() {
             )}
           </footer>
         </section>
+      )}
+
+      {s.notice === "login" && s.status === "idle" && (
+        <div className="w-[calc(100vw-2rem)] max-w-[20rem] rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-slate-700 dark:text-slate-200">
+              Log in to keep talking with Ria — she can then guide you through onboarding, KYC and your account.
+            </p>
+            <button
+              onClick={() => ria.dismissNotice()}
+              className="rounded-full p-1 text-slate-400 hover:text-slate-600"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={() => {
+                ria.dismissNotice();
+                router.push("/auth/login");
+              }}
+              className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700"
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => {
+                ria.dismissNotice();
+                router.push("/auth/register");
+              }}
+              className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Register
+            </button>
+          </div>
+        </div>
       )}
 
       {s.status === "resumable" && (

@@ -15,6 +15,10 @@ export interface RiaState {
   /** 0..1 meter values for the visualiser. */
   micLevel: number;
   outLevel: number;
+  /** True while the user is not logged in (short, basic-help mode). */
+  guest: boolean;
+  /** Shown after a session ends, e.g. 'login' = ask the user to log in to continue. */
+  notice: '' | 'login';
 }
 
 const STORAGE_KEY = 'ria.session';
@@ -75,6 +79,8 @@ export class RiaController {
     error: '',
     micLevel: 0,
     outLevel: 0,
+    guest: true,
+    notice: '',
   };
   private listeners = new Set<() => void>();
   private ws?: WebSocket;
@@ -120,7 +126,8 @@ export class RiaController {
   async start(resume = false) {
     if (this.active) return;
     if (!resume) this.handle = undefined;
-    this.set({ status: 'connecting', activity: 'Connecting…', error: '', userText: '', riaText: '' });
+    // Always open with the mic live.
+    this.set({ status: 'connecting', activity: 'Connecting…', error: '', userText: '', riaText: '', muted: false, notice: '' });
 
     this.player = new PcmPlayer({
       sampleRate: 24000,
@@ -141,7 +148,7 @@ export class RiaController {
     } catch (e: any) {
       return this.fail(e?.message || 'Could not access the microphone.');
     }
-    this.mic.setMuted(this.state.muted);
+    this.mic.setMuted(false);
 
     this.token = readToken();
     const ws = new WebSocket(wsUrl());
@@ -223,8 +230,11 @@ export class RiaController {
     }
     switch (m.type) {
       case 'ready':
-        this.set({ status: 'listening', activity: '' });
+        this.set({ status: 'listening', activity: '', guest: !m.user?.loggedIn });
         this.bumpIdle();
+        break;
+      case 'mode':
+        this.set({ guest: !m.loggedIn });
         break;
       case 'audio':
         this.player?.enqueue(m.data);
@@ -251,13 +261,14 @@ export class RiaController {
         writeStored({ handle: m.handle, at: Date.now() });
         break;
       case 'error':
-        if (m.fatal) this.fail(m.message);
+        if (m.reason === 'guest_busy') {
+          this.teardown();
+          writeStored(null);
+          this.set({ status: 'idle', activity: '', notice: 'login' });
+        } else if (m.fatal) this.fail(m.message);
         break;
       case 'ended':
-        if (this.active) {
-          this.teardown();
-          this.set({ status: 'idle', activity: '' });
-        }
+        if (this.active) this.finish(m.reason === 'guest_limit' ? 'login' : '');
         break;
     }
   }
@@ -296,6 +307,28 @@ export class RiaController {
     this.sendRaw({ type: 'tool_result', id, result });
     // Navigation may have logged the user in/out (e.g. after the login page).
     if (name === 'navigate') this.syncAuth();
+  }
+
+  /** End after Ria's last sentence has finished playing (max 10 s). */
+  private async finish(notice: RiaState['notice']) {
+    // Detach first so the server's socket close isn't reported as an error.
+    const ws = this.ws;
+    this.ws = undefined;
+    try {
+      ws?.close();
+    } catch {}
+    this.mic?.stop();
+    this.mic = undefined;
+    const player = this.player;
+    for (let i = 0; i < 50 && player?.playing; i++) await new Promise((r) => setTimeout(r, 200));
+    this.teardown();
+    writeStored(null);
+    this.handle = undefined;
+    this.set({ status: 'idle', activity: '', micLevel: 0, outLevel: 0, notice });
+  }
+
+  dismissNotice() {
+    this.set({ notice: '' });
   }
 
   /** Auto-sleep after a quiet spell so the mic isn't left open by accident. */

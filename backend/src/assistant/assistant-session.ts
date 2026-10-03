@@ -2,22 +2,41 @@ import { Logger } from '@nestjs/common';
 import { GoogleGenAI, LiveServerMessage, Modality, Session } from '@google/genai';
 import type { WebSocket } from 'ws';
 import { AssistantUserContext, buildSystemInstruction } from './assistant.prompt';
-import { CLIENT_TOOLS, CLIENT_TOOL_NAMES, DATA_TOOLS, DATA_TOOL_NAMES } from './assistant.tools';
+import {
+  CLIENT_TOOL_NAMES,
+  DATA_TOOL_NAMES,
+  GUEST_ROUTES,
+  PUBLIC_DATA_TOOL_NAMES,
+  toolsFor,
+} from './assistant.tools';
 import { AssistantDataService } from './assistant-data.service';
 
 export interface AssistantUser extends AssistantUserContext {
   id?: string;
 }
 
+export interface AssistantLimits {
+  memberMs: number;
+  guestMs: number;
+  /** Spoken answers a guest gets (greeting included) before being asked to log in. */
+  guestTurns: number;
+}
+
 export interface AssistantSessionOptions {
   ai: GoogleGenAI;
   models: string[];
   voice: string;
-  maxDurationMs: number;
+  limits: AssistantLimits;
   data: AssistantDataService;
   resolveUser: (token?: string | null) => Promise<AssistantUser>;
+  /** Reserve / release one of the limited guest slots. */
+  admitGuest: () => boolean;
+  releaseGuest: () => void;
   onEnd: () => void;
 }
+
+const GUEST_LIMIT_NOTE =
+  'The guest limit is reached. In one short sentence, tell them they can log in — or register if they are new — to continue with full help. Do not answer anything else.';
 
 const CLIENT_TOOL_TIMEOUT_MS = 10_000;
 const MAX_AUDIO_CHUNK = 64 * 1024; // base64 chars; a 40 ms 16 kHz chunk is ~1.7 KB
@@ -42,6 +61,10 @@ export class AssistantSession {
   private startedAt = Date.now();
   private maxTimer?: NodeJS.Timeout;
   private pendingClientTools = new Map<string, { name: string; timer: NodeJS.Timeout }>();
+  private holdsGuestSlot = false;
+  private guestTurns = 0;
+  private spokeThisTurn = false;
+  private wrappingUp = false;
 
   constructor(
     private readonly ws: WebSocket,
@@ -101,6 +124,11 @@ export class AssistantSession {
     this.handle = typeof msg.handle === 'string' ? msg.handle : undefined;
     const resumed = !!this.handle;
 
+    if (!this.user.loggedIn && !this.takeGuestSlot()) {
+      this.send({ type: 'error', message: 'Ria is busy right now. Please log in to talk to Ria.', fatal: true, reason: 'guest_busy' });
+      return this.close('guest capacity');
+    }
+
     try {
       await this.connectLive();
     } catch (e: any) {
@@ -109,11 +137,7 @@ export class AssistantSession {
       return this.close('connect failed');
     }
 
-    this.maxTimer = setTimeout(() => {
-      this.send({ type: 'error', message: 'Session time limit reached.', fatal: true });
-      this.close('max duration');
-    }, this.opts.maxDurationMs);
-
+    this.armTimer();
     this.send({ type: 'ready', resumed, user: { loggedIn: this.user.loggedIn, name: this.user.name } });
     this.log.log(`session start user=${this.user.id ?? 'visitor'} resumed=${resumed} path=${this.path}`);
 
@@ -125,21 +149,94 @@ export class AssistantSession {
   }
 
   private greet() {
-    this.live?.sendClientContent({
-      turns: [{ role: 'user', parts: [{ text: `[context] The user just tapped the Ria button on page ${this.path}. Greet them.` }] }],
-      turnComplete: true,
-    });
+    this.prompt(`The user just tapped the Ria button on page ${this.path}. Greet them.`);
   }
 
+  private takeGuestSlot(): boolean {
+    if (this.holdsGuestSlot) return true;
+    this.holdsGuestSlot = this.opts.admitGuest();
+    return this.holdsGuestSlot;
+  }
+
+  private releaseGuestSlot() {
+    if (!this.holdsGuestSlot) return;
+    this.holdsGuestSlot = false;
+    this.opts.releaseGuest();
+  }
+
+  /** Member sessions get the long limit; guests a short one that ends with a polite wrap-up. */
+  private armTimer() {
+    clearTimeout(this.maxTimer);
+    if (this.user.loggedIn) {
+      this.maxTimer = setTimeout(() => {
+        this.send({ type: 'error', message: 'Session time limit reached.', fatal: true });
+        this.close('max duration');
+      }, this.opts.limits.memberMs);
+    } else {
+      this.maxTimer = setTimeout(() => this.wrapUpGuest(), this.opts.limits.guestMs);
+    }
+  }
+
+  private wrapUpGuest() {
+    if (this.wrappingUp || this.user.loggedIn || this.closed) return;
+    this.wrappingUp = true;
+    this.prompt(GUEST_LIMIT_NOTE);
+    // Hard stop even if the model never answers.
+    setTimeout(() => this.endGuest(), 15_000);
+  }
+
+  private endGuest() {
+    this.close('guest_limit');
+  }
+
+  /**
+   * Login/logout changes what Ria may do, and Live sessions can't swap their
+   * tools or instructions — so start a fresh Live session in the new mode.
+   */
   private async updateAuth(token?: string | null) {
     const before = this.user;
-    this.user = await this.opts.resolveUser(token);
-    if (before.id === this.user.id) return;
-    this.silentContext(
-      this.user.loggedIn
-        ? `The user has now logged in as ${this.user.name} (account type ${this.user.roleCode}, status ${this.user.status}). Account tools are available.`
-        : 'The user has logged out. Account tools are no longer available.',
+    const next = await this.opts.resolveUser(token);
+    if (before.id === next.id || this.closed) return;
+    this.user = next;
+
+    if (next.loggedIn) {
+      this.releaseGuestSlot();
+    } else if (!this.takeGuestSlot()) {
+      this.send({ type: 'error', message: 'You have been logged out.', fatal: true });
+      return this.close('logged out, guest capacity');
+    }
+    this.guestTurns = 0;
+    this.wrappingUp = false;
+
+    this.reconnecting = true;
+    for (const id of [...this.pendingClientTools.keys()]) this.clearPendingTool(id);
+    const old = this.live;
+    this.live = undefined;
+    this.handle = undefined;
+    try {
+      old?.close();
+    } catch {}
+    try {
+      await this.connectLive();
+    } catch (e: any) {
+      this.reconnecting = false;
+      this.send({ type: 'error', message: 'Ria is unavailable right now. Please try again in a minute.', fatal: true });
+      return this.close('mode switch failed');
+    }
+    this.reconnecting = false;
+    this.armTimer();
+    this.send({ type: 'mode', loggedIn: next.loggedIn, name: next.name });
+    this.log.log(`session mode -> ${next.loggedIn ? `member ${next.id}` : 'guest'}`);
+    this.prompt(
+      next.loggedIn
+        ? `The user just logged in as ${next.name} and is on page ${this.path}. Welcome them by name in one short sentence and ask what they'd like help with.`
+        : 'The user just logged out. In one short sentence, say goodbye and that they can log in again anytime.',
     );
+  }
+
+  /** Give the model an app instruction that it should respond to now. */
+  private prompt(note: string) {
+    this.live?.sendClientContent({ turns: [{ role: 'user', parts: [{ text: `[context] ${note}` }] }], turnComplete: true });
   }
 
   /** Append information to the conversation without triggering a reply. */
@@ -195,7 +292,7 @@ export class AssistantSession {
           config: {
             responseModalities: [Modality.AUDIO],
             systemInstruction: buildSystemInstruction(this.user, this.path),
-            tools: [{ functionDeclarations: [...CLIENT_TOOLS, ...DATA_TOOLS] }],
+            tools: [{ functionDeclarations: toolsFor(this.user.loggedIn) }],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: this.opts.voice } } },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
@@ -231,12 +328,18 @@ export class AssistantSession {
     const sc = m.serverContent;
     if (sc) {
       for (const part of sc.modelTurn?.parts ?? []) {
-        if (part.inlineData?.data) this.send({ type: 'audio', data: part.inlineData.data });
+        if (part.inlineData?.data) {
+          this.spokeThisTurn = true;
+          this.send({ type: 'audio', data: part.inlineData.data });
+        }
       }
       if (sc.inputTranscription?.text) this.send({ type: 'transcript', role: 'user', text: sc.inputTranscription.text });
       if (sc.outputTranscription?.text) this.send({ type: 'transcript', role: 'model', text: sc.outputTranscription.text });
       if (sc.interrupted) this.send({ type: 'interrupted' });
-      if (sc.turnComplete) this.send({ type: 'turn_complete' });
+      if (sc.turnComplete) {
+        this.send({ type: 'turn_complete' });
+        this.onTurnComplete();
+      }
     }
 
     if (m.toolCall?.functionCalls?.length) {
@@ -255,6 +358,16 @@ export class AssistantSession {
       this.log.log(`goAway (timeLeft ${m.goAway.timeLeft}); reconnecting with handle`);
       void this.reconnect();
     }
+  }
+
+  /** Count guests' spoken answers; tool-call turns complete silently and don't count. */
+  private onTurnComplete() {
+    const spoke = this.spokeThisTurn;
+    this.spokeThisTurn = false;
+    if (this.user.loggedIn || !spoke) return;
+    if (this.wrappingUp) return this.endGuest();
+    this.guestTurns++;
+    if (this.guestTurns >= this.opts.limits.guestTurns) this.wrapUpGuest();
   }
 
   private onLiveClosed(code?: number, reason?: string) {
@@ -289,6 +402,29 @@ export class AssistantSession {
   // ───────────────────────── tools ─────────────────────────
 
   private async onToolCall(id: string, name: string, args: Record<string, unknown>) {
+    // Server-side enforcement — never rely on the prompt alone.
+    if (!this.user.loggedIn) {
+      if (name === 'fill_field' || DATA_TOOL_NAMES.has(name)) {
+        return this.respond(id, name, { error: 'Not available to guests. Ask the user to log in first.' });
+      }
+      if (name === 'navigate') {
+        const target = String(args.path ?? '').split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+        if (!GUEST_ROUTES.includes(target)) {
+          return this.respond(id, name, { ok: false, error: 'Guests can only open public pages. Ask the user to log in first.' });
+        }
+      }
+    }
+
+    if (PUBLIC_DATA_TOOL_NAMES.has(name)) {
+      this.send({ type: 'tool_activity', name });
+      try {
+        return this.respond(id, name, { result: await this.opts.data.searchMedicines(args.query) });
+      } catch (e: any) {
+        this.log.error(`public tool ${name} failed: ${e?.message}`);
+        return this.respond(id, name, { error: 'Could not search right now.' });
+      }
+    }
+
     if (CLIENT_TOOL_NAMES.has(name)) {
       const timer = setTimeout(() => {
         this.pendingClientTools.delete(id);
@@ -320,8 +456,15 @@ export class AssistantSession {
     const pending = this.pendingClientTools.get(msg.id);
     if (!pending) return;
     this.clearPendingTool(msg.id);
-    if (pending.name === 'navigate' && typeof msg.result?.path === 'string') this.path = msg.result.path;
-    this.respond(msg.id, pending.name, msg.result && typeof msg.result === 'object' ? msg.result : { result: msg.result });
+    const result = msg.result && typeof msg.result === 'object' ? { ...msg.result } : { result: msg.result };
+    if (pending.name === 'navigate' && typeof msg.result?.path === 'string') {
+      this.path = msg.result.path;
+      if (this.user.loggedIn && msg.result.ok) {
+        result.next =
+          'Page loaded. If you are showing the user their items, highlight each relevant element (target ids above; call read_page again if the items are not listed yet — data may still be loading) while you describe it in one sentence.';
+      }
+    }
+    this.respond(msg.id, pending.name, result);
   }
 
   private clearPendingTool(id: string) {
@@ -344,6 +487,7 @@ export class AssistantSession {
     if (this.closed) return;
     this.closed = true;
     clearTimeout(this.maxTimer);
+    this.releaseGuestSlot();
     for (const id of [...this.pendingClientTools.keys()]) this.clearPendingTool(id);
     try {
       this.live?.close();

@@ -14,6 +14,38 @@ const num = (d: any) => (d === null || d === undefined ? null : Number(d));
 export class AssistantDataService {
   constructor(private prisma: PrismaService) {}
 
+  /** Public catalogue search — no user scope needed, read-only. */
+  async searchMedicines(query: unknown) {
+    const q = typeof query === 'string' ? query.trim().slice(0, 80) : '';
+    if (q.length < 2) return { error: 'Please give at least 2 letters of the medicine name.' };
+    const medicines = await this.prisma.medicine.findMany({
+      where: { isActive: true, name: { contains: q, mode: 'insensitive' } },
+      take: 8,
+      select: {
+        name: true, strength: true, form: true, mrp: true,
+        manufacturer: { select: { name: true } },
+        listings: { where: { status: 'ACTIVE', stock: { gt: 0 } }, select: { listPrice: true, stock: true, gstPercentage: true } },
+      },
+    });
+    return {
+      results: medicines
+        .map((m) => {
+          const prices = m.listings.map((l) => Number(l.listPrice)).filter((p) => p > 0);
+          return {
+            medicine: `${m.name} ${m.strength} ${m.form}`.trim(),
+            manufacturer: m.manufacturer?.name,
+            mrp: num(m.mrp),
+            availableOn24Rx: m.listings.length > 0,
+            bestPriceExclGst: prices.length ? Math.min(...prices) : null,
+            sellers: m.listings.length,
+            totalStockOnSale: m.listings.reduce((s, l) => s + l.stock, 0),
+          };
+        })
+        .sort((a, b) => Number(b.availableOn24Rx) - Number(a.availableOn24Rx)),
+      note: 'Prices exclude GST. Open Explore (/medicines) to buy.',
+    };
+  }
+
   async run(tool: string, userId: string): Promise<unknown> {
     switch (tool) {
       case 'get_my_account':

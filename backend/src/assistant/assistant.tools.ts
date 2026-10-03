@@ -96,5 +96,30 @@ export const DATA_TOOLS: FunctionDeclaration[] = [
   },
 ];
 
+/** Read-only public catalogue lookups (available to guests too). */
+export const PUBLIC_DATA_TOOLS: FunctionDeclaration[] = [
+  {
+    name: 'search_medicines',
+    description:
+      'Search the 24Rx catalogue by medicine/brand name: availability, best current price on 24Rx, total stock on sale and MRP.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: { query: { type: Type.STRING, description: 'Medicine or brand name, e.g. Dolo 650' } },
+      required: ['query'],
+    },
+  },
+];
+
+/** Guests get no form filling and no account tools. */
+const GUEST_CLIENT_TOOLS = CLIENT_TOOLS.filter((t) => t.name !== 'fill_field');
+
+export function toolsFor(loggedIn: boolean): FunctionDeclaration[] {
+  return loggedIn ? [...CLIENT_TOOLS, ...DATA_TOOLS, ...PUBLIC_DATA_TOOLS] : [...GUEST_CLIENT_TOOLS, ...PUBLIC_DATA_TOOLS];
+}
+
+/** Pages a guest may be navigated to. */
+export const GUEST_ROUTES = ['/', '/auth/login', '/auth/register', '/auth/forgot-password', '/medicines', '/news', '/terms', '/privacy', '/team'];
+
 export const CLIENT_TOOL_NAMES = new Set(CLIENT_TOOLS.map((t) => t.name!));
 export const DATA_TOOL_NAMES = new Set(DATA_TOOLS.map((t) => t.name!));
+export const PUBLIC_DATA_TOOL_NAMES = new Set(PUBLIC_DATA_TOOLS.map((t) => t.name!));

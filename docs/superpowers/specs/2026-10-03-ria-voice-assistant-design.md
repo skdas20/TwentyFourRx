@@ -34,6 +34,20 @@ AssistantModule (NestJS; listens for WebSocket upgrades on the existing HTTP ser
 - **Page changes and login/logout** are added to the conversation as silent `[context]` notes. They don't make Ria speak.
 - **UI targets** are found through `data-assist-id` and `data-assist-label` attributes on the pages.
 
+## Guest mode vs. logged-in mode
+
+| | Guest (not logged in) | Logged in |
+|---|---|---|
+| Answers | Short and basic, about 24Rx only. Off-topic questions are refused. | Full help: onboarding, KYC, dashboard tours |
+| Browser tools | Navigate to public pages only, highlight, scroll. **No form filling.** | All browser tools |
+| Data tools | `search_medicines` only (the public catalogue) | Also the six `get_my_*` tools (read-only, limited to the user's own records) |
+| Limits | 6 spoken answers or 3 minutes; Ria then asks the user to log in. At most 10 guest sessions at once, and 6 guest sessions per IP per hour | 30 minutes |
+
+The server enforces all of this; the prompt only reinforces it:
+- **Tool calls:** guests can't fill forms, read account data, or navigate outside the public pages.
+- **Logging in mid-conversation:** Live sessions can't change their tools or instructions, so the backend opens a new Live session in member mode, and Ria welcomes the user by name.
+- **Showing the user's own data:** for questions like "what's in my portfolio", Ria fetches the data, opens the matching page, and spotlights each item as she describes it.
+
 ## Limits and safety
 - **Origin allowlist:** `FRONTEND_URL`, `https://24rxexchange.com` and `https://www.24rxexchange.com`. It can be overridden with `ASSISTANT_ALLOWED_ORIGINS`.
 - **Session caps:**
@@ -56,6 +70,10 @@ AssistantModule (NestJS; listens for WebSocket upgrades on the existing HTTP ser
 | `ASSISTANT_MAX_SESSIONS` | 30 |
 | `ASSISTANT_MAX_SESSIONS_PER_IP` | 3 |
 | `ASSISTANT_MAX_MINUTES` | 30 |
+| `ASSISTANT_GUEST_MAX_MINUTES` | 3 |
+| `ASSISTANT_GUEST_MAX_TURNS` | 6 |
+| `ASSISTANT_MAX_GUEST_SESSIONS` | 10 |
+| `ASSISTANT_GUEST_SESSIONS_PER_HOUR` | 6 |
 | `ASSISTANT_ALLOWED_ORIGINS` | the three origins above |
 
 Frontend: `NEXT_PUBLIC_ASSISTANT_WS_URL` is only needed in development, when the backend isn't behind the same host. `BACKEND_INTERNAL_URL` changes the `/api/v1` rewrite target, which defaults to `http://localhost:8080`.
