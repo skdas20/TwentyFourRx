@@ -103,7 +103,7 @@ export default function RegisterPage() {
           </h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Already have an account?{' '}
-            <Link href="/auth/login" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)]">
+            <Link href="/auth/login" data-assist-id="login-link" data-assist-label="Sign in — go to the login page" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)]">
               Sign in
             </Link>
           </p>
@@ -126,6 +126,8 @@ export default function RegisterPage() {
                 </label>
                 <input
                   id="name"
+                  data-assist-id="field-name"
+                  data-assist-label="Full name / business name"
                   type="text"
                   required
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
@@ -141,6 +143,8 @@ export default function RegisterPage() {
                 </label>
                 <input
                   id="email"
+                  data-assist-id="field-email"
+                  data-assist-label="Email address"
                   type="email"
                   required
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
@@ -158,6 +162,8 @@ export default function RegisterPage() {
                 </label>
                 <input
                   id="dlNumber"
+                  data-assist-id="field-dlNumber"
+                  data-assist-label="Drug License number"
                   type="text"
                   required
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
@@ -173,6 +179,8 @@ export default function RegisterPage() {
                 </label>
                 <input
                   id="gstin"
+                  data-assist-id="field-gstin"
+                  data-assist-label="GSTIN number"
                   type="text"
                   required
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
@@ -189,6 +197,8 @@ export default function RegisterPage() {
               </label>
               <textarea
                 id="address"
+                data-assist-id="field-address"
+                data-assist-label="Business address"
                 required
                 className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition resize-none"
                 placeholder="Enter full address"
@@ -205,6 +215,8 @@ export default function RegisterPage() {
                 </label>
                 <input
                   id="phone"
+                  data-assist-id="field-phone"
+                  data-assist-label="Phone number"
                   type="tel"
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
                   placeholder="Phone number"
@@ -219,6 +231,8 @@ export default function RegisterPage() {
                 </label>
                 <select
                   id="roleCode"
+                  data-assist-id="field-roleCode"
+                  data-assist-label="Account type — Seller or Trader"
                   className="block w-full rounded-lg border border-[var(--border)] py-3 px-3 text-[var(--ink)] bg-[var(--surface)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-blue)] focus:border-transparent transition"
                   value={formData.roleCode}
                   onChange={(e) => setFormData({ ...formData, roleCode: e.target.value as any })}
@@ -234,6 +248,8 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
+              data-assist-id="register-submit"
+              data-assist-label="Register Now — create your account"
               className="w-full group relative px-8 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.01] disabled:opacity-50 overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>

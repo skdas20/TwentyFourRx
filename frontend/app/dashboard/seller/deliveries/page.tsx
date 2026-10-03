@@ -332,10 +332,12 @@ export default function SellerDeliveriesPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6" data-assist-id="section-delivery-requests" data-assist-label="My Delivery Requests — physical delivery requests from buyers">
             {requests.map((request) => (
               <div
                 key={request.id}
+                data-assist-id={`delivery-${request.id}`}
+                data-assist-label={`Delivery request — ${request.status}`}
                 className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
               >
                 {/* Status Bar */}
@@ -418,6 +420,8 @@ export default function SellerDeliveriesPage() {
                             <input
                               type="text"
                               value={batchNumber[request.id] || ''}
+                              data-assist-id={`field-delivery-batch-${request.id}`}
+                              data-assist-label={'Batch number for this delivery'}
                               onChange={(e) => setBatchNumber(prev => ({ ...prev, [request.id]: e.target.value }))}
                               placeholder="Enter batch number"
                               className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -432,6 +436,8 @@ export default function SellerDeliveriesPage() {
                             <input
                               type="date"
                               value={expiryDate[request.id] || ''}
+                              data-assist-id={`field-delivery-expiry-${request.id}`}
+                              data-assist-label={'Expiry date for this delivery'}
                               onChange={(e) => setExpiryDate(prev => ({ ...prev, [request.id]: e.target.value }))}
                               className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                             />
@@ -447,6 +453,8 @@ export default function SellerDeliveriesPage() {
                               step="0.01"
                               min="0"
                               value={parcelWeight[request.id] || ''}
+                              data-assist-id={`field-delivery-weight-${request.id}`}
+                              data-assist-label={'Parcel weight in kg'}
                               onChange={(e) => setParcelWeight(prev => ({ ...prev, [request.id]: e.target.value }))}
                               placeholder="Enter weight in kg"
                               className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -462,6 +470,8 @@ export default function SellerDeliveriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setTransportMode(prev => ({ ...prev, [request.id]: 'ROAD' }))}
+                                data-assist-id={`delivery-transport-road-${request.id}`}
+                                data-assist-label={'Transport mode ROAD (₹60/kg)'}
                                 className={`px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
                                   transportMode[request.id] === 'ROAD'
                                     ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400'
@@ -473,6 +483,8 @@ export default function SellerDeliveriesPage() {
                               <button
                                 type="button"
                                 onClick={() => setTransportMode(prev => ({ ...prev, [request.id]: 'AIR' }))}
+                                data-assist-id={`delivery-transport-air-${request.id}`}
+                                data-assist-label={'Transport mode AIR (₹120/kg)'}
                                 className={`px-4 py-3 rounded-xl text-sm font-bold border-2 transition-all ${
                                   transportMode[request.id] === 'AIR'
                                     ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-400'
@@ -494,6 +506,8 @@ export default function SellerDeliveriesPage() {
                                 type="file"
                                 accept=".jpg,.jpeg,.png"
                                 onChange={(e) => handlePackageImageChange(request.id, e.target.files?.[0] || null)}
+                                data-assist-id={`field-delivery-package-image-${request.id}`}
+                                data-assist-label={'Package photo upload'}
                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
                               />
                               <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-yellow-400 dark:hover:border-yellow-500 transition-colors">
@@ -507,6 +521,8 @@ export default function SellerDeliveriesPage() {
                           {/* Submit Button */}
                           <button
                             onClick={() => handleProvideShippingDetails(request.id)}
+                            data-assist-id={`delivery-shipping-submit-${request.id}`}
+                            data-assist-label={'Submit Shipping Details'}
                             disabled={
                               !batchNumber[request.id] ||
                               !expiryDate[request.id] ||
@@ -555,6 +571,8 @@ export default function SellerDeliveriesPage() {
                                 type="file"
                                 accept=".pdf,.jpg,.jpeg,.png"
                                 onChange={(e) => handleFileChange(request.id, e.target.files?.[0] || null)}
+                                data-assist-id={`field-seller-invoice-${request.id}`}
+                                data-assist-label={'Your invoice upload (PDF/JPG/PNG)'}
                                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
                               />
                               <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-center hover:border-purple-400 dark:hover:border-purple-500 transition-colors">
@@ -568,6 +586,8 @@ export default function SellerDeliveriesPage() {
                           {/* Submit Button */}
                           <button
                             onClick={() => handleUploadSellerInvoice(request.id)}
+                            data-assist-id={`delivery-invoice-submit-${request.id}`}
+                            data-assist-label={'Upload invoice — submit your seller invoice'}
                             disabled={!selectedFile[request.id] || uploadingId === request.id}
                             className="w-full px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                           >

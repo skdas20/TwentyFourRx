@@ -177,7 +177,7 @@ export default function MyProposalsPage() {
 
         {/* Drafts Section */}
         {drafts.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-8" data-assist-id="section-pending-actions" data-assist-label="Payment Drafts (Action Required) — proposals waiting for you to complete payment">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <PlayCircle className="w-5 h-5 text-blue-600" />
               Payment Drafts (Action Required)
@@ -186,6 +186,8 @@ export default function MyProposalsPage() {
               {drafts.map((draft) => (
                 <div
                   key={draft.id}
+                  data-assist-id={`draft-${draft.id}`}
+                  data-assist-label={`Payment draft — ${draft.listing?.medicine?.name || "medicine"}`}
                   className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-6 border border-blue-200 dark:border-blue-800"
                 >
                   <div className="flex items-center justify-between flex-wrap gap-4">
@@ -207,6 +209,8 @@ export default function MyProposalsPage() {
                       </span>
                       <button
                         onClick={() => handleResumeDraft(draft)}
+                        data-assist-id={`draft-complete-payment-${draft.id}`}
+                        data-assist-label={'Complete Payment for this draft'}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
                       >
                         Complete Payment
@@ -233,16 +237,20 @@ export default function MyProposalsPage() {
             </p>
             <button
               onClick={() => router.push("/medicines")}
+              data-assist-id="browse-medicines-button"
+              data-assist-label="Browse Medicines — find medicines to buy"
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
             >
               Browse Medicines
             </button>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-4" data-assist-id="section-proposal-history" data-assist-label="Submission History — all your past buy proposals and their status">
             {history.map((proposal) => (
               <div
                 key={proposal.id}
+                data-assist-id={`proposal-${proposal.id}`}
+                data-assist-label={`Buy proposal — ${proposal.status}`}
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -331,12 +339,16 @@ export default function MyProposalsPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApproveQty(proposal.id)}
+                        data-assist-id={`proposal-approve-qty-${proposal.id}`}
+                        data-assist-label={'Approve Modified Qty — accept the seller-modified quantity'}
                         className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors text-sm"
                       >
                         Approve Modified Qty
                       </button>
                       <button
                         onClick={() => handleRejectQty(proposal.id)}
+                        data-assist-id={`proposal-reject-qty-${proposal.id}`}
+                        data-assist-label={'Reject the seller-modified quantity'}
                         className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors text-sm"
                       >
                         Reject
@@ -370,6 +382,8 @@ export default function MyProposalsPage() {
                     </p>
                     <button
                       onClick={() => handleResumeDraft(proposal)}
+                      data-assist-id={`proposal-upload-receipt-${proposal.id}`}
+                      data-assist-label={'Upload Payment Receipt for this proposal'}
                       className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <FileText className="w-4 h-4" />
@@ -399,6 +413,8 @@ export default function MyProposalsPage() {
                   {proposal.receiptUrl && (
                     <a
                       href={proposal.receiptUrl}
+                      data-assist-id={`proposal-view-receipt-${proposal.id}`}
+                      data-assist-label={'View Receipt'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"

@@ -366,6 +366,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
         <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
           <button
             onClick={() => setActiveTab("single")}
+            data-assist-id="tab-single"
+            data-assist-label="Single Listing tab — sell one medicine"
             className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === "single"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
@@ -376,6 +378,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
           </button>
           <button
             onClick={() => setActiveTab("bulk")}
+            data-assist-id="tab-bulk"
+            data-assist-label="Bulk Upload tab — upload many listings via CSV"
             className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${
               activeTab === "bulk"
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
@@ -403,6 +407,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   <button
                     type="button"
                     onClick={downloadSampleCSV}
+                    data-assist-id="bulk-sample-csv"
+                    data-assist-label="Sample CSV — download the bulk upload template"
                     className="ml-4 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
                   >
                     <Download className="w-4 h-4" />
@@ -421,6 +427,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                     accept=".csv"
                     required
                     onChange={(e) => setBulkCsv(e.target.files?.[0] || null)}
+                    data-assist-id="field-bulk-csv"
+                    data-assist-label="Inventory CSV file for bulk upload"
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                              text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
                              file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
@@ -447,6 +455,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => setBulkDoc(e.target.files?.[0] || null)}
+                    data-assist-id="field-bulk-credibility-doc"
+                    data-assist-label="Credibility document for the bulk lot (optional invoice/proof)"
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                              text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
                              file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
@@ -465,6 +475,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
             <button
               type="submit"
               disabled={submitting || !bulkCsv}
+              data-assist-id="bulk-submit"
+              data-assist-label="Submit Bulk Upload Request"
               className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg
                        hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed
                        transition-all font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl
@@ -497,6 +509,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Search Medicine</h2>
               <button
                 onClick={() => router.push("/dashboard/seller/listings/contribute")}
+                data-assist-id="contribute-link"
+                data-assist-label="Contribute Medicine — add a medicine that is not in the catalogue"
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -509,6 +523,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <input
                   type="text"
                   placeholder="Search from 251K+ medicines..."
+                  data-assist-id="field-medicine-search"
+                  data-assist-label="Medicine search — type a medicine name to sell"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -520,6 +536,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
               <button
                 onClick={handleSearch}
                 disabled={searching || searchQuery.length < 2}
+                data-assist-id="medicine-search-button"
+                data-assist-label="Search button — search the medicine catalogue"
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
               >
                 {searching ? "Searching..." : "Search"}
@@ -535,7 +553,7 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
 
             {/* Show user's holdings as quick-select options */}
             {!searching && searchResults.length === 0 && userHoldings.length > 0 && (
-              <div className="mb-6">
+              <div className="mb-6" data-assist-id="section-holdings-quick-select" data-assist-label="Quick Select from Your Holdings — pick a medicine you already own">
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   Quick Select from Your Holdings
                 </h3>
@@ -543,6 +561,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   {userHoldings.map((holding: any) => (
                     <button
                       key={holding.medicineId}
+                      data-assist-id={`holding-${holding.medicineId}`}
+                      data-assist-label={holding.medicineName}
                       onClick={() => {
                         setSelectedMedicine({
                           id: holding.medicineId,
@@ -589,6 +609,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                     <button
                       key={medicine.id}
                       onClick={() => setSelectedMedicine(medicine)}
+                      data-assist-id={`search-result-${medicine.id}`}
+                      data-assist-label={medicine.name}
                       className={`w-full p-4 rounded-lg border text-left transition-colors ${
                         isOwned 
                           ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 border-green-200 dark:border-green-700' 
@@ -622,6 +644,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <button
                   type="button"
                   onClick={() => setSelectedMedicine(null)}
+                  data-assist-id="change-medicine-button"
+                  data-assist-label="Change — pick a different medicine"
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Change
@@ -655,6 +679,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   step="0.01"
                   required
                   value={proposedMrp}
+                  data-assist-id="field-mrp"
+                  data-assist-label="Maximum Retail Price (MRP)"
                   onChange={(e) => setProposedMrp(e.target.value)}
                   onFocus={() => {
                     // Auto-populate with current MRP on focus ONLY if completely empty (never been set)
@@ -682,6 +708,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   step="0.01"
                   required
                   value={basePrice}
+                  data-assist-id="field-selling-price"
+                  data-assist-label="Your selling price per unit (must be below MRP)"
                   onChange={(e) => setBasePrice(e.target.value)}
                   max={proposedMrp || undefined}
                   className={`w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border rounded-lg 
@@ -711,6 +739,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   min={1}
                   max={ownsSelectedMedicine ? maxStockFromHoldings : undefined}
                   value={stock}
+                  data-assist-id="field-stock"
+                  data-assist-label="Stock quantity"
                   onChange={(e) => {
                     const val = parseInt(e.target.value) || 0;
                     if (ownsSelectedMedicine && val > maxStockFromHoldings) {
@@ -734,13 +764,15 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   GST Percentage <span className="text-red-500">*</span>
                 </label>
-                <div className="flex gap-4">
+                <div className="flex gap-4" data-assist-id="field-gst" data-assist-label="GST percentage — choose 0% or 5%">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="gst"
                       value="0"
                       checked={gstPercentage === 0}
+                      data-assist-id="field-gst-0"
+                      data-assist-label="GST 0%"
                       onChange={() => setGstPercentage(0)}
                       className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
                     />
@@ -752,6 +784,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                       name="gst"
                       value="5"
                       checked={gstPercentage === 5}
+                      data-assist-id="field-gst-5"
+                      data-assist-label="GST 5%"
                       onChange={() => setGstPercentage(5)}
                       className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
                     />
@@ -770,6 +804,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <input
                   type="text"
                   value={hsnCode}
+                  data-assist-id="field-hsn"
+                  data-assist-label="HSN code (optional)"
                   onChange={(e) => setHsnCode(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                            text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -789,6 +825,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   <input
                     type="text"
                     value={batchNo}
+                    data-assist-id="field-batch"
+                    data-assist-label="Batch number (optional)"
                     onChange={(e) => setBatchNo(e.target.value)}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                              text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -806,6 +844,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                   <input
                     type="date"
                     value={expiryDate}
+                    data-assist-id="field-expiry"
+                    data-assist-label="Expiry date (optional)"
                     onChange={(e) => setExpiryDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
@@ -827,6 +867,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <input
                   type="file"
                   accept=".jpg,.jpeg,.png"
+                  data-assist-id="field-product-photo"
+                  data-assist-label="Medicine photo (required, JPG/PNG, max 5MB)"
                   required
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -863,6 +905,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
+                  data-assist-id="field-credibility-doc"
+                  data-assist-label="Credibility document (optional invoice/receipt/purchase proof)"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -893,6 +937,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/seller")}
+                data-assist-id="sell-cancel"
+                data-assist-label="Cancel — go back to the dashboard"
                 className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
               >
                 Cancel
@@ -900,6 +946,8 @@ Cetirizine 10,Cetirizine Hydrochloride,GSK,Tablet,10mg,2000,12,20.00,15.00`;
               <button
                 type="submit"
                 disabled={submitting || !proposedMrp || !productImage || (!!proposedMrp && parseFloat(basePrice) >= parseFloat(proposedMrp)) || (ownsSelectedMedicine && parseInt(stock) > maxStockFromHoldings)}
+                data-assist-id="sell-submit"
+                data-assist-label="Sell — publish this listing"
                 className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
               >
                 {submitting ? "Selling..." : (

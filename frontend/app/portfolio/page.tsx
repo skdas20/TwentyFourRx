@@ -372,12 +372,16 @@ export default function PortfolioPage() {
             <div className="hidden md:flex items-center gap-3 lg:gap-6">
               <Link
                 href="/medicines"
+                data-assist-id="nav-explore"
+                data-assist-label="Explore — browse all medicines"
                 className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
                 Explore
               </Link>
               <Link
                 href={`/dashboard/${user.roleCode.toLowerCase()}`}
+                data-assist-id="nav-dashboard"
+                data-assist-label="Dashboard — back to your dashboard"
                 className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
                 Dashboard
@@ -388,12 +392,16 @@ export default function PortfolioPage() {
             <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 flex-shrink-0">
               <Link
                 href="/portfolio"
+                data-assist-id="nav-portfolio"
+                data-assist-label="Portfolio — your holdings"
                 className="hidden lg:block text-sm text-blue-600 dark:text-blue-400 font-medium"
               >
                 Portfolio
               </Link>
               <Link
                 href="/watchlist"
+                data-assist-id="nav-watchlist"
+                data-assist-label="Watchlist — medicines you are tracking"
                 className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
                 Watchlist
@@ -407,7 +415,7 @@ export default function PortfolioPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div data-assist-id="section-portfolio-stats" data-assist-label="Portfolio summary — total holdings units, total value and number of medicines" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
@@ -457,6 +465,8 @@ export default function PortfolioPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">Start buying medicines to build your portfolio</p>
             <Link
               href="/medicines"
+              data-assist-id="browse-medicines-button"
+              data-assist-label="Browse Medicines — start buying to build your portfolio"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--brand-blue)] text-white rounded-lg hover:bg-[var(--brand-blue-hi)] transition-colors font-medium"
             >
               <Package className="w-5 h-5" />
@@ -464,7 +474,7 @@ export default function PortfolioPage() {
             </Link>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div data-assist-id="section-holdings" data-assist-label="Holdings table — your medicines, quantities, value and delivery status" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
@@ -481,7 +491,7 @@ export default function PortfolioPage() {
                   {holdings.map((holding: any, index: number) => {
                     const statusInfo = getHoldingStatus(holding);
                     return (
-                      <tr key={holding.medicineId || index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <tr key={holding.medicineId || index} data-assist-id={`holding-${holding.medicineId || index}`} data-assist-label={`Holding — ${holding.medicineName || 'medicine'}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-6 py-4">
                           <Link href={`/medicines/${holding.medicineId}`} className="block hover:text-blue-600 dark:hover:text-blue-400">
                             <div className="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">
@@ -510,6 +520,8 @@ export default function PortfolioPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <button
                               onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${holding.medicineId}`)}
+                              data-assist-id={`holding-sell-${holding.medicineId}`}
+                              data-assist-label={'Sell — create a listing for this holding'}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
                               title="Create a listing to sell this medicine"
                             >
@@ -519,6 +531,8 @@ export default function PortfolioPage() {
 
                             {statusInfo.status === 'AWAITING_OTP' ? (
                               <button
+                                data-assist-id={`holding-confirm-delivery-${holding.medicineId}`}
+                                data-assist-label="Confirm Delivery — confirm receipt with OTP"
                                 onClick={() => {
                                   const lotIds = holding.lots?.map((lot: any) => lot.id) || [];
                                   const deliveryRequest = deliveryRequests.find((req: any) =>
@@ -537,6 +551,8 @@ export default function PortfolioPage() {
                             ) : statusInfo.status === 'AWAITING_PAYMENT' ? (
                               <button
                                 onClick={() => openPaymentModal(statusInfo.deliveryRequest)}
+                                data-assist-id={`holding-upload-receipt-${holding.medicineId}`}
+                                data-assist-label={'Upload Receipt — pay the delivery charge'}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
                                 title="Upload payment receipt for delivery charge"
                               >
@@ -546,6 +562,8 @@ export default function PortfolioPage() {
                             ) : (
                               <button
                                 onClick={() => openDeliveryModal(holding)}
+                                data-assist-id={`holding-request-delivery-${holding.medicineId}`}
+                                data-assist-label={'Request Delivery — get this holding physically delivered'}
                                 disabled={['AWAITING_SELLER_INFO', 'PAYMENT_PENDING_VERIFICATION', 'AWAITING_SELLER_INVOICE', 'AWAITING_ADMIN_DISPATCH', 'PENDING', 'DELIVERY_PENDING', 'COURIER_ASSIGNED', 'IN_TRANSIT'].includes(statusInfo.status)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                                 title={statusInfo.status === 'AWAITING_SELLER_INFO'
@@ -641,6 +659,8 @@ export default function PortfolioPage() {
                   min={1}
                   max={selectedHolding.totalQty}
                   value={deliveryQty}
+                  data-assist-id="field-delivery-qty"
+                  data-assist-label="Delivery quantity"
                   onChange={(e) => setDeliveryQty(parseInt(e.target.value) || 0)}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
@@ -674,6 +694,8 @@ export default function PortfolioPage() {
               </button>
               <button
                 onClick={handleRequestDelivery}
+                data-assist-id="delivery-request-submit"
+                data-assist-label="Request Delivery — submit the delivery request"
                 disabled={requestingDelivery || deliveryQty <= 0}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 rounded-lg transition-colors"
               >
@@ -736,6 +758,8 @@ export default function PortfolioPage() {
                   type="text"
                   maxLength={6}
                   value={otp}
+                  data-assist-id="field-delivery-otp"
+                  data-assist-label="6-digit delivery OTP"
                   onChange={(e) => {
                     const value = e.target.value.replace(/\D/g, ''); // Only allow digits
                     setOtp(value);
@@ -776,6 +800,8 @@ export default function PortfolioPage() {
               </button>
               <button
                 onClick={handleConfirmDelivery}
+                data-assist-id="delivery-otp-submit"
+                data-assist-label="Confirm Delivery — verify the OTP"
                 disabled={confirmingDelivery || otp.length !== 6}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 rounded-lg transition-colors"
               >
@@ -839,6 +865,8 @@ export default function PortfolioPage() {
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)}
+                    data-assist-id="field-delivery-payment-receipt"
+                    data-assist-label="Delivery charge payment receipt upload"
                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
                   />
                   <div className="w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-center hover:border-orange-400 dark:hover:border-orange-500 transition-colors">
@@ -875,6 +903,8 @@ export default function PortfolioPage() {
               </button>
               <button
                 onClick={handleUploadPaymentReceipt}
+                data-assist-id="delivery-payment-submit"
+                data-assist-label="Upload — submit the delivery payment receipt"
                 disabled={uploadingReceipt || !paymentReceipt}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 rounded-lg transition-colors"
               >

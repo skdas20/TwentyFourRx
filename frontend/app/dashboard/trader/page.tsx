@@ -233,10 +233,10 @@ export default function TraderDashboard() {
               <Logo size="sm" href="/" isLoggedIn={true} />
 
               <nav className="hidden lg:flex items-center gap-1">
-                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                <Link href="/medicines" data-assist-id="nav-explore" data-assist-label="Explore — browse all medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   Explore
                 </Link>
-                <Link href="/dashboard/trader" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                <Link href="/dashboard/trader" data-assist-id="nav-dashboard" data-assist-label="Dashboard — your trader dashboard home" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
                   Dashboard
                 </Link>
               </nav>
@@ -276,7 +276,7 @@ export default function TraderDashboard() {
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Top Trending Medicines - Compact Groww Style */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+              <div data-assist-id="card-top-trending" data-assist-label="Top Trending card — medicines with the biggest price moves" className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-base font-semibold text-gray-900 dark:text-white">Top Trending</h2>
                   <Link href="/medicines" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
@@ -308,7 +308,7 @@ export default function TraderDashboard() {
               </div>
 
               {/* Most Bought Medicines - Compact Groww Style */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
+              <div data-assist-id="card-most-bought" data-assist-label="Most Bought on 24Rx card — most purchased medicines" className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-800">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Most Bought on 24Rx</h2>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -352,67 +352,67 @@ export default function TraderDashboard() {
               </div>
 
               {/* Products & Tools */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+              <div data-assist-id="quick-actions" data-assist-label="Products & tools — shortcuts to Sell, Listings, Deliveries, Proposals, Portfolio, Watchlist, News, Explore and Support" className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Products & tools</h2>
                 
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-                  <Link href="/dashboard/seller/listings/new" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/dashboard/seller/listings/new" data-assist-id="qa-sell" data-assist-label="Sell quick action — create a new listing" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-lg flex items-center justify-center">
                       <Plus className="w-6 h-6 text-green-600 dark:text-green-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Sell</span>
                   </Link>
 
-                  <Link href="/dashboard/seller/listings" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/dashboard/seller/listings" data-assist-id="qa-my-listings" data-assist-label="My Listings quick action — view and manage your listings" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg flex items-center justify-center">
                       <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">My Listings</span>
                   </Link>
 
-                  <Link href="/dashboard/seller/deliveries" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/dashboard/seller/deliveries" data-assist-id="qa-deliveries" data-assist-label="Deliveries quick action — manage delivery requests" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 dark:from-indigo-900/30 dark:to-indigo-800/30 rounded-lg flex items-center justify-center">
                       <Truck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Deliveries</span>
                   </Link>
 
-                  <Link href="/dashboard/my-proposals" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/dashboard/my-proposals" data-assist-id="qa-buy-proposals" data-assist-label="Buy Proposals quick action — view your buy proposals" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-rose-100 to-rose-200 dark:from-rose-900/30 dark:to-rose-800/30 rounded-lg flex items-center justify-center">
                       <ShoppingCart className="w-6 h-6 text-rose-600 dark:text-rose-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Buy Proposals</span>
                   </Link>
 
-                  <Link href="/portfolio" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/portfolio" data-assist-id="qa-portfolio" data-assist-label="Portfolio quick action — view your holdings and portfolio" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg flex items-center justify-center">
                       <Wallet className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Portfolio</span>
                   </Link>
 
-                  <Link href="/watchlist" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/watchlist" data-assist-id="qa-watchlist" data-assist-label="Watchlist quick action — medicines you are tracking" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-lg flex items-center justify-center">
                       <Eye className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Watchlist</span>
                   </Link>
 
-                  <Link href="/news" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/news" data-assist-id="qa-news" data-assist-label="News quick action — pharma market news" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/30 dark:to-pink-800/30 rounded-lg flex items-center justify-center">
                       <FileText className="w-6 h-6 text-pink-600 dark:text-pink-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">News</span>
                   </Link>
 
-                  <Link href="/medicines" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/medicines" data-assist-id="qa-explore" data-assist-label="Explore quick action — browse all medicines" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30 rounded-lg flex items-center justify-center">
                       <Activity className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                     </div>
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300">Explore</span>
                   </Link>
 
-                  <Link href="/support" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <Link href="/support" data-assist-id="qa-support" data-assist-label="Support quick action — raise or view support tickets" className="flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-lg flex items-center justify-center">
                       <MessageCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                     </div>
@@ -426,7 +426,7 @@ export default function TraderDashboard() {
             {/* Right Column - Sidebar */}
             <div className="space-y-6">
               {/* Your Investments */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+              <div data-assist-id="card-investments" data-assist-label="Your Investments card — current value and total returns" className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your Investments</h2>
                   <Link href="/portfolio" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
@@ -457,7 +457,7 @@ export default function TraderDashboard() {
               </div>
 
               {/* Holdings Summary */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+              <div data-assist-id="card-holdings" data-assist-label="My Holdings card — view your medicine inventory" className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My Holdings</h2>
                 </div>
@@ -475,7 +475,7 @@ export default function TraderDashboard() {
               </div>
 
               {/* All Watchlists */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
+              <div data-assist-id="card-watchlists" data-assist-label="All Watchlists card — your watchlists" className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">All watchlists</h2>
                   <Link href="/watchlist" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">

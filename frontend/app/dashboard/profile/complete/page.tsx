@@ -190,6 +190,8 @@ export default function CompleteProfilePage() {
                   <button
                     type="submit"
                     disabled={submitting}
+                    data-assist-id="kyc-submit"
+                    data-assist-label="Submit Documents for Verification — send your KYC documents for review"
                     className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.01] disabled:opacity-50 flex items-center justify-center gap-3"
                   >
                     {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Submit Documents for Verification'}
@@ -206,7 +208,7 @@ export default function CompleteProfilePage() {
 
 function Section({ title, docs, documents, existingDocs, onFileChange }: any) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-assist-id={`section-${String(title).toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, '-')}`} data-assist-label={`${title} — KYC document uploads`}>
       <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <span className="w-1 h-6 bg-blue-600 rounded-full"></span>
         {title}
@@ -215,7 +217,7 @@ function Section({ title, docs, documents, existingDocs, onFileChange }: any) {
         {docs.map((doc: any) => {
           const existing = existingDocs.find((ed: any) => ed.docType.code === doc.code);
           return (
-            <div key={doc.code} className={`p-4 rounded-xl border transition-all ${
+            <div key={doc.code} data-assist-id={`kyc-doc-${doc.code}`} data-assist-label={doc.label} className={`p-4 rounded-xl border transition-all ${
               existing?.status === 'APPROVED' ? 'bg-green-50/50 border-green-100' : 
               existing?.status === 'REJECTED' ? 'bg-red-50/50 border-red-100' :
               'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700'
@@ -236,7 +238,7 @@ function Section({ title, docs, documents, existingDocs, onFileChange }: any) {
               </div>
 
               {doc.downloadUrl && !existing && (
-                <a href={doc.downloadUrl} download className="mb-3 flex items-center justify-center gap-2 w-full py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-300 transition">
+                <a href={doc.downloadUrl} download data-assist-id={`kyc-download-${doc.code}`} data-assist-label={`Download Form — blank ${doc.label} to fill and sign`} className="mb-3 flex items-center justify-center gap-2 w-full py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-300 transition">
                   <Download className="w-3 h-3" /> Download Form
                 </a>
               )}
@@ -252,6 +254,8 @@ function Section({ title, docs, documents, existingDocs, onFileChange }: any) {
                     multiple
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={(e) => onFileChange(doc.code, e.target.files)}
+                    data-assist-id={`kyc-upload-${doc.code}`}
+                    data-assist-label={`Upload ${doc.label} (PDF/JPG/PNG, multiple files allowed)`}
                     accept=".pdf,.jpg,.jpeg,.png"
                   />
                   <div className={`py-3 px-4 border-2 border-dashed rounded-lg text-center transition ${

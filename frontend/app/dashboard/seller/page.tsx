@@ -234,10 +234,10 @@ export default function SellerDashboard() {
               <Logo size="sm" href="/" isLoggedIn={true} />
 
               <nav className="hidden lg:flex items-center gap-1">
-                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                <Link href="/medicines" data-assist-id="nav-explore" data-assist-label="Explore — browse all medicines" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   Explore
                 </Link>
-                <Link href="/dashboard/seller" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                <Link href="/dashboard/seller" data-assist-id="nav-dashboard" data-assist-label="Dashboard — your dealer dashboard home" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
                   Dashboard
                 </Link>
               </nav>
@@ -278,7 +278,7 @@ export default function SellerDashboard() {
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Top Trending Medicines - Enhanced Style */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <div data-assist-id="card-top-trending" data-assist-label="Top Trending card — medicines with the biggest price moves" className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
@@ -315,7 +315,7 @@ export default function SellerDashboard() {
               </div>
 
               {/* Most Bought Medicines - Enhanced Style */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <div data-assist-id="card-most-bought" data-assist-label="Most Bought on 24Rx card — most purchased medicines" className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
                     <ShoppingCart className="w-5 h-5 text-white" />
@@ -364,7 +364,7 @@ export default function SellerDashboard() {
               </div>
 
               {/* Products & Tools */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-8 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <div data-assist-id="quick-actions" data-assist-label="Quick Actions — shortcuts to Sell, Listings, Deliveries, Proposals, Portfolio, Watchlist, News, Explore and Support" className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-8 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl">
                     <BarChart3 className="w-5 h-5 text-white" />
@@ -373,7 +373,7 @@ export default function SellerDashboard() {
                 </div>
 
                 <div className="grid grid-cols-3 md:grid-cols-6 gap-5">
-                  <Link href="/dashboard/seller/listings/new" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-500/20 dark:to-green-600/20 hover:from-green-500/20 hover:to-green-600/20 dark:hover:from-green-500/30 dark:hover:to-green-600/30 rounded-2xl border-2 border-green-200/50 dark:border-green-700/50 hover:border-green-400 dark:hover:border-green-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/dashboard/seller/listings/new" data-assist-id="qa-sell" data-assist-label="Sell quick action — create a new listing" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-green-500/10 to-green-600/10 dark:from-green-500/20 dark:to-green-600/20 hover:from-green-500/20 hover:to-green-600/20 dark:hover:from-green-500/30 dark:hover:to-green-600/30 rounded-2xl border-2 border-green-200/50 dark:border-green-700/50 hover:border-green-400 dark:hover:border-green-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Plus className="w-7 h-7 text-white" />
@@ -381,7 +381,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Sell</span>
                   </Link>
 
-                  <Link href="/dashboard/seller/listings" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 hover:from-blue-500/20 hover:to-blue-600/20 dark:hover:from-blue-500/30 dark:hover:to-blue-600/30 rounded-2xl border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/dashboard/seller/listings" data-assist-id="qa-my-listings" data-assist-label="My Listings quick action — view and manage your listings" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/10 dark:from-blue-500/20 dark:to-blue-600/20 hover:from-blue-500/20 hover:to-blue-600/20 dark:hover:from-blue-500/30 dark:hover:to-blue-600/30 rounded-2xl border-2 border-blue-200/50 dark:border-blue-700/50 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Package className="w-7 h-7 text-white" />
@@ -389,7 +389,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">My Listings</span>
                   </Link>
 
-                  <Link href="/dashboard/seller/deliveries" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-indigo-500/10 to-indigo-600/10 dark:from-indigo-500/20 dark:to-indigo-600/20 hover:from-indigo-500/20 hover:to-indigo-600/20 dark:hover:from-indigo-500/30 dark:hover:to-indigo-600/30 rounded-2xl border-2 border-indigo-200/50 dark:border-indigo-700/50 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/dashboard/seller/deliveries" data-assist-id="qa-deliveries" data-assist-label="Deliveries quick action — manage delivery requests" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-indigo-500/10 to-indigo-600/10 dark:from-indigo-500/20 dark:to-indigo-600/20 hover:from-indigo-500/20 hover:to-indigo-600/20 dark:hover:from-indigo-500/30 dark:hover:to-indigo-600/30 rounded-2xl border-2 border-indigo-200/50 dark:border-indigo-700/50 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Truck className="w-7 h-7 text-white" />
@@ -397,7 +397,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Deliveries</span>
                   </Link>
 
-                  <Link href="/dashboard/my-proposals" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-rose-500/10 to-rose-600/10 dark:from-rose-500/20 dark:to-rose-600/20 hover:from-rose-500/20 hover:to-rose-600/20 dark:hover:from-rose-500/30 dark:hover:to-rose-600/30 rounded-2xl border-2 border-rose-200/50 dark:border-rose-700/50 hover:border-rose-400 dark:hover:border-rose-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/dashboard/my-proposals" data-assist-id="qa-buy-proposals" data-assist-label="Buy Proposals quick action — view your buy proposals" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-rose-500/10 to-rose-600/10 dark:from-rose-500/20 dark:to-rose-600/20 hover:from-rose-500/20 hover:to-rose-600/20 dark:hover:from-rose-500/30 dark:hover:to-rose-600/30 rounded-2xl border-2 border-rose-200/50 dark:border-rose-700/50 hover:border-rose-400 dark:hover:border-rose-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
                       <ShoppingCart className="w-7 h-7 text-white" />
@@ -405,7 +405,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Buy Proposals</span>
                   </Link>
 
-                  <Link href="/portfolio" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 dark:from-purple-500/20 dark:to-purple-600/20 hover:from-purple-500/20 hover:to-purple-600/20 dark:hover:from-purple-500/30 dark:hover:to-purple-600/30 rounded-2xl border-2 border-purple-200/50 dark:border-purple-700/50 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/portfolio" data-assist-id="qa-portfolio" data-assist-label="Portfolio quick action — view your holdings and portfolio" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/10 dark:from-purple-500/20 dark:to-purple-600/20 hover:from-purple-500/20 hover:to-purple-600/20 dark:hover:from-purple-500/30 dark:hover:to-purple-600/30 rounded-2xl border-2 border-purple-200/50 dark:border-purple-700/50 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Wallet className="w-7 h-7 text-white" />
@@ -413,7 +413,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Portfolio</span>
                   </Link>
 
-                  <Link href="/watchlist" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 dark:from-orange-500/20 dark:to-orange-600/20 hover:from-orange-500/20 hover:to-orange-600/20 dark:hover:from-orange-500/30 dark:hover:to-orange-600/30 rounded-2xl border-2 border-orange-200/50 dark:border-orange-700/50 hover:border-orange-400 dark:hover:border-orange-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/watchlist" data-assist-id="qa-watchlist" data-assist-label="Watchlist quick action — medicines you are tracking" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/10 dark:from-orange-500/20 dark:to-orange-600/20 hover:from-orange-500/20 hover:to-orange-600/20 dark:hover:from-orange-500/30 dark:hover:to-orange-600/30 rounded-2xl border-2 border-orange-200/50 dark:border-orange-700/50 hover:border-orange-400 dark:hover:border-orange-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Eye className="w-7 h-7 text-white" />
@@ -421,7 +421,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Watchlist</span>
                   </Link>
 
-                  <Link href="/news" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-pink-500/10 to-pink-600/10 dark:from-pink-500/20 dark:to-pink-600/20 hover:from-pink-500/20 hover:to-pink-600/20 dark:hover:from-pink-500/30 dark:hover:to-pink-600/30 rounded-2xl border-2 border-pink-200/50 dark:border-pink-700/50 hover:border-pink-400 dark:hover:border-pink-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/news" data-assist-id="qa-news" data-assist-label="News quick action — pharma market news" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-pink-500/10 to-pink-600/10 dark:from-pink-500/20 dark:to-pink-600/20 hover:from-pink-500/20 hover:to-pink-600/20 dark:hover:from-pink-500/30 dark:hover:to-pink-600/30 rounded-2xl border-2 border-pink-200/50 dark:border-pink-700/50 hover:border-pink-400 dark:hover:border-pink-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
                       <FileText className="w-7 h-7 text-white" />
@@ -429,7 +429,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">News</span>
                   </Link>
 
-                  <Link href="/medicines" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-teal-500/10 to-teal-600/10 dark:from-teal-500/20 dark:to-teal-600/20 hover:from-teal-500/20 hover:to-teal-600/20 dark:hover:from-teal-500/30 dark:hover:to-teal-600/30 rounded-2xl border-2 border-teal-200/50 dark:border-teal-700/50 hover:border-teal-400 dark:hover:border-teal-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/medicines" data-assist-id="qa-explore" data-assist-label="Explore quick action — browse all medicines" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-teal-500/10 to-teal-600/10 dark:from-teal-500/20 dark:to-teal-600/20 hover:from-teal-500/20 hover:to-teal-600/20 dark:hover:from-teal-500/30 dark:hover:to-teal-600/30 rounded-2xl border-2 border-teal-200/50 dark:border-teal-700/50 hover:border-teal-400 dark:hover:border-teal-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
                       <Activity className="w-7 h-7 text-white" />
@@ -437,7 +437,7 @@ export default function SellerDashboard() {
                     <span className="relative text-xs font-bold text-center text-gray-900 dark:text-gray-100">Explore</span>
                   </Link>
 
-                  <Link href="/support" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-amber-500/10 to-amber-600/10 dark:from-amber-500/20 dark:to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/20 dark:hover:from-amber-500/30 dark:hover:to-amber-600/30 rounded-2xl border-2 border-amber-200/50 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 transition-all hover:scale-105 hover:shadow-lg">
+                  <Link href="/support" data-assist-id="qa-support" data-assist-label="Support quick action — raise or view support tickets" className="group relative flex flex-col items-center gap-3 p-4 bg-gradient-to-br from-amber-500/10 to-amber-600/10 dark:from-amber-500/20 dark:to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/20 dark:hover:from-amber-500/30 dark:hover:to-amber-600/30 rounded-2xl border-2 border-amber-200/50 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 transition-all hover:scale-105 hover:shadow-lg">
                     <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl"></div>
                     <div className="relative w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
                       <MessageCircle className="w-7 h-7 text-white" />
@@ -451,7 +451,7 @@ export default function SellerDashboard() {
             {/* Right Column - Sidebar */}
             <div className="space-y-6">
               {/* Your Investments */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <div data-assist-id="card-investments" data-assist-label="Your Investments card — current value and total returns" className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
@@ -487,7 +487,7 @@ export default function SellerDashboard() {
               </div>
 
               {/* Holdings Summary */}
-              <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl">
+              <div data-assist-id="card-holdings" data-assist-label="My Holdings card — view your medicine inventory" className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 backdrop-blur-sm rounded-2xl p-6 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">My Holdings</h2>
                 </div>
@@ -506,7 +506,7 @@ export default function SellerDashboard() {
               </div>
 
               {/* All Watchlists */}
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+              <div data-assist-id="card-watchlists" data-assist-label="All Watchlists card — your watchlists" className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-xl">
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl">

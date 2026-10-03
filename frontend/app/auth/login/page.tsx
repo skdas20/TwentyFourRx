@@ -56,7 +56,7 @@ export default function LoginPage() {
           </div>
           <h2 className="mt-6 text-3xl font-semibold text-[var(--ink)]">Sign in to your account</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Or <Link href="/auth/register" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">register for a new account</Link>
+            Or <Link href="/auth/register" data-assist-id="register-link" data-assist-label="Register for a new account" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">register for a new account</Link>
           </p>
         </div>
 
@@ -74,6 +74,8 @@ export default function LoginPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted)]" />
                 <input 
                   id="email" 
+                  data-assist-id="field-email"
+                  data-assist-label="Email address"
                   name="email" 
                   type="email" 
                   autoComplete="email" 
@@ -91,6 +93,8 @@ export default function LoginPage() {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted)]" />
                 <input 
                   id="password" 
+                  data-assist-id="field-password"
+                  data-assist-label="Password"
                   name="password" 
                   type="password" 
                   autoComplete="current-password" 
@@ -106,11 +110,11 @@ export default function LoginPage() {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-[var(--border)] text-[var(--brand-blue)] focus:ring-[var(--brand-blue)]" />
+              <input id="remember-me" name="remember-me" data-assist-id="field-remember-me" data-assist-label="Remember me checkbox" type="checkbox" className="h-4 w-4 rounded border-[var(--border)] text-[var(--brand-blue)] focus:ring-[var(--brand-blue)]" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-[var(--muted)]">Remember me</label>
             </div>
             <div className="text-sm">
-              <Link href="/auth/forgot-password" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">
+              <Link href="/auth/forgot-password" data-assist-id="forgot-password-link" data-assist-label="Forgot password? — reset your password" className="font-medium text-[var(--brand-blue)] hover:text-[var(--brand-blue-hi)] transition">
                 Forgot password?
               </Link>
             </div>
@@ -119,6 +123,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
+            data-assist-id="login-submit"
+            data-assist-label="Sign in — log in to your account"
             className="group relative w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-base font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>

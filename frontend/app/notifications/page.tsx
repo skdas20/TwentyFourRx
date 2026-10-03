@@ -161,6 +161,8 @@ export default function NotificationsPage() {
           <div className="flex gap-2 p-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setFilter('all')}
+              data-assist-id="filter-all"
+              data-assist-label="All notifications filter"
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 filter === 'all'
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
@@ -171,6 +173,8 @@ export default function NotificationsPage() {
             </button>
             <button
               onClick={() => setFilter('unread')}
+              data-assist-id="filter-unread"
+              data-assist-label="Unread notifications filter"
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 filter === 'unread'
                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
@@ -185,6 +189,8 @@ export default function NotificationsPage() {
             {notifications.some(n => !n.isRead) && (
               <button
                 onClick={markAllAsRead}
+                data-assist-id="notifications-mark-all-read"
+                data-assist-label="Mark all as read"
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
               >
                 Mark all as read
@@ -193,6 +199,8 @@ export default function NotificationsPage() {
             {notifications.some(n => n.isRead) && (
               <button
                 onClick={clearReadNotifications}
+                data-assist-id="notifications-clear-read"
+                data-assist-label="Clear read notifications"
                 className="text-sm text-red-600 dark:text-red-400 hover:underline font-medium"
               >
                 Clear read ({notifications.filter(n => n.isRead).length})
@@ -220,10 +228,12 @@ export default function NotificationsPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-assist-id="section-notifications" data-assist-label="Notifications list — click an unread notification to mark it read">
             {filteredNotifications.map((notification) => (
               <div
                 key={notification.id}
+                data-assist-id={`notification-${notification.id}`}
+                data-assist-label={`Notification — ${notification.subject}`}
                 onClick={() => !notification.isRead && markAsRead(notification.id)}
                 className={`bg-white dark:bg-gray-800 rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md ${
                   notification.isRead

@@ -31,6 +31,8 @@ export default function NotificationBell({ className = "" }: NotificationBellPro
   return (
     <Link
       href="/notifications"
+      data-assist-id="notification-bell"
+      data-assist-label="Notification bell — open your notifications"
       className={`p-1.5 sm:p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 relative ${className}`}
     >
       <Bell className="w-4 h-4 sm:w-5 sm:h-5" />

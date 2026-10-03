@@ -194,7 +194,7 @@ export default function BuyProposalModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto" data-assist-id="buy-modal" data-assist-label="Buy Medicine dialog — enter quantity, then upload payment receipt">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-4">
@@ -216,6 +216,8 @@ export default function BuyProposalModal({
           </div>
           <button
             onClick={onClose}
+            data-assist-id="buy-modal-close"
+            data-assist-label="Close the buy dialog"
             className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <X className="w-5 h-5" />
@@ -239,6 +241,8 @@ export default function BuyProposalModal({
               <input
                 type="number"
                 value={quantity || ""}
+                data-assist-id="field-buy-quantity"
+                data-assist-label="Quantity (units) to buy"
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
                 className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
                          text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -278,6 +282,8 @@ export default function BuyProposalModal({
               </label>
               <textarea
                 value={notes}
+                data-assist-id="field-buy-notes"
+                data-assist-label="Notes for the seller (optional)"
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg
@@ -290,6 +296,8 @@ export default function BuyProposalModal({
               <button
                 type="button"
                 onClick={onClose}
+                data-assist-id="buy-cancel"
+                data-assist-label="Cancel — close the buy dialog"
                 className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Cancel
@@ -297,6 +305,8 @@ export default function BuyProposalModal({
               <button
                 type="button"
                 onClick={handleProceedToCheckout}
+                data-assist-id="buy-proceed"
+                data-assist-label="Proceed to checkout — continue to payment"
                 disabled={submitting || quantity <= 0}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -374,10 +384,14 @@ export default function BuyProposalModal({
                   onChange={handleFileChange}
                   className="hidden"
                   id="receipt-upload"
+                  data-assist-id="field-buy-receipt"
+                  data-assist-label="Upload Payment Receipt (JPG/PNG/PDF) — hidden file input"
                   required
                 />
                 <label
                   htmlFor="receipt-upload"
+                  data-assist-id="buy-receipt-dropzone"
+                  data-assist-label="Upload Payment Receipt — click to choose the receipt file"
                   className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                 >
                   {receiptFile ? (
@@ -403,6 +417,8 @@ export default function BuyProposalModal({
               <button
                 type="button"
                 onClick={() => setStep(1)}
+                data-assist-id="buy-back"
+                data-assist-label="Back — return to order details"
                 className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Back
@@ -410,6 +426,8 @@ export default function BuyProposalModal({
               <button
                 type="submit"
                 disabled={submitting || !receiptFile}
+                data-assist-id="buy-submit"
+                data-assist-label="BUY — submit the buy proposal with payment receipt"
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? "Submitting..." : "BUY"}

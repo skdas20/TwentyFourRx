@@ -99,6 +99,8 @@ export default function SellerProposalPage() {
               <p className="font-medium text-green-900 dark:text-green-100">Invoice Uploaded</p>
               <a 
                 href={proposal.sellerInvoiceUrl} 
+                data-assist-id="seller-invoice-view"
+                data-assist-label="View the uploaded seller invoice"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-sm text-green-700 dark:text-green-300 hover:underline"
@@ -121,6 +123,8 @@ export default function SellerProposalPage() {
                 accept=".pdf,.jpg,.jpeg,.png"
                 required
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
+                data-assist-id="field-seller-invoice"
+                data-assist-label="Upload Seller Invoice (PDF/JPG/PNG)"
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                          text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500
                          file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold
@@ -131,6 +135,8 @@ export default function SellerProposalPage() {
             <button
               type="submit"
               disabled={submitting || !file}
+              data-assist-id="seller-invoice-submit"
+              data-assist-label="Upload Invoice — submit your seller invoice"
               className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium flex items-center justify-center gap-2"
             >
               {submitting ? "Uploading..." : (

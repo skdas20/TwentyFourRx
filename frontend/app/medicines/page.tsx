@@ -214,11 +214,11 @@ export default function MedicinesPage() {
               <Logo size="sm" href="/" isLoggedIn={!!user} />
 
               <nav className="hidden lg:flex items-center gap-1">
-                <Link href="/medicines" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                <Link href="/medicines" data-assist-id="nav-explore" data-assist-label="Explore — browse all medicines" className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
                   Explore
                 </Link>
                 {user && (
-                  <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} data-assist-id="nav-dashboard" data-assist-label="Dashboard — back to your dashboard" className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     Dashboard
                   </Link>
                 )}
@@ -234,10 +234,10 @@ export default function MedicinesPage() {
             <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
               {user && (user.roleCode === 'TRADER' || user.roleCode === 'SELLER') && (
                 <>
-                  <Link href="/portfolio" className="hidden lg:block px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href="/portfolio" data-assist-id="nav-portfolio" data-assist-label="Portfolio — your holdings" className="hidden lg:block px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     Portfolio
                   </Link>
-                  <Link href="/watchlist" className="hidden lg:block px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  <Link href="/watchlist" data-assist-id="nav-watchlist" data-assist-label="Watchlist — medicines you are tracking" className="hidden lg:block px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                     Watchlist
                   </Link>
                 </>
@@ -252,6 +252,8 @@ export default function MedicinesPage() {
               ) : (
                 <Link
                   href="/auth/login"
+                  data-assist-id="nav-login"
+                  data-assist-label="Login"
                   className="hidden sm:block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                 >
                   Login
@@ -275,7 +277,7 @@ export default function MedicinesPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-800 mb-6">
+        <div data-assist-id="section-explore-filters" data-assist-label="Explore filters — search and form type" className="bg-white dark:bg-gray-900 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-800 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Search */}
             <div>
@@ -287,6 +289,8 @@ export default function MedicinesPage() {
                 <input
                   type="text"
                   placeholder="Medicine name or manufacturer..."
+                  data-assist-id="field-explore-search"
+                  data-assist-label="Search medicines by name or manufacturer"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg
@@ -301,11 +305,13 @@ export default function MedicinesPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Form Type
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2" data-assist-id="filter-form" data-assist-label="Form type filter — All, Tablet or Capsule">
                 {["ALL", "Tablet", "Capsule"].map((form) => (
                   <button
                     key={form}
                     onClick={() => setSelectedForm(form)}
+                    data-assist-id={`filter-form-${form.toLowerCase()}`}
+                    data-assist-label={`Form filter — ${form}`}
                     className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selectedForm === form
                         ? "bg-blue-600 text-white"
@@ -338,7 +344,7 @@ export default function MedicinesPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2" data-assist-id="section-explore-results" data-assist-label="Medicine results — matching medicines with price, change, watchlist, buy and sell actions">
             {filteredMedicines.map((listing: any) => {
               const medicineId = listing.medicineId || listing.medicine?.id;
               const isInWatchlist = watchlistItems.has(medicineId);
@@ -348,6 +354,8 @@ export default function MedicinesPage() {
               return (
                 <div
                   key={listing.id}
+                  data-assist-id={`explore-row-${listing.id}`}
+                  data-assist-label={`Medicine — ${listing.medicine?.name || "Medicine"}`}
                   className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 transition-all"
                 >
                   {/* Desktop Layout */}
@@ -400,6 +408,8 @@ export default function MedicinesPage() {
                     <div className="col-span-5 flex items-center justify-end gap-2">
                       <button
                         onClick={(e) => toggleWatchlist(medicineId, e)}
+                        data-assist-id={`explore-watchlist-${listing.id}`}
+                        data-assist-label="Add to / remove from watchlist"
                         className={`p-2 rounded-lg transition-colors ${
                           isInWatchlist
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -412,6 +422,8 @@ export default function MedicinesPage() {
 
                       <button
                         onClick={(e) => handleBuyClick(listing, e)}
+                        data-assist-id={`explore-buy-${listing.id}`}
+                        data-assist-label="Buy (B) — start a buy proposal for this medicine"
                         className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors"
                         title="Buy"
                       >
@@ -420,6 +432,8 @@ export default function MedicinesPage() {
 
                       <button
                         onClick={(e) => handleSellClick(medicineId, e)}
+                        data-assist-id={`explore-sell-${listing.id}`}
+                        data-assist-label="Sell (S) — list this medicine for sale"
                         className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors"
                         title="Sell"
                       >
@@ -468,6 +482,8 @@ export default function MedicinesPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={(e) => toggleWatchlist(medicineId, e)}
+                              data-assist-id={`explore-watchlist-mobile-${listing.id}`}
+                              data-assist-label="Add to / remove from watchlist"
                               className={`p-1.5 rounded ${
                                 isInWatchlist
                                   ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -478,12 +494,16 @@ export default function MedicinesPage() {
                             </button>
                             <button
                               onClick={(e) => handleBuyClick(listing, e)}
+                              data-assist-id={`explore-buy-mobile-${listing.id}`}
+                              data-assist-label="Buy (B) — start a buy proposal for this medicine"
                               className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded transition-colors"
                             >
                               B
                             </button>
                             <button
                               onClick={(e) => handleSellClick(medicineId, e)}
+                              data-assist-id={`explore-sell-mobile-${listing.id}`}
+                              data-assist-label="Sell (S) — list this medicine for sale"
                               className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded transition-colors"
                             >
                               S
