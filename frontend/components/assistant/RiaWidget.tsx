@@ -119,8 +119,8 @@ export default function RiaWidget() {
           className="w-[calc(100vw-2rem)] max-w-[22rem] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl shadow-blue-900/15 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
         >
           <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-            <div className="relative h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-100 to-blue-300 dark:from-blue-900 dark:to-blue-700">
-              <img src="/ria/ria-avatar-96.webp" alt="" className="h-full w-full rounded-full object-cover" draggable={false} />
+            <div className="relative h-11 w-11 shrink-0">
+              <img src="/ria/ria-avatar-96.webp" alt="" className="h-full w-full object-contain" draggable={false} />
               {active && (
                 <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 dark:border-slate-900" />
               )}
@@ -261,20 +261,23 @@ export default function RiaWidget() {
         )}
         <button
           onClick={() => (active ? setOpen((o) => !o) : begin(s.status === "resumable"))}
-          className="group relative h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-800 p-[3px] shadow-xl shadow-blue-700/30 transition-transform hover:scale-105 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300"
+          className="group relative h-24 w-24 transition-transform hover:scale-105 focus:outline-none focus-visible:rounded-2xl focus-visible:ring-4 focus-visible:ring-blue-300"
           aria-label={active ? (open ? "Hide Ria" : "Show Ria") : "Talk to Ria, your 24Rx voice guide"}
           title={active ? "Ria is on" : "Talk to Ria"}
         >
           {active && (
             <span
-              className={`absolute inset-0 rounded-full bg-blue-500/40 ${s.status === "speaking" ? "animate-ping" : "animate-pulse"} motion-reduce:animate-none`}
+              className={`absolute inset-x-3 bottom-1 top-4 rounded-full bg-blue-500/35 blur-xl ${s.status === "speaking" ? "animate-pulse" : "opacity-60"} motion-reduce:animate-none`}
             />
           )}
-          <span className="relative block h-full w-full overflow-hidden rounded-full bg-gradient-to-br from-sky-100 to-blue-200">
-            <img src="/ria/ria-avatar-192.webp" alt="" className="h-full w-full object-cover" draggable={false} />
-          </span>
+          <img
+            src="/ria/ria-avatar-192.webp"
+            alt=""
+            className="relative h-full w-full object-contain drop-shadow-[0_8px_16px_rgba(30,64,175,0.35)]"
+            draggable={false}
+          />
           {active && (
-            <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-blue-600 text-white dark:border-slate-900">
+            <span className="absolute bottom-1 right-1 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-blue-600 text-white dark:border-slate-900">
               <AudioLines className="h-3.5 w-3.5" />
             </span>
           )}
