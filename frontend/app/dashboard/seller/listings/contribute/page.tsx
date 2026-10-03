@@ -158,7 +158,7 @@ export default function ContributeMedicinePage() {
         <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {/* Medicine Name */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-2" data-assist-id="field-contribute-name" data-assist-label="Medicine name (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Medicine Name <span className="text-red-500">*</span>
               </label>
@@ -174,7 +174,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Generic Name */}
-            <div>
+            <div data-assist-id="field-contribute-generic-name" data-assist-label="Generic name (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Generic Name
               </label>
@@ -189,7 +189,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Form */}
-            <div>
+            <div data-assist-id="field-contribute-form" data-assist-label="Form, e.g. Tablet/Syrup (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Form <span className="text-red-500">*</span>
               </label>
@@ -205,7 +205,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Composition */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-2" data-assist-id="field-contribute-composition" data-assist-label="Composition (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Composition <span className="text-red-500">*</span>
               </label>
@@ -221,7 +221,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Strength */}
-            <div>
+            <div data-assist-id="field-contribute-strength" data-assist-label="Strength (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Strength <span className="text-red-500">*</span>
               </label>
@@ -237,7 +237,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Pack Size */}
-            <div>
+            <div data-assist-id="field-contribute-pack-size" data-assist-label="Pack size (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Pack Size
               </label>
@@ -252,7 +252,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Manufacturer */}
-            <div>
+            <div data-assist-id="field-contribute-manufacturer" data-assist-label="Manufacturer (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Manufacturer <span className="text-red-500">*</span>
               </label>
@@ -268,7 +268,7 @@ export default function ContributeMedicinePage() {
             </div>
 
             {/* Marketer */}
-            <div>
+            <div data-assist-id="field-contribute-marketer" data-assist-label="Marketer (field wrapper with autocomplete input)">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Marketer
               </label>
@@ -292,6 +292,8 @@ export default function ContributeMedicinePage() {
                 step="0.01"
                 required
                 value={mrp}
+                data-assist-id="field-contribute-mrp"
+                data-assist-label="Maximum Retail Price (MRP)"
                 onChange={(e) => setMrp(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg 
                          text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -321,6 +323,8 @@ export default function ContributeMedicinePage() {
                     type="file"
                     className="hidden"
                     accept="image/jpeg,image/jpg,image/png,image/webp"
+                    data-assist-id="field-contribute-image"
+                    data-assist-label="Product image upload (required, PNG/JPG/WebP, max 5MB)"
                     onChange={handleImageChange}
                   />
                 </label>
@@ -334,6 +338,8 @@ export default function ContributeMedicinePage() {
                   <button
                     type="button"
                     onClick={removeImage}
+                    data-assist-id="contribute-remove-image"
+                    data-assist-label="Remove the selected product image"
                     className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                   >
                     <X className="w-4 h-4" />
@@ -357,6 +363,8 @@ export default function ContributeMedicinePage() {
             <button
               type="button"
               onClick={() => router.push("/dashboard/seller/listings/new")}
+              data-assist-id="contribute-cancel"
+              data-assist-label="Cancel — back to Sell Medicine"
               className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
             >
               Cancel
@@ -364,6 +372,8 @@ export default function ContributeMedicinePage() {
             <button
               type="submit"
               disabled={submitting}
+              data-assist-id="contribute-submit"
+              data-assist-label="Submit — contribute this medicine for admin review"
               className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
             >
               {submitting ? "Submitting..." : (

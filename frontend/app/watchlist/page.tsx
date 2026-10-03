@@ -209,20 +209,20 @@ export default function WatchlistPage() {
 
             {/* Center - Fixed Navigation */}
             <nav className="hidden md:flex items-center gap-3 lg:gap-6">
-              <Link href="/medicines" className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+              <Link href="/medicines" data-assist-id="nav-explore" data-assist-label="Explore — browse all medicines" className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Explore
               </Link>
-              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+              <Link href={`/dashboard/${user.roleCode.toLowerCase()}`} data-assist-id="nav-dashboard" data-assist-label="Dashboard — back to your dashboard" className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Dashboard
               </Link>
             </nav>
 
             {/* Right Side - Portfolio, Watchlist, Theme, User */}
             <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-4 flex-shrink-0">
-              <Link href="/portfolio" className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
+              <Link href="/portfolio" data-assist-id="nav-portfolio" data-assist-label="Portfolio — your holdings" className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors">
                 Portfolio
               </Link>
-              <Link href="/watchlist" className="hidden lg:block text-sm text-blue-600 dark:text-blue-400 font-medium">
+              <Link href="/watchlist" data-assist-id="nav-watchlist" data-assist-label="Watchlist — medicines you are tracking" className="hidden lg:block text-sm text-blue-600 dark:text-blue-400 font-medium">
                 Watchlist
               </Link>
 
@@ -255,11 +255,13 @@ export default function WatchlistPage() {
             {/* Left Column - Watchlist Content */}
             <div className="lg:col-span-2">
               {/* Watchlist Tabs */}
-              <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+              <div data-assist-id="section-watchlist-tabs" data-assist-label="Watchlist tabs — switch between your watchlists" className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
                 {watchlists.map((wl) => (
                   <button
                     key={wl.name}
                     onClick={() => setActiveWatchlist(wl.name)}
+                    data-assist-id={`watchlist-tab-${wl.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    data-assist-label={`Watchlist tab — ${wl.name}`}
                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                       activeWatchlist === wl.name
                         ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
@@ -272,6 +274,8 @@ export default function WatchlistPage() {
                 
                 <button 
                   onClick={() => setIsEditMode(!isEditMode)}
+                  data-assist-id="watchlist-edit-toggle"
+                  data-assist-label="Edit watchlists — toggle remove mode"
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                   title="Edit watchlists"
                 >
@@ -279,6 +283,8 @@ export default function WatchlistPage() {
                 </button>
                 
                 <button 
+                  data-assist-id="watchlist-create"
+                  data-assist-label="Create new watchlist"
                   onClick={() => {
                     const newName = prompt("Enter new watchlist name:");
                     if (newName && newName.trim()) {
@@ -304,6 +310,8 @@ export default function WatchlistPage() {
                   <input
                     type="text"
                     placeholder="Search & add medicines..."
+                    data-assist-id="field-watchlist-search"
+                    data-assist-label="Search & add medicines to this watchlist"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -340,6 +348,8 @@ export default function WatchlistPage() {
                             <button
                               key={medicine.id}
                               onClick={() => !isInWatchlist && handleAddToWatchlist(medicine)}
+                              data-assist-id={`watchlist-add-${medicine.id}`}
+                              data-assist-label={`Add ${medicine.name} to watchlist`}
                               disabled={isInWatchlist || addingToWatchlist === medicine.id}
                               className={`w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-0 flex items-center justify-between ${
                                 isInWatchlist ? 'opacity-50 cursor-not-allowed' : ''
@@ -384,7 +394,7 @@ export default function WatchlistPage() {
               </div>
 
               {/* Sort Controls */}
-              <div className="flex items-center gap-4 mb-4 text-sm">
+              <div data-assist-id="section-watchlist-sort" data-assist-label="Sort controls — sort by medicine, market price or day change" className="flex items-center gap-4 mb-4 text-sm">
                 <button 
                   onClick={() => {
                     setSortBy("name");
@@ -417,7 +427,7 @@ export default function WatchlistPage() {
               </div>
 
               {/* Medicine Cards */}
-              <div className="space-y-2">
+              <div data-assist-id="section-watchlist-items" data-assist-label="Watchlist medicines — the medicines in the selected watchlist" className="space-y-2">
                 {sortedItems && sortedItems.length > 0 ? (
                   sortedItems.map((item: any) => (
                     <div
@@ -431,6 +441,8 @@ export default function WatchlistPage() {
                       <div className="flex items-center justify-between">
                         <button
                           onClick={() => setSelectedMedicine(item)}
+                          data-assist-id={`watchlist-item-${item.id}`}
+                          data-assist-label={`Watchlist item — ${item.name}`}
                           className="flex-1 text-left"
                         >
                           <div className="font-medium text-gray-900 dark:text-white mb-1">{item.name}</div>
@@ -453,6 +465,8 @@ export default function WatchlistPage() {
                           
                           {isEditMode && (
                             <button
+                              data-assist-id={`watchlist-remove-${item.id}`}
+                              data-assist-label="Remove this medicine from the watchlist"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRemoveFromWatchlist(item.id);
@@ -482,7 +496,7 @@ export default function WatchlistPage() {
             {/* Right Column - Medicine Details */}
             <div className="lg:col-span-1">
               {selectedMedicine ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 sticky top-24">
+                <div data-assist-id="section-watchlist-details" data-assist-label="Selected medicine details — quick info and buy/sell" className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 sticky top-24">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{selectedMedicine.name}</h3>
@@ -508,6 +522,8 @@ export default function WatchlistPage() {
                   <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
                     <button
                       onClick={() => setActiveTab("buy")}
+                      data-assist-id="tab-buy"
+                      data-assist-label="Buy tab"
                       className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === "buy"
                           ? "border-green-600 text-green-600 dark:text-green-400"
@@ -518,6 +534,8 @@ export default function WatchlistPage() {
                     </button>
                     <button
                       onClick={() => setActiveTab("sell")}
+                      data-assist-id="tab-sell"
+                      data-assist-label="Sell tab"
                       className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === "sell"
                           ? "border-red-600 text-red-600 dark:text-red-400"
@@ -552,6 +570,8 @@ export default function WatchlistPage() {
                   <div className="space-y-2">
                     <button 
                       onClick={() => router.push(`/medicines/${selectedMedicine.medicineId}`)}
+                      data-assist-id="watchlist-view-details"
+                      data-assist-label="View Medicine Details — open the medicine page"
                       className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <ShoppingCart className="w-4 h-4" />

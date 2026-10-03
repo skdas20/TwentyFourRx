@@ -56,6 +56,8 @@ export default function NewsPage() {
             <div className="hidden md:flex items-center gap-3 lg:gap-6">
               <Link
                 href="/medicines"
+                data-assist-id="nav-explore"
+                data-assist-label="Explore — browse all medicines"
                 className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
               >
                 Explore
@@ -63,6 +65,8 @@ export default function NewsPage() {
               {user && (
                 <Link
                   href={`/dashboard/${user.roleCode.toLowerCase()}`}
+                  data-assist-id="nav-dashboard"
+                  data-assist-label="Dashboard — back to your dashboard"
                   className="text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                 >
                   Dashboard
@@ -76,12 +80,16 @@ export default function NewsPage() {
                 <>
                   <Link
                     href="/portfolio"
+                    data-assist-id="nav-portfolio"
+                    data-assist-label="Portfolio — your holdings"
                     className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                   >
                     Portfolio
                   </Link>
                   <Link
                     href="/watchlist"
+                    data-assist-id="nav-watchlist"
+                    data-assist-label="Watchlist — medicines you are tracking"
                     className="hidden lg:block text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
                   >
                     Watchlist
@@ -94,6 +102,8 @@ export default function NewsPage() {
               ) : (
                 <Link
                   href="/auth/login"
+                  data-assist-id="nav-login"
+                  data-assist-label="Login"
                   className="hidden sm:block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
                   Login
@@ -123,10 +133,12 @@ export default function NewsPage() {
             <p className="text-gray-600 dark:text-gray-400">Check back later for updates</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-assist-id="section-news" data-assist-label="Latest News & Updates — pharmaceutical industry news articles">
             {news.map((article: any) => (
               <article
                 key={article.id}
+                data-assist-id={`news-${article.id}`}
+                data-assist-label={`News article — ${article.title}`}
                 className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all overflow-hidden group"
               >
                 {/* Thumbnail */}
@@ -166,6 +178,8 @@ export default function NewsPage() {
                     {article.externalUrl && (
                       <a
                         href={article.externalUrl}
+                        data-assist-id={`news-read-more-${article.id}`}
+                        data-assist-label={'Read More — open the full article'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"

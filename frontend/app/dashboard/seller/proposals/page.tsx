@@ -99,12 +99,14 @@ export default function SellerProposalsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4" data-assist-id="section-pending-proposals" data-assist-label="Pending Proposals — buy proposals waiting for your stock confirmation">
           {proposals.map((proposal) => {
             const timeRemaining = getTimeRemaining(proposal.createdAt);
             return (
               <div
                 key={proposal.id}
+                data-assist-id={`proposal-${proposal.id}`}
+                data-assist-label="Pending buy proposal"
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-start justify-between">
@@ -149,6 +151,8 @@ export default function SellerProposalsPage() {
 
                   <button
                     onClick={() => setSelectedProposal(proposal)}
+                    data-assist-id={`proposal-confirm-${proposal.id}`}
+                    data-assist-label={'Confirm — confirm stock, batch number and expiry for this proposal'}
                     className="ml-4 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
                     Confirm

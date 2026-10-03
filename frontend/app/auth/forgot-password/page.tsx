@@ -89,6 +89,8 @@ export default function ForgotPasswordPage() {
             </label>
             <input
               id="email"
+              data-assist-id="field-email"
+              data-assist-label="Email address for the password reset link"
               name="email"
               type="email"
               required
@@ -103,6 +105,8 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
+              data-assist-id="forgot-password-submit"
+              data-assist-label="Send Reset Link — email a password reset link"
               className="flex w-full justify-center rounded-lg bg-[var(--brand-blue)] py-3 px-3 text-base font-semibold text-white hover:bg-[var(--brand-blue-hi)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-blue)] disabled:opacity-50 transition shadow-lg shadow-[var(--brand-blue)]/25"
             >
               {loading ? 'Sending...' : 'Send Reset Link'}

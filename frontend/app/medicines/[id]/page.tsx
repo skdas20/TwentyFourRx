@@ -531,10 +531,10 @@ export default function MedicineDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={handleToggleWatchlist} disabled={watchlistLoading} className={`p-2 transition-colors ${isInWatchlist ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"} ${watchlistLoading ? "opacity-50" : ""}`}>
+                      <button data-assist-id="medicine-watchlist-toggle" data-assist-label="Add to / remove from watchlist" onClick={handleToggleWatchlist} disabled={watchlistLoading} className={`p-2 transition-colors ${isInWatchlist ? "text-blue-600 dark:text-blue-400" : "text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"} ${watchlistLoading ? "opacity-50" : ""}`}>
                         <Bookmark className={`w-5 h-5 ${isInWatchlist ? "fill-current" : ""}`} />
                       </button>
-                      <button onClick={handleShare} className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                      <button data-assist-id="medicine-share" data-assist-label="Share this medicine" onClick={handleShare} className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                         <Share2 className="w-5 h-5" />
                       </button>
                     </div>
@@ -550,10 +550,10 @@ export default function MedicineDetailPage() {
               </div>
               <div className="flex items-center gap-2 mb-4">
                 {(["1d", "5d", "1m", "3m", "1y", "5y"] as const).map((tf) => (
-                  <button key={tf} onClick={() => setTimeframe(tf)} className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${timeframe === tf ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}>{tf}</button>
+                  <button data-assist-id={`timeframe-${tf}`} data-assist-label={`Chart timeframe ${tf}`} key={tf} onClick={() => setTimeframe(tf)} className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${timeframe === tf ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"}`}>{tf}</button>
                 ))}
               </div>
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" data-assist-id="section-price-chart" data-assist-label="Price chart — price history for the selected timeframe">
                 <CandlestickChart data={priceHistory} />
               </div>
             </div>
@@ -562,17 +562,17 @@ export default function MedicineDetailPage() {
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-800 sticky top-24">
               <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
-                <button onClick={() => setActiveTab("buy")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "buy" ? "border-green-600 text-green-600 dark:text-green-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>BUY</button>
-                <button onClick={() => setActiveTab("sell")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "sell" ? "border-red-600 text-red-600 dark:text-red-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>SELL</button>
+                <button data-assist-id="tab-buy" data-assist-label="BUY tab" onClick={() => setActiveTab("buy")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "buy" ? "border-green-600 text-green-600 dark:text-green-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>BUY</button>
+                <button data-assist-id="tab-sell" data-assist-label="SELL tab" onClick={() => setActiveTab("sell")} className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === "sell" ? "border-red-600 text-red-600 dark:text-red-400" : "border-transparent text-gray-600 dark:text-gray-400"}`}>SELL</button>
               </div>
               {activeTab === "buy" ? (
                 <div className="mb-4">
                   {user ? (
-                    <button onClick={() => setShowBuyProposalModal(true)} className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                    <button data-assist-id="buy-button" data-assist-label="BUY — open the buy proposal form" onClick={() => setShowBuyProposalModal(true)} className="w-full py-3 px-4 bg-[var(--brand-blue)] hover:bg-[var(--brand-blue-hi)] text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
                       <ShoppingCart className="w-5 h-5" /> BUY
                     </button>
                   ) : (
-                    <button onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                    <button data-assist-id="login-to-buy" data-assist-label="Login to Buy" onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
                       <ShoppingCart className="w-5 h-5" /> Login to Buy
                     </button>
                   )}
@@ -584,17 +584,17 @@ export default function MedicineDetailPage() {
                       {userHolding ? (
                         <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 mb-4">
                           <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✓ You own this medicine</h4>
-                          <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
+                          <button data-assist-id="sell-button" data-assist-label="Sell — list this medicine you own" onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full mt-3 py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell</button>
                         </div>
                       ) : holdingsLoaded && (
                         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
                           <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">You don't own this medicine</h4>
-                          <button onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell with Proof</button>
+                          <button data-assist-id="sell-with-proof-button" data-assist-label="Sell with Proof — list this medicine with purchase proof" onClick={() => router.push(`/dashboard/seller/listings/new?medicineId=${medicineId}`)} className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors">Sell with Proof</button>
                         </div>
                       )}
                     </>
                   ) : (
-                    <button onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all">
+                    <button data-assist-id="login-to-sell" data-assist-label="Login to Sell" onClick={() => router.push('/auth/login')} className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-all">
                       Login to Sell
                     </button>
                   )}
@@ -605,11 +605,11 @@ export default function MedicineDetailPage() {
         </div>
 
         {relatedMedicines.length > 0 && (
-          <div className="mt-8">
+          <div className="mt-8" data-assist-id="section-related" data-assist-label="Related Medicines — similar medicines you may want">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Related Medicines</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {relatedMedicines.map((listing: any) => (
-                <Link key={listing.id} href={`/medicines/${listing.medicineId}`} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all flex gap-4">
+                <Link data-assist-id={`related-${listing.id}`} data-assist-label={`Related medicine — ${listing.medicine?.name || 'medicine'}`} key={listing.id} href={`/medicines/${listing.medicineId}`} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all flex gap-4">
                   <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex items-center justify-center border border-gray-100 dark:border-gray-700 overflow-hidden flex-shrink-0">
                     {listing.medicine?.imageUrl ? <img src={listing.medicine.imageUrl} alt={listing.medicine.name} className="w-full h-full object-cover" /> : <Pill className="text-gray-300 dark:text-gray-600" size={24} />}
                   </div>

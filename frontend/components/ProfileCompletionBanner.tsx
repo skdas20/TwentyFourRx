@@ -15,7 +15,7 @@ export default function ProfileCompletionBanner({ user }: ProfileCompletionBanne
   const percentage = isApproved ? 100 : 80;
 
   return (
-    <div className={`mb-6 p-4 rounded-xl border flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm ${
+    <div data-assist-id="profile-banner" data-assist-label="Profile completion banner — shows KYC/profile completion status" className={`mb-6 p-4 rounded-xl border flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm ${
       isApproved 
         ? 'bg-green-50 dark:bg-green-900/10 border-green-100 dark:border-green-800/30' 
         : 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30'
@@ -41,6 +41,8 @@ export default function ProfileCompletionBanner({ user }: ProfileCompletionBanne
       {!isApproved && (
         <Link 
           href="/dashboard/profile/complete" 
+          data-assist-id="profile-complete-button"
+          data-assist-label="Complete Profile button — upload KYC documents to unlock trading"
           className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-all font-semibold shadow-sm transform hover:scale-[1.02]"
         >
           Complete Profile <ArrowRight className="w-4 h-4" />

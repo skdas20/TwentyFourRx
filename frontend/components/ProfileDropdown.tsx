@@ -42,6 +42,8 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
       {/* Profile Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        data-assist-id="profile-menu"
+        data-assist-label="Profile menu — open your account menu (dashboard, logout)"
         className="flex items-center gap-1 sm:gap-2 pl-2 sm:pl-3 border-l border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
       >
         <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
@@ -88,6 +90,8 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
             <Link
               href={`/dashboard/${user.roleCode.toLowerCase()}`}
               onClick={() => setIsOpen(false)}
+              data-assist-id="menu-my-dashboard"
+              data-assist-label="My Dashboard — go to your dashboard"
               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <User className="w-4 h-4" />
@@ -99,6 +103,8 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
           <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
             <button
               onClick={handleLogout}
+              data-assist-id="menu-logout"
+              data-assist-label="Logout — sign out of your account"
               className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors w-full"
             >
               <LogOut className="w-4 h-4" />

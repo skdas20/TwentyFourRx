@@ -180,3 +180,6 @@ kiro_deploy_key.pub
 *.key
 id_rsa
 id_ed25519
+
+# Playwright MCP scratch output
+.playwright-mcp/

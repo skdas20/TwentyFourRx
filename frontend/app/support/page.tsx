@@ -166,6 +166,8 @@ export default function SupportPage() {
                 <input
                   type="text"
                   placeholder="Search tickets..."
+                  data-assist-id="field-ticket-search"
+                  data-assist-label="Search tickets"
                   className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg
                            text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2
                            focus:ring-[var(--brand-blue)] focus:border-transparent"
@@ -176,7 +178,7 @@ export default function SupportPage() {
             {/* User Menu */}
             <div className="flex items-center gap-4">
               <ThemeToggle />
-              <Link href="/notifications" className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Notifications">
+              <Link href="/notifications" data-assist-id="notification-bell" data-assist-label="Notification bell — open your notifications" className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors" title="Notifications">
                 <Bell className="w-5 h-5" />
               </Link>
               <div className="flex items-center gap-3">
@@ -186,6 +188,8 @@ export default function SupportPage() {
                 </div>
                 <button
                   onClick={handleLogout}
+                  data-assist-id="logout-button"
+                  data-assist-label="Logout — sign out of your account"
                   className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
                   title="Logout"
                 >
@@ -206,6 +210,8 @@ export default function SupportPage() {
           </div>
           <button
             onClick={() => setShowCreateForm(true)}
+            data-assist-id="ticket-create-button"
+            data-assist-label="Create Ticket — open the new support ticket form"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <Plus className="w-5 h-5" />
@@ -216,11 +222,13 @@ export default function SupportPage() {
         {/* Create Ticket Modal */}
         {showCreateForm && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl">
+            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-6 shadow-2xl" data-assist-id="section-create-ticket" data-assist-label="Create Support Ticket form">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Support Ticket</h2>
                 <button
                   onClick={() => setShowCreateForm(false)}
+                  data-assist-id="ticket-form-close"
+                  data-assist-label="Close the create ticket form"
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -235,6 +243,8 @@ export default function SupportPage() {
                   <input
                     type="text"
                     value={newTicket.subject}
+                    data-assist-id="field-subject"
+                    data-assist-label="Ticket subject — brief description of your issue"
                     onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
                     placeholder="Brief description of your issue"
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -248,6 +258,8 @@ export default function SupportPage() {
                   </label>
                   <textarea
                     value={newTicket.message}
+                    data-assist-id="field-message"
+                    data-assist-label="Ticket message — detailed information about your issue"
                     onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
                     placeholder="Provide detailed information about your issue"
                     rows={6}
@@ -260,6 +272,8 @@ export default function SupportPage() {
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(false)}
+                    data-assist-id="ticket-cancel"
+                    data-assist-label="Cancel — close the ticket form"
                     className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     disabled={submitting}
                   >
@@ -267,6 +281,8 @@ export default function SupportPage() {
                   </button>
                   <button
                     type="submit"
+                    data-assist-id="ticket-submit"
+                    data-assist-label="Submit Ticket — send your support request"
                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={submitting}
                   >
@@ -301,10 +317,12 @@ export default function SupportPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4" data-assist-id="section-my-tickets" data-assist-label="My Support Tickets — your submitted tickets and their status">
                 {tickets.map((ticket) => (
                   <div
                     key={ticket.id}
+                    data-assist-id={`ticket-${ticket.id}`}
+                    data-assist-label={`Support ticket — ${ticket.subject}`}
                     className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition"
                   >
                     <div className="flex items-start justify-between mb-4">

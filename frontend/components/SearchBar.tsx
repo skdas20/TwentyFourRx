@@ -200,6 +200,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsOpen(true)}
+          data-assist-id="search-bar"
+          data-assist-label="Search bar — search medicines, listings, news and more"
           className={inputClasses}
         />
         {query && (
@@ -290,6 +292,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                     setReqData(prev => ({ ...prev, medicineName: query }));
                     setShowReqModal(true);
                   }}
+                  data-assist-id="post-requirement-button"
+                  data-assist-label="Post Your Requirement — request a medicine that has no search results"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -356,6 +360,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                   type="text"
                   required
                   value={reqData.medicineName}
+                  data-assist-id="field-req-medicine-name"
+                  data-assist-label="Requirement medicine name"
                   onChange={(e) => setReqData({ ...reqData, medicineName: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="e.g. Dolo 650"
@@ -371,6 +377,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                   required
                   min="1"
                   value={reqData.quantity}
+                  data-assist-id="field-req-quantity"
+                  data-assist-label="Requirement quantity"
                   onChange={(e) => setReqData({ ...reqData, quantity: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="e.g. 100"
@@ -384,6 +392,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                 <textarea
                   rows={3}
                   value={reqData.message}
+                  data-assist-id="field-req-message"
+                  data-assist-label="Requirement message (optional)"
                   onChange={(e) => setReqData({ ...reqData, message: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                   placeholder="Any specific requirements..."
@@ -401,6 +411,8 @@ export default function SearchBar({ variant = "navbar", isScrolled = false, isLo
                 <button
                   type="submit"
                   disabled={reqSubmitting}
+                  data-assist-id="post-requirement-submit"
+                  data-assist-label="Post Requirement — submit your medicine requirement"
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {reqSubmitting ? (

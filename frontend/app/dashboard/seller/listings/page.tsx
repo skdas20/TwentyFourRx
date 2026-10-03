@@ -176,6 +176,8 @@ export default function MyListingsPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/dashboard/seller/listings/new"
+                data-assist-id="listings-new-button"
+                data-assist-label="Sell — create a new listing"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -190,7 +192,7 @@ export default function MyListingsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Bulk Upload Requests Section */}
         {bulkRequests.length > 0 && (
-          <div className="mb-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
+          <div data-assist-id="section-bulk-requests" data-assist-label="Bulk Upload Requests — status of your CSV bulk uploads" className="mb-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-700">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📦 Bulk Upload Requests</h3>
             <div className="space-y-3">
               {bulkRequests.map((req: any) => (
@@ -238,7 +240,7 @@ export default function MyListingsPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div data-assist-id="section-listing-stats" data-assist-label="Listing stats — total, active, pending and rejected counts" className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
@@ -281,12 +283,14 @@ export default function MyListingsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
+        <div data-assist-id="section-listing-filters" data-assist-label="Listing status filters — All, Active, Pending, Rejected" className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
           <div className="flex gap-2">
             {["ALL", "ACTIVE", "PENDING", "REJECTED"].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
+                data-assist-id={`filter-${status.toLowerCase()}`}
+                data-assist-label={`${status} listings filter`}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   filter === status
                     ? "bg-blue-600 text-white"
@@ -316,6 +320,8 @@ export default function MyListingsPage() {
             {filter === "ALL" && (
               <Link
                 href="/dashboard/seller/listings/new"
+                data-assist-id="listings-empty-sell-button"
+                data-assist-label="Sell — create your first listing"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-5 h-5" />
@@ -328,6 +334,8 @@ export default function MyListingsPage() {
             {filteredListings.map((listing) => (
               <div
                 key={listing.id}
+                data-assist-id={`listing-card-${listing.id}`}
+                data-assist-label={`Listing card — ${listing.medicine?.name || 'medicine listing'}`}
                 className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all"
               >
                 {/* Medicine Icon */}
@@ -393,6 +401,8 @@ export default function MyListingsPage() {
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={() => handleEditClick(listing)}
+                    data-assist-id={`listing-edit-${listing.id}`}
+                    data-assist-label={'Edit this listing'}
                     className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <Edit className="w-4 h-4" />
@@ -400,6 +410,8 @@ export default function MyListingsPage() {
                   </button>
                   <button
                     onClick={() => setDeletingListing(listing)}
+                    data-assist-id={`listing-delete-${listing.id}`}
+                    data-assist-label={'Delete this listing'}
                     className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -442,6 +454,8 @@ export default function MyListingsPage() {
                   <input
                     type="file"
                     accept=".jpg,.jpeg,.png"
+                    data-assist-id="field-edit-photo"
+                    data-assist-label="Edit listing — replace medicine photo"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file && file.size > 5 * 1024 * 1024) {
@@ -474,6 +488,8 @@ export default function MyListingsPage() {
                   type="number"
                   step="0.01"
                   value={editForm.basePrice}
+                  data-assist-id="field-edit-price"
+                  data-assist-label="Edit listing — selling price"
                   onChange={(e) => setEditForm({ ...editForm, basePrice: e.target.value })}
                   className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 border-gray-300 dark:border-gray-600 focus:ring-blue-500"
                   required
@@ -490,6 +506,8 @@ export default function MyListingsPage() {
                 <input
                   type="number"
                   value={editForm.stock}
+                  data-assist-id="field-edit-stock"
+                  data-assist-label="Edit listing — stock quantity"
                   onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   required
@@ -502,6 +520,8 @@ export default function MyListingsPage() {
                 </label>
                 <select
                   value={editForm.gstPercentage}
+                  data-assist-id="field-edit-gst"
+                  data-assist-label="Edit listing — GST percentage"
                   onChange={(e) => setEditForm({ ...editForm, gstPercentage: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
                   required
@@ -524,6 +544,8 @@ export default function MyListingsPage() {
                 <button
                   type="submit"
                   disabled={updating}
+                  data-assist-id="listing-update-submit"
+                  data-assist-label="Update — save listing changes"
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updating ? "Updating..." : "Update"}
@@ -562,6 +584,8 @@ export default function MyListingsPage() {
               <button
                 onClick={handleDeleteListing}
                 disabled={deleting}
+                data-assist-id="listing-delete-confirm"
+                data-assist-label="Delete — confirm deleting the listing"
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deleting ? "Deleting..." : "Delete"}

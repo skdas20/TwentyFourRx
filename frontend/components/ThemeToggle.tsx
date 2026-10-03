@@ -9,6 +9,8 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
+      data-assist-id="theme-toggle"
+      data-assist-label="Theme toggle — switch between light and dark mode"
       className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 
                  text-gray-600 dark:text-gray-300 transition-all duration-200 hover:scale-105"
       title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
